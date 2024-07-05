@@ -1,0 +1,121 @@
+#output "petwolf"
+
+
+'--------
+.declares
+'--------
+#declare a$, game_over&, plyr_idx
+#declare px(3), py(3), pf(3), pa(3)
+#declare paddle_x, paddle_y, paddle_f
+
+
+'-------
+.defines
+'-------
+
+
+'----
+.main
+'----
+  gosub title
+  gosub game
+  goto main
+
+
+'-----
+.title
+'-----
+  print chr$(27);"5{x93}";
+  print "pet wolf - by gurce isikyildiz"
+  print "========"
+  print
+  print "a paddle game for up to 4 players, based on midway/bally's classic!"
+  print
+  print "press a key"
+
+  get key a$
+
+  return
+
+
+'----
+.init
+'----
+  game_over& = 0
+
+  for plyr_idx = 0 to 3
+    pf(plyr_idx) = 0
+    pa(plyr_idx) = 0
+  next plyr_idx
+
+  return
+
+'----
+.game
+'----
+  gosub init
+
+  do
+    gosub user_input
+    gosub draw_content
+    gosub check_collision
+
+  loop while game_over& = 0
+
+  return
+
+
+'----------
+.user_input
+'----------
+  for plyr_idx = 0 to 3
+    gosub read_paddle
+    px(plyr_idx) = paddle_x
+    py(plyr_idx) = paddle_y
+
+    if paddle_f = 1 and pf(plyr_idx) = 0 then begin
+      gosub fire_missile
+    bend
+
+    pf(plyr_idx) = paddle_f
+
+  next plyr_idx
+
+  return
+
+
+'-----------
+.read_paddle
+'-----------
+  return
+
+
+'------------
+.fire_missile
+'------------
+  return
+
+
+'------------
+.draw_content
+'------------
+  for plyr_idx = 0 to 3
+    
+  next plyr_idx
+
+  return
+
+
+'---------------
+.check_collision
+'---------------
+  return
+
+
+'---------
+.game_over
+'---------
+  print "game over"
+  get key a$
+  return
+ÿ
