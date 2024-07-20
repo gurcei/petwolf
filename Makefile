@@ -1,19 +1,5 @@
-all: megaplot.prg asmhelper.prg
-	c1541 -attach "petwolf.d81" -read ana.ln,s ana.ln
-	c1541 -attach "petwolf.d81" -read silent.l,s silent.l
-	c1541 -attach "petwolf.d81" -read abc.ln,s abc.ln
-	# c1541 -attach "petwolf.d81" -read bas01.ln,s bas01.ln
-	# c1541 -attach "petwolf.d81" -read bas02.ln,s bas02.ln
-	# c1541 -attach "petwolf.d81" -read lyr01.ln,s lyr01.ln
-	# c1541 -attach "petwolf.d81" -read lyr02.ln,s lyr02.ln
-	# c1541 -attach "petwolf.d81" -read lyr03.ln,s lyr03.ln
-	c1541 -attach "petwolf.d81" -read greets.t,s greets.t
-	c1541 -attach "petwolf.d81" -read enigma.p,s enigma.p
-	c1541 -attach "petwolf.d81" -read rotate.asm,s rotate.asm
-	c1541 -attach "petwolf.d81" -read bas.bin bas.bin
-	c1541 -attach "petwolf.d81" -read bas.dat bas.dat
-	c1541 -attach "petwolf.d81" -delete megaplot -write megaplot.prg megaplot
-	c1541 -attach "petwolf.d81" -delete asmhelper -write asmhelper.prg asmhelper
+all:
+	c1541 -attach "petwolf.d81" -read petwolf.bin petwolf.bin
 	c1541 -attach "petwolf.d81" -read 11.defaults -read 11.edit -read 11.parse -read 11.post -read 11.settings -read 11boot.c65 autoboot.c65
 
 push_eleven:
