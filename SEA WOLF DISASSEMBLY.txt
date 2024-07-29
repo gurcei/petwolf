@@ -109,14 +109,13 @@ $2d whatis5:
   - sta at $e970 (if it was previousy zero, it will be now set to #$03)
 $2e whatis6:
   - sta at $e486  (stores some colour choice between yellow or light-brown)
-$2f-$30 arrayB[2]: (some detail relating to player1 and 2)
-                   (maybe it is the current player1/2 x-positions)
-                   - submarine chars can only be drawn on columns 0 to 39
-                   - but I think the value stored here is x4 (so from 0 to 159)
-                     (as it is divided by 4 later in $e410
+$2f-$30 missile_reload_timers[2]: countdown-to-zero timers for each player, to decide when missiles for player are reloaded
+    - timers start at #$B4 (180) - equates to "TIME TO LOAD: 3 SECONDS."
+    - when timer reaches #$78 (120) -  msg is "TIME TO LOAD: 2 SECONDS."
+    - when timer reaches #$3C (60)  -  msg is "TIME TO LOAD: 1 SECONDS."
   - lda at $e283
-  - sta at $e306 (set to #$BF/dec180) it sets only if no# missiles left after shot is zero
-  - sta at $e442 (it is later divided by 4 and used as an x-pos to draw the player's submarine)
+  - dec at $e287
+  - sta at $e306 (set to #$B4/dec180) it sets only if no# missiles left after shot is zero
 $31 p1_num_missiles:
   - set to #$04 in init_game_vars
   - sta at $e2a4 (set to #$04)  (for reload?)
@@ -127,9 +126,14 @@ $33-$34 arrayA[2]:  (some detail relating to player1 and 2)
   - lda at $e2d5
 $33 var10: set to same value as initial_game_time in start_game
 $34 var11: set to same value as initial_game_time in start_game
-$35-36 arrayB[2]: (some detail relating to player1 and 2)
+$35-36 arrayBB[2]: (some detail relating to player1 and 2)
+                   (maybe it is the current player1/2 x-positions)
+                   - submarine chars can only be drawn on columns 0 to 39
+                   - but I think the value stored here is x4 (so from 0 to 159)
+                     (as it is divided by 4 later in $e410
   - lda at $e2e4
   - lda at $e3e5
+  - sta at $e442 (it is later divided by 4 and used as an x-pos to draw the player's submarine)
 $37-38 arrayE[2]: (some detail relating to player1 and 2)
   - cmp at $e3e9
   - sta at $e3f4
@@ -966,23 +970,23 @@ $E27D     M_immnn:1 A9 01    LDA  #$01  ; var5 is set to #$01 to indicate (index
 $E27F        M_nn:1 85 23    STA  var5  ; $23
 -big_retry:
 $E281        M_nn:1 A6 23    LDX  var5  ; $23
-$E283       M_nnX:1 B5 2F    LDA  arrayB,x  ; $2F,X
+$E283       M_nnX:1 B5 2F    LDA  missile_reload_timers,x  ; $2F,X
 $E285        M_rr:1 F0 22    BEQ  +skip_if_zero  ; $E2A9
-$E287       M_nnX:1 D6 2F    DEC  arrayB,x  ; $2F,X
-$E289       M_nnX:1 B5 2F    LDA  arrayB,x  ; $2F,X
+$E287       M_nnX:1 D6 2F    DEC  missile_reload_timers,x  ; $2F,X
+$E289       M_nnX:1 B5 2F    LDA  missile_reload_timers,x  ; $2F,X
 $E28B        M_rr:1 F0 15    BEQ  +skip_if_dec_to_zero  ; $E2A2
 $E28D     M_immnn:1 C9 78    CMP  #$78  ; dec120
 $E28F        M_rr:1 F0 04    BEQ  +skip_if_=_120  ; $E295
 $E291     M_immnn:1 C9 3C    CMP  #$3C  ; dec60
 $E293        M_rr:1 D0 14    BNE  +skip_if_not_60  ; $E2A9
 +skip_if_=_120:
-$E295      M_impl:0 8A       TXA
-$E296        M_rr:1 D0 05    BNE  +skip1  ; $E29D
-$E298      M_nnnn:2 CE C2 07 DEC  $07C2   ; row24 - column2 on char screen
+$E295      M_impl:0 8A       TXA  ; a=0 for player1, a=1 for player2
+$E296        M_rr:1 D0 05    BNE  +skip1  ; $E29D  ; branch if player2
+$e298      m_nnnn:2 ce c2 07 dec  $07c2   ; row24 - column2 on char screen (decrements the TIME TO LOAD: x SECONDS.) for player1
                                           ; (it might be a black/invisible character that is used as a temp var) 
 $E29B        M_rr:1 D0 0C    BNE  +skip_if_07c2_not_zero  ; $E2A9
 +skip1:
-$E29D      M_nnnn:2 CE DB 07 DEC  $07DB   ; row24 - column27 on char screen  (maybe it's the timer for new torpedoes?)
+$E29D      M_nnnn:2 CE DB 07 DEC  $07DB   ; row24 - column27 on char screen  (decrements the TIME TO LOAD: x SECONDS.) for player2
 $E2A0        M_rr:1 D0 07    BNE  +skip_if_07db_not_zero  ; $E2A9
 +skip_if_dec_to_zero:
 $E2A2     M_immnn:1 A9 04    LDA  #$04
@@ -1017,7 +1021,7 @@ $E2CE      M_nnnn:2 4C 57 E3 JMP  +big_jmp_to_near_end  ; $E357
 +skip_if_arrayA_idx_val_is_zero:
 $E2D1     M_immnn:1 A9 FF    LDA  #$FF
 $E2D3       M_nnX:1 95 33    STA  arrayA,x  ; $33,X
-$E2D5       M_nnX:1 B5 2F    LDA  arrayB,x  ; $2F,X
+$E2D5       M_nnX:1 B5 2F    LDA  missile_reload_timers,x  ; $2F,X
 $E2D7        M_rr:1 F0 03    BEQ  +skip_if_arrayB_idx_val_is_zero  ; $E2DC
 $E2D9      M_nnnn:2 4C 57 E3 JMP  +big_jmp_to_near_end  ; $E357
 +skip_if_arrayB_idx_val_is_zero:
@@ -1028,7 +1032,7 @@ $E2DF      M_impl:0 18       CLC
 $E2E0       M_nnX:1 75 31    ADC  p1_num_missiles,x  ; $31,X
 $E2E2      M_impl:0 A8       TAY
 $E2E3      M_impl:0 88       DEY
-$E2E4       M_nnX:1 B5 35    LDA  arrayB,x  ; $35,X
+$E2E4       M_nnX:1 B5 35    LDA  arrayBB,x  ; $35,X
 $E2E6      M_impl:0 18       CLC
 $E2E7     M_immnn:1 69 07    ADC  #$07
 $E2E9     M_nnnnY:2 99 6D 00 STA  array9,y  ; $006D,Y
@@ -1043,7 +1047,7 @@ $E2FE        M_nn:1 A6 23    LDX  var5  ; $23
 $E300       M_nnX:1 B5 31    LDA  p1_num_missiles,x  ; $31,X
 $E302        M_rr:1 D0 53    BNE  +big_jmp_to_near_end  ; $E357  ; if player still has missiles, do branch
 $E304     M_immnn:1 A9 B4    LDA  #$B4  ; dec180
-$E306       M_nnX:1 95 2F    STA  arrayB,x  ; $2F,X
+$E306       M_nnX:1 95 2F    STA  missile_reload_timers,x  ; $2F,X
 $E308        M_nn:1 A5 25    LDA  dunno4  ; $25
 $E30A     M_immnn:1 49 02    EOR  #$02  ; toggle bit1
 $E30C        M_nn:1 85 25    STA  dunno4  ; $25
@@ -1187,7 +1191,7 @@ $E3DC        M_nn:1 85 13    STA  txt_x_pos  ; $13
 $E3DE      M_nnnn:2 20 C0 E6 JSR  adjust_scr_and_clr_ptr_locations  ; $E6C0
 $E3E1        M_nn:1 A4 16    LDY  var4  ; $16
 $E3E3        M_rr:1 D0 20    BNE  +branch_ahead1  ; $E405
-$E3E5       M_nnX:1 B5 35    LDA  arrayB,x  ; $35,X
+$E3E5       M_nnX:1 B5 35    LDA  arrayBB,x  ; $35,X
 $E3E7        M_nn:1 85 09    STA  var0-1  ; $09
 $E3E9       M_nnX:1 D5 37    CMP  arrayE,x  ; $37,X
 $E3EB        M_rr:1 D0 0C    BNE  +branch_ahead2  ; $E3F9
@@ -1212,7 +1216,7 @@ $E407      M_nnnn:2 20 F0 F0 JSR  read_paddle_position  ; $F0F0
 $E40A        M_nn:1 85 09    STA  var0-1  ; $09
 +jump_ahead2:
 $E40C        M_nn:1 A6 23    LDX  var5  ; $23
-$E40E       M_nnX:1 B5 35    LDA  arrayB,x  ; $35,X  ; some player1/2 detail (maybe player submarine x-pos x 4)
+$E40E       M_nnX:1 B5 35    LDA  arrayBB,x  ; $35,X  ; some player1/2 detail (maybe player submarine x-pos x 4)
 $E410         M_A:0 4A       LSR
 $E411         M_A:0 4A       LSR
 $E412      M_impl:0 A8       TAY
@@ -1246,7 +1250,7 @@ $E43A        M_nn:1 C6 08    DEC  var0  ; $08
 $E43C        M_rr:1 D0 F4    BNE  -loopy ; $E432
 $E43E        M_nn:1 A6 23    LDX  var5  ; $23
 $E440        M_nn:1 A5 09    LDA  var0-1  ; $09
-$E442       M_nnX:1 95 35    STA  arrayB,x  ; $35,X  ; some player1/2 detail
+$E442       M_nnX:1 95 35    STA  arrayBB,x  ; $35,X  ; some player1/2 detail
 $E444         M_A:0 4A       LSR
 $E445         M_A:0 4A       LSR
 $E446      M_impl:0 A8       TAY
