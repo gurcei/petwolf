@@ -25,7 +25,7 @@ $08 var0:  (maybe a generic loop index variable)
   - dec at $e39b (this makes me think that var0 is a generic loop index variable)
   - sta at $F0FB (in relation to paddle position)
 $09 var0-1:
-  - sta at $e100
+  - sta at $e100  (potentially could be set to either #$00 or #$01 or #$02 at this point, so maybe ship-type?)
   - adc at $e17e
   - sta at $e3e7
   - inc at $e3fb
@@ -77,7 +77,7 @@ $23 var5: (possibly a general index var used for different purposes in different
           (sometimes used as an index var to choose between player1 or 2)
   - ldx at $e09c
   - ldx at $e0b6
-  - ldx at $e0e7  (relates to index into array2[] / $49)
+  - ldx at $e0e7  (relates to index into ships_ypos[] / $49)
   - sta at $e1d4  (sets it to #$03)
   - ldx at $e23c
   - ldx at $e25e
@@ -156,7 +156,7 @@ $45-48 array1[4]: x-pos of all ships?
   - sta at $e088
   - lda at $e12f
   - cmp at $e133
-$49-4c array2[4]: y-pos of all ships?
+$49-4c ships_ypos[4]: y-pos of all ships
   - lda at $e00d
   - lda at $e10a
 $4d-50 array2-1[4]:  ; mirror orientation of all ships (01 = normal, FF = reversed?)
@@ -164,6 +164,7 @@ $4d-50 array2-1[4]:  ; mirror orientation of all ships (01 = normal, FF = revers
   - lda at $e09e
   - sta at $e0e9
   - lda at $e121
+  - sta at $E1B2 
 $51-54 array3[4]: ship-type of all ships (idx 0-3) #$00=freighter, #$01=cruiser, #$02=p.t. boat
                   (seems to have values of either #$00 or #$01)
   - ldy at $e01c
@@ -215,7 +216,7 @@ $7d-xx array12[x]:
   - sta at $e046
   - sta at $e215 (sets it to #$ff)
 $85-$A4 array14[32]:  contains the ship-index that was spawned recently?
-  - sta at $e111
+  - sta at $e111  ; seems to keep a list of existing ship indexes that are on the same ypos as the newly spawned ship
   - ldx at $e11f
   - sta at $e48c  ; resets entire array to zeroes
   - sta at $e4ba  ; stores from the middle of the table and onwards 
@@ -244,7 +245,7 @@ $E006       M_nnX:1 B5 39    LDA  array0,x  ; $39,X  ; perhaps visibility of all
 $E008        M_rr:1 D0 03    BNE  +skip1  ; $E00D
 $E00A      M_nnnn:2 4C D5 E0 JMP  +big_jump_due_to_$39,x_being_zero  ; $E0D5  ; if $39,x is zero, then we do this jump
 +skip1:
-$E00D       M_nnX:1 B5 49    LDA  array2,x  ; $49,X  ; y-pos of all ships?
+$E00D       M_nnX:1 B5 49    LDA  ships_ypos,x  ; $49,X  ; y-pos of all ships
 $E00F        M_nn:1 85 12    STA  var2  ; $12  ; y-pos of current ship?
 $E011       M_nnX:1 B5 45    LDA  array1,x  ; $45,X  ; x-pos of all ships?
 $E013        M_nn:1 85 11    STA  var1  ; $11  ; x-pos of current ship?
@@ -357,22 +358,28 @@ $E0CF     M_nnnnX:2 9D F8 07 STA  $07F8,X
 $E0D2      M_nnnn:2 4C BD E1 JMP  +super_duper_big_jump  ; $E1BD
 +big_jump_due_to_$39,x_being_zero:
   ' we jumped here due to current ship not being visible
-$E0D5      M_nnnn:2 20 93 E8 JSR  dunno_stuff  ; $E893  ; it will return some magic value in A (based on dunno1 and dunno2)
-$E0D8     M_immnn:1 C9 03    CMP  #$03
-$E0DA        M_rr:1 90 03    BCC  $E0DF  ; if A value < 3 then branch
+$E0D5      M_nnnn:2 20 93 E8 JSR  random_num_gen_into_A  ; $E893  ; it will return some magic value in A (based on dunno1 and dunno2)
+$E0D8     M_immnn:1 C9 03    CMP  #$03  ; make the spawning of a new ship a low-probability occurence (3 in 256 chance, i.e., 1/85)
+$E0DA        M_rr:1 90 03    BCC  +decide_new_ship_details  ; $E0DF  ; if A value < 3 then branch
 $E0DC      M_nnnn:2 4C BD E1 JMP  +super_duper_big_jump  ; $E1BD
-$E0DF      M_nnnn:2 20 93 E8 JSR  dunno_stuff  ; $E893  ; dunno_stuff returns another magic value in A
++decide_new_ship_details:
+$E0DF      M_nnnn:2 20 93 E8 JSR  random_num_gen_into_A  ; $E893  ; random_num_gen_into_A returns another magic value in A
 $E0E2     M_immnn:1 29 20    AND  #$20  ; this might set bit 5 or result in zero
+                                        ; randomly decide if the new ship should be on top-row or bottom-row
 $E0E4      M_impl:0 18       CLC
-$E0E5     M_immnn:1 69 18    ADC  #$18  ; A can either be #$18 (24) or #$38 (56)
-$E0E7        M_nn:1 A6 23    LDX  var5  ; $23
-$E0E9       M_nnX:1 95 49    STA  array2,x  ; $49,X  ; possibly y-pos of all ships
+$E0E5     M_immnn:1 69 18    ADC  #$18  ; A can either be:
+                                        ;   #$18 (24) for top-row ypos of new ship,  or...
+                                        ;   #$38 (56) for bottom-row ypos of new ship
+                                        ; (add #$32 to these to get absolute ypos for ships, either #$4A or #$6A)
+$E0E7        M_nn:1 A6 23    LDX  var5  ; $23  ; curr ship idx
+$E0E9       M_nnX:1 95 49    STA  ships_ypos,x  ; $49,X  ; y-pos of all ships
 $E0EB        M_nn:1 85 08    STA  var0  ; $08  ; let var0 = y-pos of current ship
-$E0ED      M_nnnn:2 20 93 E8 JSR  dunno_stuff ; $E893  ; get some other magic value in A
++decide_new_ship_type:
+$E0ED      M_nnnn:2 20 93 E8 JSR  random_num_gen_into_A ; $E893  ; get some other magic value in A
 $E0F0     M_immnn:1 C9 50    CMP  #$50  ; dec80
-$E0F2        M_rr:1 90 0A    BCC  +skip_to_lda_2  ; $E0FE
+$E0F2        M_rr:1 90 0A    BCC  +skip_to_lda_2  ; $E0FE  ; branch if A<80
 $E0F4     M_immnn:1 C9 A0    CMP  #$A0  ; dec160
-$E0F6        M_rr:1 90 03    BCC  +skip_to_lda_1  ; $E0FB
+$E0F6        M_rr:1 90 03    BCC  +skip_to_lda_1  ; $E0FB  ; branch if A<160
 $E0F8     M_immnn:1 A9 00    LDA  #$00
 $E0FA      M_nnnn:2 2C A9 01 BIT  $01A9
   +skip_to_lda_1:
@@ -380,36 +387,38 @@ $E0FA      M_nnnn:2 2C A9 01 BIT  $01A9
 $E0FD      M_nnnn:2 2C A9 02 BIT  $02A9
   +skip_to_lda_2:
   $E0FE     M_immnn:1 A9 02    LDA  #$02
-$E100        M_nn:1 85 09    STA  var0-1  ; $09  ; maybe this could me new ship-type of newly spawned ship
+$E100        M_nn:1 85 09    STA  var0-1  ; $09  ; new ship-type of newly spawned ship
+some_comparison_of_this_new_ship_against_existing_ships:
+  ' perhaps to see if they clash?
 $E102     M_immnn:1 A0 00    LDY  #$00
 $E104     M_immnn:1 A2 03    LDX  #$03
 -retry2:
 $E106       M_nnX:1 B5 39    LDA  array0,x  ; $39,X  ; is ship at this index visible yet?
 $E108        M_rr:1 F0 0B    BEQ  +skip2  ; $E115    ; branch if not visible?
-$E10A       M_nnX:1 B5 49    LDA  array2,x  ; $49,X  ; y-pos of all ships?
+$E10A       M_nnX:1 B5 49    LDA  ships_ypos,x  ; $49,X  ; y-pos of all ships
 $E10C        M_nn:1 C5 08    CMP  var0  ; $08  ; y-pos of current ship?
-$E10E        M_rr:1 D0 05    BNE  +skip2  ; $E115  ; not the same y-pos as the prior ship at this index? then branch
+$E10E        M_rr:1 D0 05    BNE  +skip2  ; $E115  ; if new ship has different y-pos to existing ships, then branch
 $E110      M_impl:0 8A       TXA
 $E111     M_nnnnY:2 99 85 00 STA  array14,y  ; $0085,Y
 $E114      M_impl:0 C8       INY
 +skip2:
 $E115      M_impl:0 CA       DEX
 $E116        M_rr:1 10 EE    BPL  -retry2  ; $E106
-$E118      M_impl:0 98       TYA
-$E119        M_rr:1 F0 6F    BEQ  +big_skip1  ; $E18A  ; branch if all ships presently visible?
-$E11B        M_nn:1 85 08    STA  var0  ; $08  ; number of ships not in range/visible yet?
+$E118      M_impl:0 98       TYA  ; y = the number of existing ships that are on the same ypos as newly spawned ship
+$E119        M_rr:1 F0 6F    BEQ  +big_skip1  ; $E18A  ; branch if no other existing ships are on the same ypos as newly spawned ship
+$E11B        M_nn:1 85 08    STA  var0  ; $08  ; the number of existing ships that are on the same ypos as newly spawned ship
 $E11D        M_nn:1 C6 08    DEC  var0  ; $08
-$E11F        M_nn:1 A6 85    LDX  array14  ; $85
+$E11F        M_nn:1 A6 85    LDX  array14  ; $85  ; the first existing ship-idx on same y-pos as newly spawned ship
 $E121       M_nnX:1 B5 4D    LDA  array2-1,x  ; $4D,X  ; mirror orientation of all ships? (01=normal, ff=reversed)
-$E123        M_nn:1 85 0A    STA  var0-2  ; $0A
-$E125        M_rr:1 30 29    BMI  +skip3  ; $E150
+$E123        M_nn:1 85 0A    STA  var0-2  ; $0A  ; the mirror orientation of the first existing ship on same ypos as newly spawned ship
+$E125        M_rr:1 30 29    BMI  +skip3  ; $E150  ; if mirror orientation = $ff (mirrored), then branch
 $E127     M_immnn:1 C0 01    CPY  #$01
 $E129        M_rr:1 F0 1E    BEQ  +skip4  ; $E149
 -jmp_retry:
 $E12B     M_immnn:1 A0 00    LDY  #$00
 -retry3:
 $E12D       M_nnY:1 B6 85    LDX  array14,y  ; $85,Y
-$E12F       M_nnX:1 B5 45    LDA  array1,x  ; $45,X
+$E12F       M_nnX:1 B5 45    LDA  array1,x  ; $45,X  ; x-pos of all ships (x = index of an existing ship from the array14 list)
 $E131       M_nnY:1 B6 86    LDX  array14+1,y  ; $86,Y
 $E133       M_nnX:1 D5 45    CMP  array1,x  ; $45,X
 $E135        M_rr:1 90 0D    BCC  +skip5  ; $E144
@@ -420,14 +429,14 @@ $E13E     M_nnnnY:2 99 86 00 STA  array14+1,y  ; $0086,Y
 $E141      M_nnnn:2 4C 2B E1 JMP  -jmp_retry  ; $E12B
 +skip5:
 $E144      M_impl:0 C8       INY
-$E145        M_nn:1 C4 08    CPY  var0  ; $08
-$E147        M_rr:1 90 E4    BCC  -retry3  ; $E12D
+$E145        M_nn:1 C4 08    CPY  var0  ; $08  ; the number of existing ships that are on the same ypos as newly spawned ship
+$E147        M_rr:1 90 E4    BCC  -retry3  ; $E12D  ; if incremented y < no# of existing ships on same ypos, then branch
 +skip4:
 $E149        M_nn:1 A6 85    LDX  array14  ; $85  ; ship-index that was spawned recently?
 $E14B       M_nnX:1 B5 45    LDA  array1,x  ; $45,X  ; x-pos of all ships
 $E14D      M_nnnn:2 4C 77 E1 JMP  +another_skip  ; $E177
 +skip3:
-$E150     M_immnn:1 C0 01    CPY  #$01
+$E150     M_immnn:1 C0 01    CPY  #$01  ; the number of existing ships that are on the same ypos as newly spawned ship
 $E152        M_rr:1 F0 1C    BEQ  +skip6  ; $E170
 -jmp_back_a_little:
 $E154     M_immnn:1 A0 00    LDY  #$00
@@ -449,7 +458,7 @@ $E16E        M_rr:1 90 E6    BCC  -retry4  ; $E156
 $E170        M_nn:1 A6 85    LDX  array14  ; $85
 $E172     M_immnn:1 A9 88    LDA  #$88  ; dec136
 $E174      M_impl:0 38       SEC
-$E175       M_nnX:1 F5 45    SBC  array1,x  ; $45,X
+$E175       M_nnX:1 F5 45    SBC  array1,x  ; $45,X  ; x-pos of all ships
 +another_skip:
 $E177        M_nn:1 85 08    STA  var0  ; $08  ; hold x-pos of current ship?
 $E179       M_nnX:1 B5 51    LDA  array3,x  ; $51,X  ; (index to ship-type?)
@@ -462,7 +471,7 @@ $E184        M_nn:1 C5 08    CMP  var0  ; $08  ; x-pos of current ship?
 $E186        M_rr:1 B0 35    BCS  +super_duper_big_jump  ; $E1BD  ; branch if >= x-pos of current ship
 $E188        M_rr:1 90 0D    BCC  +little_skip1  ; $E197
 +big_skip1:
-$E18A      M_nnnn:2 20 93 E8 JSR  dunno_stuff  ; $E893  ; put magic number in A
+$E18A      M_nnnn:2 20 93 E8 JSR  random_num_gen_into_A  ; $E893  ; put magic number in A
 $E18D      M_impl:0 A8       TAY
 $E18E        M_rr:1 30 03    BMI  +skip_to_lda_ff  ; $E193  ; if neg-bit is on, then branch
 $E190     M_immnn:1 A9 01    LDA  #$01  ; current ship = normal
@@ -999,7 +1008,7 @@ $E2A6      M_nnnn:2 20 5F E3 JSR  redraw_torpedo_amount_indicator  ; $E35F
 $E2A9        M_nn:1 A5 23    LDA  var5  ; $23
 $E2AB        M_nn:1 A4 16    LDY  var4  ; $16
 $E2AD        M_rr:1 D0 0A    BNE  +skip_if_var4_not_zero  ; $E2B9
-$E2AF      M_nnnn:2 20 93 E8 JSR  dunno_stuff  ; $E893
+$E2AF      M_nnnn:2 20 93 E8 JSR  random_num_gen_into_A  ; $E893
 $E2B2     M_immnn:1 C9 03    CMP  #$03
 $E2B4        M_rr:1 90 12    BCC  +skip_if_<_3  ; $E2C8  ; branch if less than 3
 $E2B6      M_nnnn:2 4C BF E2 JMP  +skip_jmp  ; $E2BF
@@ -1196,7 +1205,7 @@ $E3E7        M_nn:1 85 09    STA  var0-1  ; $09
 $E3E9       M_nnX:1 D5 37    CMP  arrayE,x  ; $37,X
 $E3EB        M_rr:1 D0 0C    BNE  +branch_ahead2  ; $E3F9
 -retry_if_>=147:
-$E3ED      M_nnnn:2 20 93 E8 JSR  dunno_stuff  ; $E893
+$E3ED      M_nnnn:2 20 93 E8 JSR  random_num_gen_into_A  ; $E893
 $E3F0     M_immnn:1 C9 93    CMP  #$93  ; dec147
 $E3F2        M_rr:1 B0 F9    BCS  -retry_if_>=147  ; $E3ED ; branch if >= 147
 $E3F4       M_nnX:1 95 37    STA  arrayE,x  ; $37,X
@@ -1869,10 +1878,10 @@ $E88E        M_nn:1 A5 27    LDA  decimal_secs_in_minutes_left  ; $27
 $E890      M_nnnn:2 4C 3B E7 JMP  print_two_digits_in_A  ; $E73B
 
 
-dunno_stuff:
------------
+random_num_gen_into_A:
+---------------------
   ' perhaps this logic decides if the currently invisible/disabled ship should become visible?
-$E893      M_impl:0 8A       TXA
+$E893      M_impl:0 8A       TXA  ; ship-index?
 $E894      M_impl:0 48       PHA
 $E895     M_immnn:1 A2 0B    LDX  #$0B  ; dec11  ; loop over 10 times
 -retry:
@@ -1886,7 +1895,7 @@ $E8A0        M_nn:1 45 1B    EOR  dunno1  ; $1B
 $E8A2         M_A:0 4A       LSR
 $E8A3         M_A:0 4A       LSR
 $E8A4     M_immnn:1 49 FF    EOR  #$FF
-$E8A6     M_immnn:1 29 01    AND  #$01
+$E8A6     M_immnn:1 29 01    AND  #$01  ; at this point, a=0 or 1
 $E8A8        M_nn:1 05 1B    ORA  dunno1  ; $1B
 $E8AA        M_nn:1 85 1B    STA  dunno1  ; $1B
 $E8AC      M_impl:0 CA       DEX
