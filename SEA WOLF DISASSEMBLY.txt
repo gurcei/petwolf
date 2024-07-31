@@ -141,17 +141,17 @@ $39-$3c ships_visibility[4]: visibility of ships
                    - #$00 = invisible
                    - #$01 = visible
                    - #$ff = shot/exploding
-                   (the negative-flag seems critical, and causes 'biggish_jump')
+                   (the negative-flag seems critical, and causes 'ship_is_currently_exploding')
   - read at $e006
   - read at $e049
   - sta at $e04f
   - sta at $e0ba to #$00
   - lda at $e106
   (maybe keeps track of object collisions? index is sprite no#)
-$3d-xx array0-1[x]:  maybe a copy of ship visibility ships_visibility?
+$3d-xx ships_move_tmr[x]:  count-down timer of when to move ships along (I guess it counts down from larger amounts for slower ships?)
   - lda at $e074
   - dec at $e078
-$41-xx array0-2[x]: table of ship-types in reversed notation? (02=freighter, 01=cruiser, 00=ptboat)
+$41-xx ships_move_max_time[x]: keeps a record of the max-count of frames the ship at this index needs to wait before moving
   - lda at $e07d
 $45-48 ships_xpos[4]: x-pos of all ships
   - accessed in $e000 routine
@@ -168,7 +168,7 @@ $4d-50 ships_mirror_flag[4]:  ; mirror orientation of all ships (01 = normal, FF
   - sta at $e0e9
   - lda at $e121
   - sta at $E1B2 
-$51-54 array3[4]: ship-type of all ships (idx 0-3) #$00=freighter, #$01=cruiser, #$02=p.t. boat
+$51-54 ships_type[4]: ship-type of all ships (idx 0-3) #$00=freighter, #$01=cruiser, #$02=p.t. boat
                   (seems to have values of either #$00 or #$01)
   - ldy at $e01c
   - lda at $e05b
@@ -177,9 +177,9 @@ $51-54 array3[4]: ship-type of all ships (idx 0-3) #$00=freighter, #$01=cruiser,
   - lda at $e179
   - adc at $e17c
   (index to the type of ship on screen?)
-$55-xx array4[x]: explosion duration timer of each ship (and buoy)
+$55-xx ships_explosion_tmr[x]: explosion duration countdown timer of each ship (and buoy)
                   (is divided by 8 to decide which explosion frame to show - F9, F5 or F1)
-  - sta at $e053
+  - sta at $e053  (sets is to max timer value of #$18 / 24)
   - dec at $e0c2
   - lda at $e0c6
 $5d-$60 array5[4]: (possibly data relating to player1 and 2)
@@ -190,12 +190,11 @@ $5d-$60 array5[4]: (possibly data relating to player1 and 2)
   - sta at $e349 (set to #$01)
 $5d var15: set to #$01 in init_game_vars
 $5e var16: set to #$01 in init_game_vars
-$61-xx:  array6[x]:  (array of all ship x-positions?)
+$61-64:  buoys_xpos[4]:  (array of all buoy x-positions)
   - lda at $e1df (with index of var5)
-$61-xx arrayC[x]:
   - sta at $e320 (set to #$00)
-$61 var20: set to #$00 in init_game_vars
-$62 var21: set to #$44 (68) in init_game_vars
+  - [0] set to #$00 in init_game_vars
+  - [1] set to #$44 (68) in init_game_vars
 $65-$68:  buoys_ypos[4]:  (array of all buoy y-positions)
           - (have values of either #$60 or #$80)
           - (the absolute sprite x-pos for these is #$92 and #$B2)
@@ -256,8 +255,8 @@ $E015        M_nn:1 A5 19    LDA  buff_spr2back_coll  ; $19
 $E017     M_nnnnX:2 3D 38 EE AND  sprite_bitfields,x  ; $EE38,X  ; x = currently assessed ship (from 0 - 3)
 $E01A        M_rr:1 F0 54    BEQ  +no_spr2back_collision_detected  ; $E070  ; if no sprite-to-back collision for this sprite-x, then branch
 ; if we're here, then there was a ship to missile-fire collision
-$E01C       M_nnX:1 B4 51    LDY  array3,x  ; $51,X  
-$E01E     M_nnnnY:2 B9 0E EE LDA  some_table,y  ; $EE0E,Y  ; maybe it can only have a value of #$00 or #$01
+$E01C       M_nnX:1 B4 51    LDY  ships_type,x  ; $51,X  
+$E01E     M_nnnnY:2 B9 0E EE LDA  ship_type_widths,y  ; $EE0E,Y  ; maybe it can only have a value of #$00 or #$01
 $E021        M_nn:1 85 08    STA  var0  ; $08
 $E023     M_immnn:1 A0 07    LDY  #$07
 -retry_stuff:
@@ -285,11 +284,11 @@ $E049       M_nnX:1 B5 39    LDA  ships_visibility,x  ; $39,X
 $E04B        M_rr:1 30 23    BMI  +no_spr2back_collision_detected  ; $E070
 $E04D     M_immnn:1 A9 FF    LDA  #$FF
 $E04F       M_nnX:1 95 39    STA  ships_visibility,x  ; $39,X
-$E051     M_immnn:1 A9 18    LDA  #$18
-$E053       M_nnX:1 95 55    STA  array4,x  ; $55,X
+$E051     M_immnn:1 A9 18    LDA  #$18  ; dec24
+$E053       M_nnX:1 95 55    STA  ships_explosion_tmr,x  ; $55,X
 $E055     M_nnnnY:2 B9 AC EF LDA  some_colour_chooser_table,y  ; $EFAC,Y  ; seems to choose either yellow or orange?
 $E058     M_nnnnX:2 9D 27 D0 STA  $D027,X  ; $d027-$d02e = sprite 0-7 colours
-$E05B       M_nnX:1 B5 51    LDA  array3,x  ; $51,X   (index to the type of ship?)
+$E05B       M_nnX:1 B5 51    LDA  ships_type,x  ; $51,X   (index to the type of ship?)
 $E05D      M_impl:0 AA       TAX
 $E05E     M_nnnnX:2 BD 1F EE LDA  ship_scores,x  ; $EE1F,X
 $E061      M_impl:0 48       PHA
@@ -303,32 +302,33 @@ $E06A      M_nnnn:2 20 5D E9 JSR  trigger_voice3_sound  ; $E95D  ; (probably exp
 $E06D      M_nnnn:2 4C BD E1 JMP  +super_duper_big_jump  ; $E1BD
 +no_spr2back_collision_detected:
 $E070       M_nnX:1 B5 39    LDA  ships_visibility,x  ; $39,X
-$E072        M_rr:1 30 4E    BMI  +biggish_jump  ; $E0C2
-$E074       M_nnX:1 B5 3D    LDA  array0-1,x  ; $3D,X
-$E076        M_rr:1 F0 05    BEQ  +small_jump  ; $E07D
-$E078       M_nnX:1 D6 3D    DEC  array0-1,x  ; $3D,X
+$E072        M_rr:1 30 4E    BMI  +ship_is_currently_exploding  ; $E0C2  ; is the ship currently exploding?
+$E074       M_nnX:1 B5 3D    LDA  ships_move_tmr,x  ; $3D,X
+$E076        M_rr:1 F0 05    BEQ  +time_to_move_curr_ship_along  ; $E07D
+$E078       M_nnX:1 D6 3D    DEC  ships_move_tmr,x  ; $3D,X
 $E07A      M_nnnn:2 4C BD E1 JMP  +super_duper_big_jump  ; $E1BD
-+small_jump:
-$E07D       M_nnX:1 B5 41    LDA  array0-2,x  ; $41,X
-$E07F       M_nnX:1 95 3D    STA  array0-1,x  ; $3D,X
++time_to_move_curr_ship_along:
+' move the ship along a small increment along the x-axis?
+$E07D       M_nnX:1 B5 41    LDA  ships_move_max_time,x  ; $41,X
+$E07F       M_nnX:1 95 3D    STA  ships_move_tmr,x  ; $3D,X
 $E081        M_nn:1 A5 11    LDA  var1  ; $11  ; x-position of current ship
 $E083      M_impl:0 18       CLC
 $E084       M_nnX:1 75 4D    ADC  ships_mirror_flag,x  ; $4D,X  ; mirror orientation of ships (#$01 normal, #$ff reversed)
 $E086        M_nn:1 85 11    STA  var1  ; $11
 $E088       M_nnX:1 95 45    STA  ships_xpos,x  ; $45,X  ; x-pos of all ships
 $E08A     M_immnn:1 C9 A0    CMP  #$A0  ; dec160
-$E08C        M_rr:1 B0 28    BCS  +skip_some_stuff  ; $E0B6  ; branch if >= 160
-$E08E       M_nnX:1 B4 51    LDY  array3,x  ; $51,X  ; ship-type of all ships
+$E08C        M_rr:1 B0 28    BCS  turn_off_ship  ; $E0B6  ; branch if >= 160
+$E08E       M_nnX:1 B4 51    LDY  ships_type,x  ; $51,X  ; ship-type of all ships
 $E090      M_impl:0 18       CLC
-$E091     M_nnnnY:2 79 0E EE ADC  some_table,y  ; $EE0E,Y  ; some amount to add to x-pos, depending on ship-type
+$E091     M_nnnnY:2 79 0E EE ADC  ship_type_widths,y  ; $EE0E,Y  ; some amount to add to x-pos, depending on ship-type
 $E094     M_immnn:1 C9 A0    CMP  #$A0  ; dec160
-$E096        M_rr:1 B0 1E    BCS  +skip_some_stuff  ; $E0B6  ; branch if new x-pos is >= 160  ; ship has gone out of range?
+$E096        M_rr:1 B0 1E    BCS  turn_off_ship  ; $E0B6  ; branch if new x-pos is >= 160  ; ship has gone out of range?
 $E098      M_impl:0 8A       TXA
-$E099      M_nnnn:2 20 B4 E8 JSR  move_curr_ship_position  ; $E8B4  (curr ship x,y vals in var1/$11 and var2/$12)
+$E099      M_nnnn:2 20 B4 E8 JSR  set_current_ship_sprite_position  ; $E8B4  (curr ship x,y vals in var1/$11 and var2/$12)
 $E09C        M_nn:1 A6 23    LDX  var5  ; $23  ; current ship-index
 $E09E       M_nnX:1 B5 4D    LDA  ships_mirror_flag,x  ; $4D,X  ; mirror orientation of ships? (#$01 normal, #$ff reversed?)
 $E0A0     M_immnn:1 29 04    AND  #$04
-$E0A2       M_nnX:1 15 51    ORA  array3,x  ; $51,X  ; ship-type of all ships
+$E0A2       M_nnX:1 15 51    ORA  ships_type,x  ; $51,X  ; ship-type of all ships
 $E0A4      M_impl:0 18       CLC
 $E0A5     M_immnn:1 69 EE    ADC  #$EE  ; sprite ee is sprite-pointer to the 1st boat (ee=freighter), ef=cruiser, f0=pt-boat
                                         ; if ships reversed, then f2=freighter, f3=cruiser, f4 = pt-boat
@@ -340,7 +340,7 @@ $E0AF      M_impl:0 8A       TXA
 $E0B0      M_nnnn:2 20 DD E8 JSR  turn_on_sprite_A  ; $E8DD
 -skip_back:
 $E0B3      M_nnnn:2 4C BD E1 JMP  +super_duper_big_jump  ; $E1BD
-+skip_some_stuff:
+turn_off_ship:
   ' ship has gone out of range, time to switch it off? 
 $E0B6        M_nn:1 A6 23    LDX  var5  ; $23  ; idx to current ship
 $E0B8     M_immnn:1 A9 00    LDA  #$00
@@ -348,16 +348,16 @@ $E0BA       M_nnX:1 95 39    STA  ships_visibility,x  ; $39,X
 $E0BC      M_impl:0 8A       TXA
 $E0BD      M_nnnn:2 20 E8 E8 JSR  turn_off_sprite_A  ; $E8E8
 $E0C0        M_rr:1 F0 F1    BEQ  -skip_back  ; $E0B3  ; branch if all sprites are off?
-+biggish_jump:
-$E0C2       M_nnX:1 D6 55    DEC  array4,x  ; $55,X
-$E0C4        M_rr:1 F0 F0    BEQ  -skip_some_stuff  ; $E0B6
-$E0C6       M_nnX:1 B5 55    LDA  array4,x  ; $55,X
++ship_is_currently_exploding:
+$E0C2       M_nnX:1 D6 55    DEC  ships_explosion_tmr,x  ; $55,X
+$E0C4        M_rr:1 F0 F0    BEQ  turn_off_ship  ; $E0B6
+$E0C6       M_nnX:1 B5 55    LDA  ships_explosion_tmr,x  ; $55,X
 $E0C8         M_A:0 4A       LSR
 $E0C9         M_A:0 4A       LSR
 $E0CA         M_A:0 4A       LSR  ; divide a by 8
 $E0CB      M_impl:0 A8       TAY
 $E0CC     M_nnnnY:2 B9 C5 E1 LDA  explosion_sprite_pointers,y  ; $E1C5,Y
-$E0CF     M_nnnnX:2 9D F8 07 STA  $07F8,X
+$E0CF     M_nnnnX:2 9D F8 07 STA  $07F8,X  ; set current explosion frame sprite for this ship
 $E0D2      M_nnnn:2 4C BD E1 JMP  +super_duper_big_jump  ; $E1BD
 +big_jump_due_to_$39,x_being_zero:
   ' we jumped here due to current ship not being visible
@@ -469,9 +469,9 @@ $E175       M_nnX:1 F5 45    SBC  ships_xpos,x  ; $45,X  ; A = right_edge_xpos -
 +another_skip:
 ' assess the gap between closest existing ship and newly spawned ship
 $E177        M_nn:1 85 08    STA  var0  ; $08  ; holds x-width between the spawn-edge (left or right) and the closest existing ship
-$E179       M_nnX:1 B5 51    LDA  array3,x  ; $51,X  ; get the ship-type of the closest ship to the spawn-edge
+$E179       M_nnX:1 B5 51    LDA  ships_type,x  ; $51,X  ; get the ship-type of the closest ship to the spawn-edge
 $E17B         M_A:0 0A       ASL  ; multiply by 2
-$E17C       M_nnX:1 75 51    ADC  array3,x  ; $51,X  ; a bit like multiply by 3  ; freighter=00, cruiser=3, ptboat=6
+$E17C       M_nnX:1 75 51    ADC  ships_type,x  ; $51,X  ; a bit like multiply by 3  ; freighter=00, cruiser=3, ptboat=6
 $E17E        M_nn:1 65 09    ADC  var0-1  ; $09  ; newly-spawned ship-type
 $E180      M_impl:0 AA       TAX
 $E181     M_nnnnX:2 BD 13 EE LDA  map_gap_from_existing_ship_to_new_ship,x  ; $EE13,X
@@ -491,12 +491,12 @@ $E195        M_nn:1 85 0A    STA  var0-2  ; $0A  ; set curr ship to mirrored
 $E197        M_nn:1 A6 23    LDX  var5  ; $23  ; idx to curr ship
 $E199     M_immnn:1 A9 01    LDA  #$01
 $E19B       M_nnX:1 95 39    STA  ships_visibility,x  ; $39,X  ; ship visibility table, set it to 1/visible
-$E19D       M_nnX:1 95 3D    STA  array0-1,x  ; $3D,X
+$E19D       M_nnX:1 95 3D    STA  ships_move_tmr,x  ; $3D,X
 $E19F        M_nn:1 A5 09    LDA  var0-1  ; $09  ; newly-spawned ship-type?
-$E1A1       M_nnX:1 95 51    STA  array3,x  ; $51,X  ; ship-type of all ships
+$E1A1       M_nnX:1 95 51    STA  ships_type,x  ; $51,X  ; ship-type of all ships
 $E1A3      M_impl:0 A8       TAY
-$E1A4     M_nnnnY:2 B9 1C EE LDA  yet_another_table,y  ; $EE1C,Y
-$E1A7       M_nnX:1 95 41    STA  array0-2,x  ; $41,X  ; table of ship-types in revered notation? (02=freighter, 01=cruiser, 00=pt)
+$E1A4     M_nnnnY:2 B9 1C EE LDA  ships_movement_delay,y  ; $EE1C,Y  ; find the movement frame-rate delay for this ship-type
+$E1A7       M_nnX:1 95 41    STA  ships_move_max_time,x  ; $41,X  ; record the needed frame-rate delay count in this array
 $E1A9     M_immnn:1 C0 02    CPY  #$02  ; is ship-type = pt-boat?
 $E1AB        M_rr:1 D0 03    BNE  +tiny_skip  ; $E1B0  ; branch if not pt-boat
 $E1AD      M_nnnn:2 20 3C E9 JSR  v1_reset_and_gate_off  ; $E93C  ; turn off v1 if we've spawned a pt-boat
@@ -510,6 +510,7 @@ $E1B8      M_nnnn:2 2C A9 00 BIT  $00A9
   $E1B9     M_immnn:1 A9 00    LDA  #$00  ; a = 0 (the left-edge xpos) for normal ship-mirror orientation
 $E1BB       M_nnX:1 95 45    STA  ships_xpos,x  ; $45,X  ; x-pos of all ships
 +not_big_enough_gap_yet:
++super_duper_big_jump:
 $E1BD        M_nn:1 C6 23    DEC  var5  ; $23  ; idx to curr ship
 $E1BF        M_rr:1 30 03    BMI  +skip_to_rts  ; $E1C4
 $E1C1      M_nnnn:2 4C 04 E0 JMP  -big_retry  ; $E004
@@ -780,10 +781,10 @@ $E1DA        M_rr:1 D0 03    BNE  +skip2  ; $E1DF  ; branch if non-zero
    ' loops on a decrementing var5 until all the way to zero
 $E1DC      M_nnnn:2 4C 75 E2 JMP  +jmp_to_end  ; $E275
 +skip2:
-$E1DF       M_nnX:1 B5 61    LDA  array6,x  ; $61,X
-$E1E1        M_nn:1 85 11    STA  var1  ; $11  (x-position of current ship?)
-$E1E3       M_nnX:1 B5 65    LDA  buoys_ypos,x   ; $65,X  ; (array of all ship y-positions)
-$E1E5        M_nn:1 85 12    STA  var2  ; $12  (y-position of the current ship?)
+$E1DF       M_nnX:1 B5 61    LDA  buoys_xpos,x  ; $61,X
+$E1E1        M_nn:1 85 11    STA  var1  ; $11  (x-position of current buoy)
+$E1E3       M_nnX:1 B5 65    LDA  buoys_ypos,x   ; $65,X  ; (array of all buoy y-positions)
+$E1E5        M_nn:1 85 12    STA  var2  ; $12  (y-position of the current buoy)
 $E1E7      M_impl:0 8A       TXA
 $E1E8     M_immnn:1 09 04    ORA  #$04
 $E1EA      M_impl:0 A8       TAY
@@ -795,7 +796,7 @@ $E1F2     M_immnn:1 A0 07    LDY  #$07
 $E1F4     M_nnnnY:2 B9 75 00 LDA  array10,y  ; $0075,Y  ; y-pos of all ships?
 $E1F7        M_rr:1 F0 15    BEQ  +skip_on_zero  ; $E20E
 $E1F9      M_impl:0 38       SEC
-$E1FA        M_nn:1 E5 12    SBC  var2  ; $12  ; (y-position of the current ship)
+$E1FA        M_nn:1 E5 12    SBC  var2  ; $12  ; (y-position of the current buoy)
 $E1FC     M_immnn:1 C9 15    CMP  #$15  ; dec21
 $E1FE        M_rr:1 B0 0E    BCS  +branch_if_ypos_>=21  ; $E20E  ; branch if >= dec21
 $E200     M_nnnnY:2 B9 6D 00 LDA  array9,y  ; $006D,Y
@@ -828,10 +829,10 @@ $E22C        M_nn:1 E6 11    INC  var1  ; $11  ; x-pos of current ship
 $E22E        M_nn:1 A5 11    LDA  var1  ; $11
 $E230     M_immnn:1 C9 94    CMP  #$94  ; 148
 $E232        M_rr:1 B0 1D    BCS  +skip_if_xpos_>=148  ; $E251
-$E234       M_nnX:1 95 61    STA  array6,x  ; $61,X  (array of all ship x-positions)
+$E234       M_nnX:1 95 61    STA  buoys_xpos,x  ; $61,X  (array of all ship x-positions)
 $E236      M_impl:0 8A       TXA
 $E237     M_immnn:1 09 04    ORA  #$04
-$E239      M_nnnn:2 20 B4 E8 JSR  move_curr_ship_position  ; $E8B4  (curr ship x,y vals in var1/$11 and var2/$12)
+$E239      M_nnnn:2 20 B4 E8 JSR  set_current_ship_sprite_position  ; $E8B4  (curr ship x,y vals in var1/$11 and var2/$12)
 $E23C        M_nn:1 A6 23    LDX  var5  ; $23
 $E23E     M_immnn:1 A9 FA    LDA  #$FA  ; sprite fa (afd buoy)
 $E240     M_nnnnX:2 9D FC 07 STA  $07FC,X  ; sprite-pointers for sprites 4-7
@@ -1078,30 +1079,30 @@ $E317      M_nnnn:2 4C 57 E3 JMP  +big_jmp_to_near_end  ; $E357
 $E31A       M_nnX:1 B5 5E    LDA  array5+1,x ; $5E,X
 $E31C        M_rr:1 D0 1C    BNE  +skip_if_array5+1_idx_val_is_not_zero  ; $E33A
 $E31E     M_immnn:1 A9 00    LDA  #$00
-$E320       M_nnX:1 95 61    STA  arrayC,x  ; $61,X
+$E320       M_nnX:1 95 61    STA  buoys_xpos,x  ; $61,X
 $E322      M_impl:0 18       CLC
 $E323     M_immnn:1 69 44    ADC  #$44  ; dec68
-$E325       M_nnX:1 95 62    STA  arrayC+1,x  ; $62,X
+$E325       M_nnX:1 95 62    STA  buoys_xpos+1,x  ; $62,X
 $E327      M_nnnn:2 4C 47 E3 JMP  +modest_jmp_near_end  ; $E347
 +skip_if_array5+1_idx_val_is_zero:
-$E32A       M_nnX:1 B5 61    LDA  arrayC,x  ; $61,X
+$E32A       M_nnX:1 B5 61    LDA  buoys_xpos,x  ; $61,X
 $E32C     M_immnn:1 C9 4C    CMP  #$4C  ; dec76
 $E32E        M_rr:1 B0 03    BCS  branch_if_arrayC_idx_val_>=76  ; $E333
 $E330     M_immnn:1 69 44    ADC  #$44  ; dec68
 $E332      M_nnnn:2 2C E9 44 BIT  $44E9
   branch_if_arrayC_idx_val_>=76:
   $E333     M_immnn:1 E9 44    SBC  #$44  ; dec68
-$E335       M_nnX:1 95 62    STA  arrayC+1,x  ; $62,X
+$E335       M_nnX:1 95 62    STA  buoys_xpos+1,x  ; $62,X
 $E337      M_nnnn:2 4C 47 E3 JMP  +modest_jmp_near_end  ; $E347
 +skip_if_array5+1_idx_val_is_not_zero:
-$E33A       M_nnX:1 B5 62    LDA  arrayC+1,x  ; $62,X
+$E33A       M_nnX:1 B5 62    LDA  buoys_xpos+1,x  ; $62,X
 $E33C     M_immnn:1 C9 4C    CMP  #$4C  ; dec76
 $E33E        M_rr:1 B0 03    BCS  branch_if_arrayC+1_idx_val_>=76  ; $E343
 $E340     M_immnn:1 69 44    ADC  #$44
 $E342      M_nnnn:2 2C E9 44 BIT  $44E9
   branch_if_arrayC+1_idx_val_>=76:
   $E343     M_immnn:1 E9 44    SBC  #$44
-$E345       M_nnX:1 95 61    STA  arrayC,x  ; $61,X
+$E345       M_nnX:1 95 61    STA  buoys_xpos,x  ; $61,X
 +modest_jmp_near_end:
 $E347     M_immnn:1 A9 01    LDA  #$01
 $E349       M_nnX:1 95 5D    STA  array5,x  ; $5D,X
@@ -1512,27 +1513,52 @@ $E5AC     M_immnn:1 A9 17    LDA  #$17  ; dec23
 $E5AE        M_nn:1 85 14    STA  var2  ; $14  (curr. ship y-pos?)
 $E5B0      M_nnnn:2 20 39 E8 JSR  draw_inline_text  ; $E839
 
- :000E5B3 3A 2F 33 2B 26 32 2B 2C  3A 00 20 73 E8 A2 00 20  | :/3+&2+,:. s...
+ :000E5B3 3A 2F 33 2B 26 32 2B 2C  3A 00 
            T  I  M  E     L  E  F   T
 
-$E5BD      M_nnnn:2 20 73 E8 JSR  $E873
+$E5BD      M_nnnn:2 20 73 E8 JSR  print_remaining_game_time  ; $E873
 $E5C0     M_immnn:1 A2 00    LDX  #$00
-$E5C2      M_nnnn:2 20 5F E3 JSR  $E35F
+$E5C2      M_nnnn:2 20 5F E3 JSR  redraw_torpedo_amount_indicator  ; $E35F
 $E5C5     M_immnn:1 A2 01    LDX  #$01
-$E5C7      M_nnnn:2 20 5F E3 JSR  $E35F
-$E5CA      M_nnnn:2 4C F3 E8 JMP  $E8F3
-$E5CD      M_nnnn:2 20 F5 E8 JSR  $E8F5
-$E5D0      M_nnnn:2 20 99 E7 JSR  $E799
-$E5D3     M_immnn:1 A2 4F    LDX  #$4F
+$E5C7      M_nnnn:2 20 5F E3 JSR  redraw_torpedo_amount_indicator  ; $E35F
+$E5CA      M_nnnn:2 4C F3 E8 JMP  allow_interrupts  ; $E8F3
+$E5CD      M_nnnn:2 20 F5 E8 JSR  interrupt_precursor  ; $E8F5
+$E5D0      M_nnnn:2 20 99 E7 JSR  init_game_screen  ; $E799
+$E5D3     M_immnn:1 A2 4F    LDX  #$4F  ; dec79
 $E5D5     M_immnn:1 A9 01    LDA  #$01
-$E5D7     M_nnnnX:2 9D 00 D8 STA  $D800,X
+$E5D7     M_nnnnX:2 9D 00 D8 STA  $D800,X  ; set first 2 lines to be white text?
 $E5DA      M_impl:0 CA       DEX
 $E5DB        M_rr:1 10 FA    BPL  $E5D7
-$E5DD     M_immnn:1 A9 18    LDA  #$18
-$E5DF        M_nn:1 85 14    STA  $14
+$E5DD     M_immnn:1 A9 18    LDA  #$18  ; dec24
+$E5DF        M_nn:1 85 14    STA  txt_y_pos  ; $14
 $E5E1      M_nnnn:2 20 39 E8 JSR  draw_inline_text  ; $E839
 
+ :777E5E4 44 29 45 26 47 4F 4E 48  26 28 27 32 32 3F 43 33  | D)E&GONH&('22?C3
+           (  C  )     1  9  8  2      B  A  L  L  Y  -  M
+ :777E5F4 2F 2A 3D 27 3F 26 44 29  45 26 47 4F 4E 48 26 29  | /*='?&D)E&GONH&)
+           I  D  W  A  Y     (  C   )     1  9  8  2     C
+ :777E604 35 33 33 35 2A 35 38 2B  00 
+           O  M  M  O  D  O  R  E   
 
+$E60D     M_immnn:1 A2 04    LDX  #$04
+-loopback_title_sprites:
+$E60F     M_nnnnX:2 BD A4 E6 LDA  title_sprites_xpos,x  ; $E6A4,X
+$E612     M_nnnnX:2 9D 00 D0 STA  $D000,X  ; set xpos for sprite 2 (#$ff/255), 1 (#$e2/226) and then 0 (#$c5/197)
+$E615     M_nnnnX:2 BD A9 E6 LDA  title_sprites_ypos,x  ; $E6A9,X
+$E618     M_nnnnX:2 9D 01 D0 STA  $D001,X  ; set ypos for sprite 2 (#$c2/194), 1 (#$b2/178) and then 0 (#$a2/162)
+$E61B      M_impl:0 CA       DEX
+$E61C      M_impl:0 CA       DEX
+$E61D        M_rr:1 10 F0    BPL  -loopback_title_sprites  ; $E60F
+$E61F     M_immnn:1 A9 00    LDA  #$00
+$E621      M_nnnn:2 8D 10 D0 STA  $D010  ; sprites 0-7 xpos msb
+$E624     M_immnn:1 A9 07    LDA  #$07   ; %0000 0111
+$E626      M_nnnn:2 8D 15 D0 STA  $D015  ; sprite display enable (only 1st 3 sprites visible)
+$E629     M_immnn:1 A9 CC    LDA  #>mission_text1  ; #$CC
+$E62B        M_nn:1 85 06    STA  ret_ptr_lo  ; $06
+$E62D     M_immnn:1 A9 EF    LDA  #<mission_text1  ; #$EF
+$E62F        M_nn:1 85 07    STA  ret_ptr_hi  ; $07  ; note: no valid assembly exists at $EFCC
+$E631     M_immnn:1 A9 03    LDA  #$03
+$E633        M_nn:1 85 14    STA  txt_y_pos  ; $14
 
 -loop1:
 $E635     M_immnn:1 A0 00    LDY  #$00
@@ -1543,59 +1569,75 @@ write_line_routine:
 $E63E      M_nnnn:2 20 EC E7 JSR  draw_text_to_screen  ; $E7EC
 $E641        M_nn:1 E6 14    INC  var2  ; $14
 $E643        M_nn:1 E6 14    INC  var2  ; $14
-$E645        M_nn:1 E6 06    INC  $06
+$E645        M_nn:1 E6 06    INC  ret_ptr_lo  ; $06
 $E647        M_rr:1 D0 EC    BNE  -loop1  ; $E635
-$E649        M_nn:1 E6 07    INC  $07
+$E649        M_nn:1 E6 07    INC  ret_ptr_hi  ; $07
 $E64B        M_rr:1 D0 E8    BNE  -loop1  ; $E635
 +skip1:
 $E64D     M_immnn:1 A9 02    LDA  #$02
-$E64F        M_nn:1 85 08    STA  $08
+$E64F        M_nn:1 85 08    STA  var0  ; $08
+-loopback_wait_longer_on_title_screen:
 $E651     M_immnn:1 A0 78    LDY  #$78
-$E653      M_nnnn:2 20 36 E5 JSR  $E536
+-loopback_wait_on_title_screen:
+$E653      M_nnnn:2 20 36 E5 JSR  paddle_and_function_key_reading_routine  ; $E536
 $E656     M_immnn:1 C9 01    CMP  #$01
-$E658        M_rr:1 F0 0D    BEQ  $E667
-$E65A      M_nnnn:2 20 59 E7 JSR  $E759
+$E658        M_rr:1 F0 0D    BEQ  exit_from_title_screen_due_to_paddle_fire  ; $E667
+$E65A      M_nnnn:2 20 59 E7 JSR  timer_loop  ; $E759
 $E65D      M_impl:0 88       DEY
-$E65E        M_rr:1 D0 F3    BNE  $E653
-$E660        M_nn:1 C6 08    DEC  $08
-$E662        M_rr:1 D0 ED    BNE  $E651
+$E65E        M_rr:1 D0 F3    BNE  loopback_wait_on_title_screen  ; $E653
+$E660        M_nn:1 C6 08    DEC  var0  ; $08
+$E662        M_rr:1 D0 ED    BNE  loopback_wait_longer_on_title_screen  ; $E651
 $E664     M_immnn:1 A9 00    LDA  #$00
 $E666      M_nnnn:2 2C A9 FF BIT  $FFA9
+  -exit_from_title_screen_due_to_paddle_fire:
+  $E667     M_immnn:1 A9 FF    LDA  #$FF
 $E669      M_impl:0 60       RTS
 
 +big_jump:
 $E66A     M_immnn:1 A2 02    LDX  #$02
-$E66C     M_immnn:1 A0 F4    LDY  #$F4
+$E66C     M_immnn:1 A0 F4    LDY  #$F4  ; sprite frame for pt-boat reversed
+-loopback_ship_sprite_colours:
 $E66E      M_impl:0 98       TYA
-$E66F     M_nnnnX:2 9D F8 07 STA  $07F8,X
+$E66F     M_nnnnX:2 9D F8 07 STA  $07F8,X  ; set sprite frame for sprite 2
 $E672      M_impl:0 88       DEY
-$E673     M_nnnnX:2 BD AE E6 LDA  $E6AE,X
-$E676     M_nnnnX:2 9D 27 D0 STA  $D027,X
+$E673     M_nnnnX:2 BD AE E6 LDA  ship_sprite_colours,x  ; $E6AE,X
+$E676     M_nnnnX:2 9D 27 D0 STA  $D027,X  ; set colours of sprites 0, 1 and 2
 $E679      M_impl:0 CA       DEX
-$E67A        M_rr:1 10 F2    BPL  $E66E
-$E67C     M_immnn:1 A9 1D    LDA  #$1D
-$E67E        M_nn:1 85 08    STA  $08
+$E67A        M_rr:1 10 F2    BPL  loopback_ship_sprite_colours  ; $E66E
+$E67C     M_immnn:1 A9 1D    LDA  #$1D  ; dec29
+$E67E        M_nn:1 85 08    STA  var0  ; $08
 
 loopy1:
 $E680     M_immnn:1 A2 04    LDX  #$04
 loopy2:
 $E682     M_nnnnX:2 BD 00 D0 LDA  $D000,X  ; $d004/$d002/$d000 = sprite2/1/0 x-pos, 
-$E685     M_immnn:1 C9 38    CMP  #$38
+$E685     M_immnn:1 C9 38    CMP  #$38  ; dec56
 $E687        M_rr:1 F0 03    BEQ  skip_ship_move  ; $E68C
-$E689     M_nnnnX:2 DE 00 D0 DEC  $D000,X
+$E689     M_nnnnX:2 DE 00 D0 DEC  $D000,X  ; glide ships to left on title screen
 skip_ship_move:
 $E68C      M_impl:0 CA       DEX
 $E68D      M_impl:0 CA       DEX
 $E68E        M_rr:1 10 F2    BPL  loopy2  ; $E682
 $E690      M_nnnn:2 20 59 E7 JSR  timer_loop  ; $E759
 $E693      M_nnnn:2 20 59 E7 JSR  timer_loop  ; $E759
-$E696      M_nnnn:2 20 36 E5 JSR  $E536
+$E696      M_nnnn:2 20 36 E5 JSR  paddle_and_function_key_reading_routine  ; $E536
 $E699     M_immnn:1 C9 01    CMP  #$01
-$E69B        M_rr:1 F0 CA    BEQ  $E667
-$E69D        M_nn:1 C6 08    DEC  $08
+$E69B        M_rr:1 F0 CA    BEQ  exit_from_title_screen_due_to_paddle_fire  ; $E667
+$E69D        M_nn:1 C6 08    DEC  var0  ; $08
 $E69F        M_rr:1 D0 DF    BNE  loopy1  ; $E680
 $E6A1      M_nnnn:2 4C 3E E6 JMP  write_line_routine  ; $E63E
 
+title_sprites_xpos:
+ :000E6A4 C5 00 E2 00 FF
+
+title_sprites_ypos:
+ :000E6A9 A2 00 B2 00 C2
+
+ship_sprite_colours:
+ :000E6AE 07 03 05                                          | ...
+  - 07 = Yellow (freighter)
+  - 03 = Cyan (cruiser)
+  - 05 = Green (pt-boat)
 
 set_scr_and_clr_ptr_locations_based_on_ship_xy_pos:
 '-------------------------------------------------
@@ -1742,6 +1784,42 @@ $E75D        M_rr:1 B0 FA    BCS  timer_loop  ;  $E759
 $E75F      M_nnnn:2 EE 0E DC INC  $DC0E  ; after timer has stopped, restart it (turn bit0 back on)
 $E762      M_impl:0 60       RTS
 
+maybe_unused_function:
+'--------------------
+' or maybe time waster function?
+$E763      M_impl:0 EA       EOM
+$E764      M_impl:0 EA       EOM
+$E765      M_impl:0 EA       EOM
+$E766      M_impl:0 EA       EOM
+$E767      M_impl:0 EA       EOM
+$E768      M_impl:0 EA       EOM
+$E769      M_impl:0 EA       EOM
+$E76A      M_impl:0 EA       EOM
+$E76B      M_impl:0 EA       EOM
+$E76C      M_impl:0 EA       EOM
+$E76D      M_impl:0 EA       EOM
+$E76E      M_impl:0 EA       EOM
+$E76F      M_impl:0 EA       EOM
+$E770      M_impl:0 EA       EOM
+$E771      M_impl:0 EA       EOM
+$E772      M_impl:0 EA       EOM
+$E773      M_impl:0 EA       EOM
+$E774      M_impl:0 EA       EOM
+$E775      M_impl:0 EA       EOM
+$E776      M_impl:0 EA       EOM
+$E777      M_impl:0 EA       EOM
+$E778      M_impl:0 EA       EOM
+$E779      M_impl:0 EA       EOM
+$E77A      M_impl:0 EA       EOM
+$E77B      M_impl:0 EA       EOM
+$E77C      M_impl:0 EA       EOM
+$E77D      M_impl:0 EA       EOM
+$E77E      M_impl:0 EA       EOM
+$E77F      M_impl:0 EA       EOM
+$E780      M_impl:0 EA       EOM
+$E781      M_impl:0 EA       EOM
+$E782      M_impl:0 60       RTS
+
 
 read_paddle_fire_button:
 '----------------------
@@ -1793,7 +1871,7 @@ $E7E9      M_nnnn:2 4C 05 E7 JMP  print_all_scores  ; $E705
 draw_text_to_screen:
 '------------------
 $E7EC     M_immnn:1 A9 00    LDA  #$00
-$E7EE        M_nn:1 85 13    STA  $13
+$E7EE        M_nn:1 85 13    STA  txt_x_pos  ; $13
 $E7F0      M_nnnn:2 20 C0 E6 JSR  adjust_scr_and_clr_ptr_locations  ; $E6C0
 $E7F3     M_immnn:1 A9 01    LDA  #$01  ; The current colour to draw the text in (defaults to white)
 $E7F5      M_impl:0 48       PHA        ; this var is pushed onto the stack
@@ -1866,6 +1944,31 @@ $E84C      M_impl:0 48       PHA
 $E84D      M_impl:0 60       RTS
 
 
+update_game_time_left:
+'--------------------
+$E84E        M_nn:1 A5 27    LDA  decimal_secs_in_minutes_left  ; $27
+$E850        M_nn:1 05 28    ORA  minutes_left  ; $28
+$E852        M_rr:1 F0 1F    BEQ  print_remaining_game_time  ; $E873
+$E854        M_nn:1 C6 26    DEC  secs_in_minute_left  ; $26
+$E856        M_rr:1 10 1B    BPL  print_remaining_game_time  ; $E873
+$E858     M_immnn:1 A9 3B    LDA  #$3B  ; dec59  ; (reset seconds in minute countdown?)
+$E85A        M_nn:1 85 26    STA  secs_in_minute_left  ; $26
+$E85C      M_impl:0 F8       SED
+$E85D        M_nn:1 A5 27    LDA  decimal_secs_in_minutes_left  ; $27
+$E85F      M_impl:0 38       SEC
+$E860     M_immnn:1 E9 01    SBC  #$01
+$E862      M_impl:0 D8       CLD
+$E863        M_nn:1 85 27    STA  decimal_secs_in_minutes_left  ; $27
+$E865        M_rr:1 B0 0C    BCS  print_remaining_game_time  ; $E873
+$E867     M_immnn:1 A9 59    LDA  #$59  ; value is used in 'decimal mode'
+$E869        M_nn:1 85 27    STA  decimal_secs_in_minutes_left  ; $27
+$E86B        M_nn:1 A5 28    LDA  game_time  ; $28
+$E86D      M_impl:0 F8       SED
+$E86E     M_immnn:1 E9 00    SBC  #$00
+$E870      M_impl:0 D8       CLD
+$E871        M_nn:1 85 28    STA  game_time  ; $28
+
+
 print_remaining_game_time:
 '------------------------
 $E873     M_immnn:1 A9 12    LDA  #$12  ; (18)
@@ -1913,9 +2016,10 @@ $E8B1        M_nn:1 A5 1B    LDA  dunno1  ; $1B
 $E8B3      M_impl:0 60       RTS
 
 
-move_curr_ship_position:
------------------------
+set_current_ship_sprite_position:
+--------------------------------
 ' (ship/buoy index should be placed in A)
+' curr ship xpos in var1, curr shi ypos in var2)
 ' NOTE: Could be a buoy too
 $E8B4      M_impl:0 AA       TAX
 $E8B5         M_A:0 0A       ASL  ; multiply by 2
@@ -1958,6 +2062,54 @@ $E8EC      M_nnnn:2 2D 15 D0 AND  $D015
 $E8EF      M_nnnn:2 8D 15 D0 STA  $D015  ; sprite display disable
 $E8F2      M_impl:0 60       RTS
 
+allow_interrupts:
+----------------
+$E8F3      M_impl:0 58       CLI
+$E8F4      M_impl:0 60       RTS
+
+interrupt_precursor:
+-------------------
+$E8F5      M_impl:0 78       SEI
+$E8F6     M_immnn:1 A9 00    LDA  #$00
+$E8F8      M_nnnn:2 8D 21 D0 STA  $D021
+$E8FB      M_nnnn:2 8D 20 D0 STA  $D020
+$E8FE     M_immnn:1 A9 00    LDA  #$00
+$E900      M_nnnn:2 8D 15 D0 STA  $D015  ; sprite display enable (hide them all?)
+$E903      M_impl:0 60       RTS
+
+interrupt_routine:
+-----------------
+$E904      M_impl:0 48       PHA
+$E905      M_impl:0 8A       TXA
+$E906      M_impl:0 48       PHA
+$E907        M_nn:1 A6 1A    LDX  $1A
+$E909     M_nnnnX:2 BD 28 E9 LDA  raster_colours,x  ; $E928,X
+$E90C      M_nnnn:2 8D 21 D0 STA  $D021
+$E90F      M_nnnn:2 8D 20 D0 STA  $D020
+$E912     M_nnnnX:2 BD 2C E9 LDA  raster_locations,x  ; $E92C,X
+$E915      M_nnnn:2 8D 12 D0 STA  $D012  ; read/write raster value for compare irq
+$E918      M_impl:0 E8       INX
+$E919      M_impl:0 8A       TXA
+$E91A     M_immnn:1 29 03    AND  #$03
+$E91C        M_nn:1 85 1A    STA  $1A
+$E91E      M_nnnn:2 AD 19 D0 LDA  $D019  ; vic interrupt flag register
+$E921      M_nnnn:2 8D 19 D0 STA  $D019
+$E924      M_impl:0 68       PLA
+$E925      M_impl:0 AA       TAX
+$E926      M_impl:0 68       PLA
+$E927      M_impl:0 40       RTI
+
+raster_colours:
+' used within interrupt routine
+ :000E928 03 0E 06 00
+  - [0] = 03 (cyan)
+  - [1] = 0e (light blue)
+  - [2] = 06 (blue)
+  - [3] = 00 (black)
+
+
+raster_locations:
+ :000E92C 46 8A DA 14                                       | F...
 
 ---------------------
 
@@ -1993,6 +2145,13 @@ $E957     M_immnn:1 A9 81    LDA  #$81  ; %1000 0001
 $E959      M_nnnn:2 8D 0B D4 STA  $D40B  ; v2_ctrl_reg  (noise wave, gate on)
 $E95C      M_impl:0 60       RTS
 
+trigger_voice3_sound:
+'-------------------
+$E95D     M_immnn:1 A9 03    LDA  #$03
+$E95F        M_nn:1 85 2C    STA  whatis4  ; $2C
+$E961     M_immnn:1 A9 81    LDA  #$81  ; %1000 0001
+$E963      M_nnnn:2 8D 12 D4 STA  $D412  ; This is turning gate on for voice3  (perhaps to trigger explosion sound?)
+$E966      M_impl:0 60       RTS
 
 assess_sound_states:
 -------------------
@@ -2025,7 +2184,7 @@ $E98C     M_immnn:1 A2 03    LDX  #$03
 $E98E       M_nnX:1 B5 39    LDA  ships_visibility,x  ; $39,X
 $E990        M_rr:1 F0 08    BEQ  +skip5  ; $E99A
 $E992        M_rr:1 30 06    BMI  +skip5  ; $E99A
-$E994       M_nnX:1 B5 51    LDA  array3,x  ; $51,X  ; possibly index to the type of ship on screen
+$E994       M_nnX:1 B5 51    LDA  ships_type,x  ; $51,X  ; possibly index to the type of ship on screen
 $E996     M_immnn:1 C9 02    CMP  #$02
 $E998        M_rr:1 F0 0F    BEQ  +skip6  ; $E9A9
 +skip5:
@@ -2085,7 +2244,7 @@ $E9F7      M_nnnn:2 20 39 E8 JSR  draw_inline_text  ; $E839
            G  A  M  E        O  V   E  R
 
 $EA05     M_immnn:1 A2 96    LDX  #$96
-$EA07      M_nnnn:2 20 59 E7 JSR  $E759
+$EA07      M_nnnn:2 20 59 E7 JSR  timer_loop  ; $E759
 $EA0A      M_impl:0 CA       DEX
 $EA0B        M_rr:1 D0 FA    BNE  $EA07
 $EA0D     M_immnn:1 A9 00    LDA  #$00
@@ -2093,26 +2252,26 @@ $EA0F        M_nn:1 85 16    STA  $16
 $EA11      M_nnnn:2 20 CD E5 JSR  $E5CD
 $EA14      M_impl:0 A8       TAY
 $EA15        M_rr:1 D0 4A    BNE  $EA61
-$EA17      M_nnnn:2 20 93 EB JSR  $EB93
+$EA17      M_nnnn:2 20 93 EB JSR  init_game_vars  ; $EB93
 $EA1A     M_immnn:1 A9 20    LDA  #$20
-$EA1C        M_nn:1 85 27    STA  $27
+$EA1C        M_nn:1 85 27    STA  decimal_secs_in_minutes_left  ; $27
 $EA1E     M_immnn:1 A2 01    LDX  #$01
-$EA20      M_nnnn:2 20 93 E8 JSR  $E893
-$EA23     M_immnn:1 C9 28    CMP  #$28
-$EA25        M_rr:1 B0 F9    BCS  $EA20
-$EA27       M_nnX:1 95 35    STA  $35,X
+$EA20      M_nnnn:2 20 93 E8 JSR  random_num_gen_into_A  ; $E893
+$EA23     M_immnn:1 C9 28    CMP  #$28  ; dec40
+$EA25        M_rr:1 B0 F9    BCS  $EA20  ; if a >= 40 then loop
+$EA27       M_nnX:1 95 35    STA  arrayBB,x  ; $35,X  ; place both player subs at some random 0-39 char xpos
 $EA29      M_impl:0 CA       DEX
 $EA2A        M_rr:1 10 F4    BPL  $EA20
-$EA2C      M_nnnn:2 20 7D E5 JSR  $E57D
+$EA2C      M_nnnn:2 20 7D E5 JSR  prepare_game_screen  ; $E57D
 $EA2F     M_immnn:1 A9 0A    LDA  #$0A
-$EA31        M_nn:1 85 14    STA  $14
+$EA31        M_nn:1 85 14    STA  txt_y_pos  ; $14
 $EA33      M_nnnn:2 20 39 E8 JSR  draw_inline_text  ; $E839
 
  :000EA36 2D 27 33 2B 26 26 35 3C  2B 38 00
            G  A  M  E        O  V   E  R
 
 $EA41     M_immnn:1 A9 0F    LDA  #$0F
-$EA43        M_nn:1 85 14    STA  $14
+$EA43        M_nn:1 85 14    STA  txt_y_pos  ; $14
 $EA45      M_nnnn:2 20 39 E8 JSR  draw_inline_text  ; $E839
 
  :000EA48 36 3B 39 2E 26 43 2C 47  43 26 3A 35 26 28 2B 2D  | 6;9.&C,GC&:5&(+-
@@ -2120,17 +2279,17 @@ $EA45      M_nnnn:2 20 39 E8 JSR  draw_inline_text  ; $E839
  :000EA58 2F 34 00
            I  N
 
-$EA5B      M_nnnn:2 20 58 EB JSR  $EB58
+$EA5B      M_nnnn:2 20 58 EB JSR  game_loop  ; $EB58
 $EA5E      M_impl:0 A8       TAY
 $EA5F        M_rr:1 F0 AC    BEQ  $EA0D
-$EA61      M_nnnn:2 20 99 E7 JSR  $E799
+$EA61      M_nnnn:2 20 99 E7 JSR  init_game_screen  ; $E799
 $EA64     M_immnn:1 A9 00    LDA  #$00
-$EA66      M_nnnn:2 8D 15 D0 STA  $D015
-$EA69      M_nnnn:2 8D 0D D4 STA  $D40D
-$EA6C      M_nnnn:2 8D 14 D4 STA  $D414
-$EA6F      M_nnnn:2 20 F3 E8 JSR  $E8F3
+$EA66      M_nnnn:2 8D 15 D0 STA  $D015  ; sprite display enable (hide all sprites)
+$EA69      M_nnnn:2 8D 0D D4 STA  $D40D  ; v2_env_gen sus/rel
+$EA6C      M_nnnn:2 8D 14 D4 STA  $D414  ; v3_env_gen sus/rel
+$EA6F      M_nnnn:2 20 F3 E8 JSR  allow_interrupts  ; $E8F3
 $EA72     M_immnn:1 A9 01    LDA  #$01
-$EA74        M_nn:1 85 14    STA  $14
+$EA74        M_nn:1 85 14    STA  txt_y_pos  ; $14
 $EA76      M_nnnn:2 20 39 E8 JSR  draw_inline_text  ; $E839
 
 ' trailing two zeroes of p1 score + highscore + p2 score
@@ -2143,15 +2302,15 @@ $EA76      M_nnnn:2 20 39 E8 JSR  draw_inline_text  ; $E839
               0  0
 
 $EA9D     M_immnn:1 A9 05    LDA  #$05
-$EA9F        M_nn:1 85 14    STA  $14
+$EA9F        M_nn:1 85 14    STA  txt_y_pos  ; $14
 $EAA1      M_nnnn:2 20 39 E8 JSR  draw_inline_text  ; $E839
 
  :000EAA4 43 26 36 3B 39 2E 26 43  00 
            -     P  U  S  H     -
 
-$EAAD        M_nn:1 E6 14    INC  $14
-$EAAF        M_nn:1 E6 14    INC  $14
-$EAB1        M_nn:1 E6 14    INC  $14
+$EAAD        M_nn:1 E6 14    INC  txt_y_pos  ; $14
+$EAAF        M_nn:1 E6 14    INC  txt_y_pos  ; $14
+$EAB1        M_nn:1 E6 14    INC  txt_y_pos  ; $14
 $EAB3      M_nnnn:2 20 39 E8 JSR  draw_inline_text  ; $E839
 
  :000EAB6 2C 47 26 3A 35 26 39 3A  27 38 3A 26 2D 27 33 2B  | ,G&:5&9:'8:&-'3+
@@ -2159,34 +2318,34 @@ $EAB3      M_nnnn:2 20 39 E8 JSR  draw_inline_text  ; $E839
  :000EAC6 41 00
            .
 
-$EAC8        M_nn:1 E6 14    INC  $14
-$EACA        M_nn:1 E6 14    INC  $14
-$EACC        M_nn:1 E6 14    INC  $14
+$EAC8        M_nn:1 E6 14    INC  txt_y_pos  ; $14
+$EACA        M_nn:1 E6 14    INC  txt_y_pos  ; $14
+$EACC        M_nn:1 E6 14    INC  txt_y_pos  ; $14
 $EACE      M_nnnn:2 20 39 E8 JSR  draw_inline_text  ; $E839
 
  :000EAD1 2C 49 26 3A 35 26 26 2F  34 29 38 2B 27 39 2B 26  | ,I&:5&&/4)8+'9+&
            F  3     T  O        I   N  C  R  E  A  S  E  
  :000EAE1 00
 
-$EAE2        M_nn:1 E6 14    INC  $14
-$EAE4        M_nn:1 E6 14    INC  $14
+$EAE2        M_nn:1 E6 14    INC  txt_y_pos  ; $14
+$EAE4        M_nn:1 E6 14    INC  txt_y_pos  ; $14
 $EAE6      M_nnnn:2 20 39 E8 JSR  draw_inline_text  ; $E839
 
  :000EAE9 26 2C 4B 26 3A 35 26 26  2A 2B 29 38 2B 27 39 2B  | &,K&:5&&*+)8+'9+
               F  5     T  O         D  E  C  R  E  A  S  E
  :000EAF9 26 00
 
-$EAFB        M_nn:1 E6 14    INC  $14
-$EAFD        M_nn:1 E6 14    INC  $14
+$EAFB        M_nn:1 E6 14    INC  txt_y_pos  ; $14
+$EAFD        M_nn:1 E6 14    INC  txt_y_pos  ; $14
 $EAFF      M_nnnn:2 20 39 E8 JSR  draw_inline_text  ; $E839
 
  :000EB02 26 36 32 27 3F 2F 34 2D  26 3A 2F 33 2B 41 00
               P  L  A  Y  I  N  G      T  I  M  E  .
 
 $EB11     M_immnn:1 A9 00    LDA  #$00
-$EB13        M_nn:1 85 27    STA  $27
-$EB15     M_immnn:1 A9 17    LDA  #$17
-$EB17        M_nn:1 85 14    STA  $14
+$EB13        M_nn:1 85 27    STA  decimal_secs_in_minutes_left  ; $27
+$EB15     M_immnn:1 A9 17    LDA  #$17  ; dec23
+$EB17        M_nn:1 85 14    STA  txt_y_pos  ; $14
 $EB19      M_nnnn:2 20 39 E8 JSR  draw_inline_text  ; $E839
 
  :000EB1C 36 32 27 3F 2F 34 2D 26  3A 2F 33 2B 00
@@ -2266,17 +2425,17 @@ $EB9F     M_immnn:1 A9 04    LDA  #$04
 $EBA1        M_nn:1 85 31    STA  p1_num_missiles  ; $31
 $EBA3        M_nn:1 85 32    STA  p2_num_missiles  ; $32
 $EBA5     M_immnn:1 A9 00    LDA  #$00
-$EBA7        M_nn:1 85 61    STA  var20  ; $61
+$EBA7        M_nn:1 85 61    STA  buoys_xpos  ; $61
 $EBA9     M_immnn:1 A9 44    LDA  #$44
-$EBAB        M_nn:1 85 62    STA  var21  ; $62
+$EBAB        M_nn:1 85 62    STA  buoys_xpos+1  ; $62
 $EBAD     M_immnn:1 A9 60    LDA  #$60
 $EBAF        M_nn:1 85 65    STA  var25  ; $65
 $EBB1        M_nn:1 85 66    STA  var26  ; $66
 $EBB3     M_immnn:1 A9 01    LDA  #$01
 $EBB5        M_nn:1 85 5D    STA  var15  ; $5D
 $EBB7        M_nn:1 85 5E    STA  var16  ; $5E
-$EBB9     M_immnn:1 A9 3B    LDA  #$3B
-$EBBB        M_nn:1 85 26    STA  var9  ; $26
+$EBB9     M_immnn:1 A9 3B    LDA  #$3B  ; dec59
+$EBBB        M_nn:1 85 26    STA  secs_in_minute_left  ; $26
 $EBBD      M_impl:0 60       RTS
 
 sid_init_values:
@@ -2366,6 +2525,58 @@ sid_init_values:
 '    $d418.4 = filter low-pass mode = 1 (on)
 '    $d418.3-0 = output volume = 4
 
+some_other_irq_routine:
+'---------------------
+$EBF5      M_impl:0 78       SEI
+$EBF6      M_impl:0 D8       CLD
+$EBF7     M_immnn:1 A2 2F    LDX  #$2F
+$EBF9      M_impl:0 9A       TXS
+$EBFA     M_immnn:1 A2 1D    LDX  #$1D
+$EBFC     M_nnnnX:2 BD BE EB LDA  $EBBE,X
+$EBFF     M_nnnnX:2 9D 11 D0 STA  $D011,X
+$EC02      M_impl:0 CA       DEX
+$EC03        M_rr:1 10 F7    BPL  $EBFC
+$EC05      M_nnnn:2 AD 1E D0 LDA  $D01E
+$EC08      M_nnnn:2 AD 1F D0 LDA  $D01F
+$EC0B      M_nnnn:2 20 30 E9 JSR  $E930
+$EC0E     M_immnn:1 A9 7F    LDA  #$7F
+$EC10      M_nnnn:2 8D 0D DC STA  $DC0D
+$EC13     M_immnn:1 A9 00    LDA  #$00
+$EC15      M_nnnn:2 8D 0F DC STA  $DC0F
+$EC18     M_immnn:1 A2 00    LDX  #$00
+$EC1A      M_nnnn:2 8E 03 DC STX  $DC03
+$EC1D      M_impl:0 CA       DEX
+$EC1E      M_nnnn:2 8E 02 DC STX  $DC02
+$EC21     M_immnn:1 A9 E5    LDA  #$E5
+$EC23        M_nn:1 85 01    STA  $01
+$EC25     M_immnn:1 A9 2F    LDA  #$2F
+$EC27        M_nn:1 85 00    STA  $00
+$EC29     M_immnn:1 A9 06    LDA  #$06
+$EC2B      M_nnnn:2 8D 04 DC STA  $DC04
+$EC2E     M_immnn:1 A9 47    LDA  #$47
+$EC30      M_nnnn:2 8D 05 DC STA  $DC05
+$EC33     M_immnn:1 A9 18    LDA  #$18
+$EC35      M_nnnn:2 8D 0E DC STA  $DC0E
+$EC38     M_immnn:1 A9 01    LDA  #$01
+$EC3A      M_nnnn:2 8D 1A D0 STA  $D01A
+$EC3D     M_immnn:1 A2 02    LDX  #$02
+$EC3F     M_immnn:1 A9 00    LDA  #$00
+$EC41       M_nnX:1 95 00    STA  $00,X
+$EC43      M_impl:0 E8       INX
+$EC44        M_rr:1 D0 FB    BNE  $EC41
+$EC46     M_immnn:1 A9 03    LDA  #$03
+$EC48        M_nn:1 85 17    STA  $17
+$EC4A     M_nnnnX:2 BD 5C EC LDA  $EC5C,X
+$EC4D     M_nnnnX:2 9D 30 01 STA  $0130,X
+$EC50     M_nnnnX:2 BD D4 EC LDA  $ECD4,X
+$EC53     M_nnnnX:2 9D A8 01 STA  $01A8,X
+$EC56      M_impl:0 E8       INX
+$EC57        M_rr:1 D0 F1    BNE  $EC4A
+$EC59      M_nnnn:2 4C 0D EA JMP  $EA0D
+
+unknown_data:
+ :000EC5C 00 00 00 00 00 00 00 00  38 6C C6 C6 FE C6 C6 00  | ........8l......
+ :000EC6C FC 66 66 7C 66 66 FC 00  3C 66 C0 C0 C0 66 3C 00  | .ff|ff..<f...f<.
 
 scr_row_ptr_lo:
 '-------------
@@ -2405,10 +2616,12 @@ scr_row_ptr_hi:
         scr_row_ptr[24] = $07C0
 
 
-some_table:  (used by ADC at $e091 and compared against #$a0 = 160)
- :000EE0E 18 18 10 00 0A 20 46 68  20 24 58 20 24 30 02 01  | ..... Fh $X $0..
- :000EE1E 00                                                | .
-  - dec: 24, 24, 16, 0, 10, 32, 70
+ship_type_widths:  (used by ADC at $e091 and compared against #$a0 = 160)
+ :000EE0E 18 18 10 
+  - dec: 24, 24, 16
+    [0] = 24 (width of freighter)
+    [1] = 24 (width of cruiser)
+    [2] = 16 (width of pt-boat)
 
 map_gap_from_existing_ship_to_new_ship:  (used by lda at $e181)
  :000EE13 20 46 68 20 24 58 20 24  30 02 01 00 02 05 0A 60  |  Fh $X $0......`
@@ -2432,9 +2645,11 @@ map_gap_from_existing_ship_to_new_ship:  (used by lda at $e181)
         - #$24 (36) = gap needed if newly spawned ship is a cruiser and nearest existing ship is a pt-boat
         - #$30 (48) = gap needed if newly spawned ship is a pt-boat and nearest existing ship is a pt-boat
 
-yet_another_table:
+ships_movement_delay:
  :000EE1C 02 01 00 
-  - index is the newly-spawned ship-type ($e19f)
+  - [0] = 02 (move freighter along every 3 frames - slow)
+  - [1] = 01 (move cruiser along every 2 frames - faster)
+  - [2] = 00 (move pt-boat along every 1 frame - fastest)
 
 ship_scores:
  :000EE1F 02 05 0A
@@ -2527,8 +2742,79 @@ another_kooky_table:
  :000EFB4 00 00 00 00 00 40 40 40  80 80 80 80
 
 some_kooky_table:
- :000EFC0 01 01 01 01 01 01 02 02  02 02 03 03 3F 35 3B 38  | ............?5;8
+ :000EFC0 01 01 01 01 01 01 02 02  02 02 03 03
 
+mission_text1:
+ :000EFCC 3F 35 3B 38 26 33 2F 39  39 2F 35 34 26 2F 39 26  | ?5;8&3/99/54&/9&
+           Y  O  U  R     M  I  S   S  I  O  N     I  S  
+ :000EFDC 3A 35 26 2A 2B 39 3A 38  35 3F 26 27 39 26 33 27  | :5&*+9:85?&'9&3'
+           T  O     D  E  S  T  R   O  Y     A  S     M  A
+ :000EFEC 34 3F 00                                          | 4?.
+           N  Y
+
+mission_text2:
+ :000EFEF 2B 34 2B 33 3F 26 39 2E  2F 36 39 26 27 39 26 36  | +4+3?&9./69&'9&6
+           E  N  E  M  Y     S  H   I  P  S     A  S     P
+ :000EFFF 35 39 39 2F 28 32 2B 26  28 2B 2C 35 38 2B 26 3A  | 599/(2+&(+,58+&:
+           O  S  S  I  B  L  E      B  E  F  O  R  E     T
+ :000F00F 2F 33 2B 26 38 3B 34 39  00                       | /3+&8;49.
+           I  M  E     R  U  N  S
+
+mission_text3:
+
+ :000F018 35 3B 3A 41 26 2C 2F 38  2B 26 3A 35 38 36 2B 2A  | 5;:A&,/8+&:586+*
+           O  U  T  .     F  I  R   E     T  O  R  P  E  D
+ :000F028 35 2B 39 26 28 3F 26 36  38 2B 39 39 2F 34 2D 26  | 5+9&(?&68+99/4-&
+           O  E  S     B  Y     P   R  E  S  S  I  N  G  
+ :000F038 3A 2E 2B 00                                       | :.+.
+           T  H  E
+
+mission_text4:
+
+ :000F03C 28 3B 3A 3A 35 34 26 35  34 26 3A 2E 2B 26 36 27  | (;::54&54&:.+&6'
+           B  U  T  T  O  N     O   N     T  H  E     P  A
+ :000F04C 2A 2A 32 2B 41 26 2F 3A  26 3A 27 31 2B 39 26 49  | **2+A&/:&:'1+9&I
+           D  D  L  E  .     I  T      T  A  K  E  S     3
+ :000F05C 26 39 2B 29 35 34 2A 39  00                       | &9+)54*9.
+              S  E  C  O  N  D  S
+
+mission_text5:
+
+ :000F065 2C 35 38 26 2B 27 29 2E  26 3A 35 38 36 2B 2A 35  | ,58&+').&:586+*5
+           F  O  R     E  A  C  H      T  O  R  P  E  D  O
+ :000F075 26 32 35 27 2A 41 00
+              L  O  A  D  .
+
+mission_text6:
+ :000F07C 26 00                                             | &.
+          <emptyline>
+
+mission_text7:
+ :000F07E FF 26 26 26 26 26 26 26  26 26 43 26 26 2C 38 2B  | .&&&&&&&&&C&&,8+
+    <yellow>                              -        F  R  E
+ :000F08E 2F 2D 2E 3A 2B 38 42 26  26 48 46 46 26 36 35 2F  | /-.:+8B&&HFF&65/
+           I  G  H  T  E  R  :         2  0  0     P  O  I
+ :000F09E 34 3A 39 00                                       | 4:9.
+           N  T  S
+
+mission_text8:
+ :000F0A2 FB 26 26 26 26 26 26 26  26 26 43 26 26 29 38 3B  | .&&&&&&&&&C&&)8;
+      <cyan>                              -        C  R  U
+ :000F0B2 2F 39 2B 38 26 26 42 26  26 4B 46 46 26 36 35 2F  | /9+8&&B&&KFF&65/
+           I  S  E  R        :         5  0  0     P  O  I
+ :000F0C2 34 3A 39 00                                       | 4:9.
+           N  T  S
+
+mission_text9:
+ :000F0C6 FD 26 26 26 26 26 26 26  26 26 43 26 26 36 41 3A  | .&&&&&&&&&C&&6A:
+     <green>                              -        P  .  T
+ :000F0D6 41 26 28 35 27 3A 42 26  47 46 46 46 26 36 35 2F  | A&(5':B&GFFF&65/
+           .     B  O  A  T  :      1  0  0  0     P  O  I
+ :000F0E6 34 3A 39 00                                       | 4:9.
+           N  T  S
+
+no_idea_yet:
+ :000F0EA 00 FF FF FF FF FF                                 | ......
 
 read_paddle_position:
 --------------------
