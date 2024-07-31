@@ -137,7 +137,10 @@ $35-36 arrayBB[2]: (some detail relating to player1 and 2)
 $37-38 arrayE[2]: (some detail relating to player1 and 2)
   - cmp at $e3e9
   - sta at $e3f4
-$39-$3c array0[4]: some details on ships (perhaps if currently visible/enabled or not, 0 or 1)
+$39-$3c ships_visibility[4]: visibility of ships
+                   - #$00 = invisible
+                   - #$01 = visible
+                   - #$ff = shot/exploding
                    (the negative-flag seems critical, and causes 'biggish_jump')
   - read at $e006
   - read at $e049
@@ -145,12 +148,12 @@ $39-$3c array0[4]: some details on ships (perhaps if currently visible/enabled o
   - sta at $e0ba to #$00
   - lda at $e106
   (maybe keeps track of object collisions? index is sprite no#)
-$3d-xx array0-1[x]:  maybe a copy of ship visibility array0?
+$3d-xx array0-1[x]:  maybe a copy of ship visibility ships_visibility?
   - lda at $e074
   - dec at $e078
 $41-xx array0-2[x]: table of ship-types in reversed notation? (02=freighter, 01=cruiser, 00=ptboat)
   - lda at $e07d
-$45-48 array1[4]: x-pos of all ships?
+$45-48 ships_xpos[4]: x-pos of all ships
   - accessed in $e000 routine
   - lda at $e011
   - sta at $e088
@@ -159,7 +162,7 @@ $45-48 array1[4]: x-pos of all ships?
 $49-4c ships_ypos[4]: y-pos of all ships
   - lda at $e00d
   - lda at $e10a
-$4d-50 array2-1[4]:  ; mirror orientation of all ships (01 = normal, FF = reversed?)
+$4d-50 ships_mirror_flag[4]:  ; mirror orientation of all ships (01 = normal, FF = reversed?)
   - adc at $e084
   - lda at $e09e
   - sta at $e0e9
@@ -241,13 +244,13 @@ $E000     M_immnn:1 A9 03    LDA  #$03
 $E002        M_nn:1 85 23    STA  var5  ; $23
 -big_retry:
 $E004        M_nn:1 A6 23    LDX  var5  ; $23
-$E006       M_nnX:1 B5 39    LDA  array0,x  ; $39,X  ; perhaps visibility of all ships
+$E006       M_nnX:1 B5 39    LDA  ships_visibility,x  ; $39,X  ; perhaps visibility of all ships
 $E008        M_rr:1 D0 03    BNE  +skip1  ; $E00D
 $E00A      M_nnnn:2 4C D5 E0 JMP  +big_jump_due_to_$39,x_being_zero  ; $E0D5  ; if $39,x is zero, then we do this jump
 +skip1:
 $E00D       M_nnX:1 B5 49    LDA  ships_ypos,x  ; $49,X  ; y-pos of all ships
 $E00F        M_nn:1 85 12    STA  var2  ; $12  ; y-pos of current ship?
-$E011       M_nnX:1 B5 45    LDA  array1,x  ; $45,X  ; x-pos of all ships?
+$E011       M_nnX:1 B5 45    LDA  ships_xpos,x  ; $45,X  ; x-pos of all ships?
 $E013        M_nn:1 85 11    STA  var1  ; $11  ; x-pos of current ship?
 $E015        M_nn:1 A5 19    LDA  buff_spr2back_coll  ; $19
 $E017     M_nnnnX:2 3D 38 EE AND  sprite_bitfields,x  ; $EE38,X  ; x = currently assessed ship (from 0 - 3)
@@ -278,10 +281,10 @@ $E042        M_rr:1 D0 2C    BNE  +no_spr2back_collision_detected  ; $E070
 +skip_more_stuff:
 $E044     M_immnn:1 A9 FF    LDA  #$FF
 $E046     M_nnnnY:2 99 7D 00 STA  array12,y  ; $007D,Y
-$E049       M_nnX:1 B5 39    LDA  array0,x  ; $39,X
+$E049       M_nnX:1 B5 39    LDA  ships_visibility,x  ; $39,X
 $E04B        M_rr:1 30 23    BMI  +no_spr2back_collision_detected  ; $E070
 $E04D     M_immnn:1 A9 FF    LDA  #$FF
-$E04F       M_nnX:1 95 39    STA  array0,x  ; $39,X
+$E04F       M_nnX:1 95 39    STA  ships_visibility,x  ; $39,X
 $E051     M_immnn:1 A9 18    LDA  #$18
 $E053       M_nnX:1 95 55    STA  array4,x  ; $55,X
 $E055     M_nnnnY:2 B9 AC EF LDA  some_colour_chooser_table,y  ; $EFAC,Y  ; seems to choose either yellow or orange?
@@ -299,7 +302,7 @@ $E067      M_nnnn:2 20 E0 E6 JSR  add_points_to_score_then_update_high_score_and
 $E06A      M_nnnn:2 20 5D E9 JSR  trigger_voice3_sound  ; $E95D  ; (probably explosion sound?)
 $E06D      M_nnnn:2 4C BD E1 JMP  +super_duper_big_jump  ; $E1BD
 +no_spr2back_collision_detected:
-$E070       M_nnX:1 B5 39    LDA  array0,x  ; $39,X
+$E070       M_nnX:1 B5 39    LDA  ships_visibility,x  ; $39,X
 $E072        M_rr:1 30 4E    BMI  +biggish_jump  ; $E0C2
 $E074       M_nnX:1 B5 3D    LDA  array0-1,x  ; $3D,X
 $E076        M_rr:1 F0 05    BEQ  +small_jump  ; $E07D
@@ -310,9 +313,9 @@ $E07D       M_nnX:1 B5 41    LDA  array0-2,x  ; $41,X
 $E07F       M_nnX:1 95 3D    STA  array0-1,x  ; $3D,X
 $E081        M_nn:1 A5 11    LDA  var1  ; $11  ; x-position of current ship
 $E083      M_impl:0 18       CLC
-$E084       M_nnX:1 75 4D    ADC  array2-1,x  ; $4D,X  ; mirror orientation of ships (#$01 normal, #$ff reversed)
+$E084       M_nnX:1 75 4D    ADC  ships_mirror_flag,x  ; $4D,X  ; mirror orientation of ships (#$01 normal, #$ff reversed)
 $E086        M_nn:1 85 11    STA  var1  ; $11
-$E088       M_nnX:1 95 45    STA  array1,x  ; $45,X  ; x-pos of all ships
+$E088       M_nnX:1 95 45    STA  ships_xpos,x  ; $45,X  ; x-pos of all ships
 $E08A     M_immnn:1 C9 A0    CMP  #$A0  ; dec160
 $E08C        M_rr:1 B0 28    BCS  +skip_some_stuff  ; $E0B6  ; branch if >= 160
 $E08E       M_nnX:1 B4 51    LDY  array3,x  ; $51,X  ; ship-type of all ships
@@ -323,7 +326,7 @@ $E096        M_rr:1 B0 1E    BCS  +skip_some_stuff  ; $E0B6  ; branch if new x-p
 $E098      M_impl:0 8A       TXA
 $E099      M_nnnn:2 20 B4 E8 JSR  move_curr_ship_position  ; $E8B4  (curr ship x,y vals in var1/$11 and var2/$12)
 $E09C        M_nn:1 A6 23    LDX  var5  ; $23  ; current ship-index
-$E09E       M_nnX:1 B5 4D    LDA  array2-1,x  ; $4D,X  ; mirror orientation of ships? (#$01 normal, #$ff reversed?)
+$E09E       M_nnX:1 B5 4D    LDA  ships_mirror_flag,x  ; $4D,X  ; mirror orientation of ships? (#$01 normal, #$ff reversed?)
 $E0A0     M_immnn:1 29 04    AND  #$04
 $E0A2       M_nnX:1 15 51    ORA  array3,x  ; $51,X  ; ship-type of all ships
 $E0A4      M_impl:0 18       CLC
@@ -341,7 +344,7 @@ $E0B3      M_nnnn:2 4C BD E1 JMP  +super_duper_big_jump  ; $E1BD
   ' ship has gone out of range, time to switch it off? 
 $E0B6        M_nn:1 A6 23    LDX  var5  ; $23  ; idx to current ship
 $E0B8     M_immnn:1 A9 00    LDA  #$00
-$E0BA       M_nnX:1 95 39    STA  array0,x  ; $39,X
+$E0BA       M_nnX:1 95 39    STA  ships_visibility,x  ; $39,X
 $E0BC      M_impl:0 8A       TXA
 $E0BD      M_nnnn:2 20 E8 E8 JSR  turn_off_sprite_A  ; $E8E8
 $E0C0        M_rr:1 F0 F1    BEQ  -skip_back  ; $E0B3  ; branch if all sprites are off?
@@ -377,10 +380,10 @@ $E0EB        M_nn:1 85 08    STA  var0  ; $08  ; let var0 = y-pos of current shi
 +decide_new_ship_type:
 $E0ED      M_nnnn:2 20 93 E8 JSR  random_num_gen_into_A ; $E893  ; get some other magic value in A
 $E0F0     M_immnn:1 C9 50    CMP  #$50  ; dec80
-$E0F2        M_rr:1 90 0A    BCC  +skip_to_lda_2  ; $E0FE  ; branch if A<80
+$E0F2        M_rr:1 90 0A    BCC  +skip_to_lda_2  ; $E0FE  ; branch if A<80  ; if under 80, let it be a pt boat
 $E0F4     M_immnn:1 C9 A0    CMP  #$A0  ; dec160
-$E0F6        M_rr:1 90 03    BCC  +skip_to_lda_1  ; $E0FB  ; branch if A<160
-$E0F8     M_immnn:1 A9 00    LDA  #$00
+$E0F6        M_rr:1 90 03    BCC  +skip_to_lda_1  ; $E0FB  ; branch if A<160  ; else if under 160, let it be a cruiser
+$E0F8     M_immnn:1 A9 00    LDA  #$00                     ; else it's a freighter (highest probability)
 $E0FA      M_nnnn:2 2C A9 01 BIT  $01A9
   +skip_to_lda_1:
   $E0FB     M_immnn:1 A9 01    LDA  #$01
@@ -393,7 +396,7 @@ some_comparison_of_this_new_ship_against_existing_ships:
 $E102     M_immnn:1 A0 00    LDY  #$00
 $E104     M_immnn:1 A2 03    LDX  #$03
 -retry2:
-$E106       M_nnX:1 B5 39    LDA  array0,x  ; $39,X  ; is ship at this index visible yet?
+$E106       M_nnX:1 B5 39    LDA  ships_visibility,x  ; $39,X  ; is ship at this index visible yet?
 $E108        M_rr:1 F0 0B    BEQ  +skip2  ; $E115    ; branch if not visible?
 $E10A       M_nnX:1 B5 49    LDA  ships_ypos,x  ; $49,X  ; y-pos of all ships
 $E10C        M_nn:1 C5 08    CMP  var0  ; $08  ; y-pos of current ship?
@@ -409,67 +412,72 @@ $E119        M_rr:1 F0 6F    BEQ  +big_skip1  ; $E18A  ; branch if no other exis
 $E11B        M_nn:1 85 08    STA  var0  ; $08  ; the number of existing ships that are on the same ypos as newly spawned ship
 $E11D        M_nn:1 C6 08    DEC  var0  ; $08
 $E11F        M_nn:1 A6 85    LDX  array14  ; $85  ; the first existing ship-idx on same y-pos as newly spawned ship
-$E121       M_nnX:1 B5 4D    LDA  array2-1,x  ; $4D,X  ; mirror orientation of all ships? (01=normal, ff=reversed)
+$E121       M_nnX:1 B5 4D    LDA  ships_mirror_flag,x  ; $4D,X  ; mirror orientation of all ships? (01=normal, ff=reversed)
 $E123        M_nn:1 85 0A    STA  var0-2  ; $0A  ; the mirror orientation of the first existing ship on same ypos as newly spawned ship
 $E125        M_rr:1 30 29    BMI  +skip3  ; $E150  ; if mirror orientation = $ff (mirrored), then branch
 $E127     M_immnn:1 C0 01    CPY  #$01
-$E129        M_rr:1 F0 1E    BEQ  +skip4  ; $E149
+$E129        M_rr:1 F0 1E    BEQ  +skip4  ; $E149  ; if no# of existing ships on same ypos as new ship is only one, then branch
 -jmp_retry:
-$E12B     M_immnn:1 A0 00    LDY  #$00
+$E12B     M_immnn:1 A0 00    LDY  #$00    ; if we're here, then there are multiple existing ships on same ypos as new ship
 -retry3:
-$E12D       M_nnY:1 B6 85    LDX  array14,y  ; $85,Y
-$E12F       M_nnX:1 B5 45    LDA  array1,x  ; $45,X  ; x-pos of all ships (x = index of an existing ship from the array14 list)
-$E131       M_nnY:1 B6 86    LDX  array14+1,y  ; $86,Y
-$E133       M_nnX:1 D5 45    CMP  array1,x  ; $45,X
-$E135        M_rr:1 90 0D    BCC  +skip5  ; $E144
-$E137        M_rr:1 F0 0B    BEQ  +skip5 ; $E144
-$E139     M_nnnnY:2 B9 85 00 LDA  array14,y  ; $0085,Y
-$E13C       M_nnY:1 96 85    STX  array14,y ; $85,Y
-$E13E     M_nnnnY:2 99 86 00 STA  array14+1,y  ; $0086,Y
+' some kind of sorting logic?
+$E12D       M_nnY:1 B6 85    LDX  array14,y  ; $85,Y  ; idx of existing ships on same ypos as new ship
+$E12F       M_nnX:1 B5 45    LDA  ships_xpos,x  ; $45,X  ; x-pos of all ships (x = index of an existing ship from the array14 list)
+$E131       M_nnY:1 B6 86    LDX  array14+1,y  ; $86,Y  ; idx of existing ship after this prior one
+$E133       M_nnX:1 D5 45    CMP  ships_xpos,x  ; $45,X  ; compare 1st ship's xpos with 2nd ships xpos
+$E135        M_rr:1 90 0D    BCC  +no_need_to_swap_pair  ; $E144  ; if 1st existing ship's xpos is less than 2nd existing ship's xpos, then branch
+$E137        M_rr:1 F0 0B    BEQ  +no_need_to_swap_pair ; $E144   ; or if their xpos are equal, branch too
+' need to swap pair to sort them in order
+$E139     M_nnnnY:2 B9 85 00 LDA  array14,y  ; $0085,Y  ; a = xpos of 1st existing ship
+$E13C       M_nnY:1 96 85    STX  array14,y  ; $85,Y     ; let the 1st ship xpos now equal the 2nd ship xpos
+$E13E     M_nnnnY:2 99 86 00 STA  array14+1,y  ; $0086,Y  ; let the 2nd ship xpos now equal the 1st ship xpos (i.e. swap them)
 $E141      M_nnnn:2 4C 2B E1 JMP  -jmp_retry  ; $E12B
-+skip5:
++no_need_to_swap_pair:
 $E144      M_impl:0 C8       INY
-$E145        M_nn:1 C4 08    CPY  var0  ; $08  ; the number of existing ships that are on the same ypos as newly spawned ship
-$E147        M_rr:1 90 E4    BCC  -retry3  ; $E12D  ; if incremented y < no# of existing ships on same ypos, then branch
+$E145        M_nn:1 C4 08    CPY  var0  ; $08  ; the number of existing ships that are on the same ypos as newly spawned ship minus one
+$E147        M_rr:1 90 E4    BCC  -retry3  ; $E12D  ; if incremented y < no# of existing ships on same ypos minus one, then branch
 +skip4:
-$E149        M_nn:1 A6 85    LDX  array14  ; $85  ; ship-index that was spawned recently?
-$E14B       M_nnX:1 B5 45    LDA  array1,x  ; $45,X  ; x-pos of all ships
+$E149        M_nn:1 A6 85    LDX  array14  ; $85  ; 1st of existing (and sorted ships) that is closest to the left screen edge
+$E14B       M_nnX:1 B5 45    LDA  ships_xpos,x  ; $45,X  ; x-pos of all ships
 $E14D      M_nnnn:2 4C 77 E1 JMP  +another_skip  ; $E177
 +skip3:
+' mirrored orientation (ships on this row are currently moving right to left)
 $E150     M_immnn:1 C0 01    CPY  #$01  ; the number of existing ships that are on the same ypos as newly spawned ship
-$E152        M_rr:1 F0 1C    BEQ  +skip6  ; $E170
+$E152        M_rr:1 F0 1C    BEQ  +skip6  ; $E170  ; if there's only one existing ship on this row, then branch (no need to sort?)
 -jmp_back_a_little:
+' sorting logic for mirrored case
 $E154     M_immnn:1 A0 00    LDY  #$00
 -retry4:
-$E156       M_nnY:1 B6 85    LDX  array14,y  ; $85,Y
-$E158       M_nnX:1 B5 45    LDA  array1,x  ; $45,X
-$E15A       M_nnY:1 B6 86    LDX  array14+1,y  ; $86,Y
-$E15C       M_nnX:1 D5 45    CMP  array1,x  ; $45,X
-$E15E        M_rr:1 B0 0B    BCS  +skip7  ; $E16B
-$E160     M_nnnnY:2 B9 85 00 LDA  array14,y  ; $0085,Y
-$E163       M_nnY:1 96 85    STX  array14,y  ; $85,Y
-$E165     M_nnnnY:2 99 86 00 STA  array14+1,y  ; $0086,Y
+$E156       M_nnY:1 B6 85    LDX  array14,y  ; $85,Y  ; idx of existing ships on same ypos as new ship
+$E158       M_nnX:1 B5 45    LDA  ships_xpos,x  ; $45,X  ; get xpos of 1st existing ship
+$E15A       M_nnY:1 B6 86    LDX  array14+1,y  ; $86,Y  ; get idx of 2nd existing ship
+$E15C       M_nnX:1 D5 45    CMP  ships_xpos,x  ; $45,X ; compare 1st ship's xpos with 2nd ship's xpos
+$E15E        M_rr:1 B0 0B    BCS  +skip7  ; $E16B  ; if 1st ship's xpos is >= 2nd ship's xpos, then branch (no need to swap for sort)
+$E160     M_nnnnY:2 B9 85 00 LDA  array14,y  ; $0085,Y  ; a = xpos of 1st ship
+$E163       M_nnY:1 96 85    STX  array14,y  ; $85,Y    ; let 1st ship xpos now equal 2nd ship xpos
+$E165     M_nnnnY:2 99 86 00 STA  array14+1,y  ; $0086,Y  ; let 2nd ship xpos now equal 1st ship xpos (i.e. swap them)
 $E168      M_nnnn:2 4C 54 E1 JMP  -jmp_back_a_little  ; $E154
 +skip7:
 $E16B      M_impl:0 C8       INY
-$E16C        M_nn:1 C4 08    CPY  var0  ; $08
-$E16E        M_rr:1 90 E6    BCC  -retry4  ; $E156
+$E16C        M_nn:1 C4 08    CPY  var0  ; $08  ; the number of existing ships on same ypos as new ship minus one
+$E16E        M_rr:1 90 E6    BCC  -retry4  ; $E156  ; if incrementeed y < no# existing ships on same ypos minus one, then branch
 +skip6:
-$E170        M_nn:1 A6 85    LDX  array14  ; $85
-$E172     M_immnn:1 A9 88    LDA  #$88  ; dec136
+$E170        M_nn:1 A6 85    LDX  array14  ; $85  ; 1st of existing (and sorted ships) that is closest to the right screen edge
+$E172     M_immnn:1 A9 88    LDA  #$88  ; dec136 (the right-most edge's xpos)
 $E174      M_impl:0 38       SEC
-$E175       M_nnX:1 F5 45    SBC  array1,x  ; $45,X  ; x-pos of all ships
+$E175       M_nnX:1 F5 45    SBC  ships_xpos,x  ; $45,X  ; A = right_edge_xpos - 1st_existing_sorted_ships_xpos
 +another_skip:
-$E177        M_nn:1 85 08    STA  var0  ; $08  ; hold x-pos of current ship?
-$E179       M_nnX:1 B5 51    LDA  array3,x  ; $51,X  ; (index to ship-type?)
+' assess the gap between closest existing ship and newly spawned ship
+$E177        M_nn:1 85 08    STA  var0  ; $08  ; holds x-width between the spawn-edge (left or right) and the closest existing ship
+$E179       M_nnX:1 B5 51    LDA  array3,x  ; $51,X  ; get the ship-type of the closest ship to the spawn-edge
 $E17B         M_A:0 0A       ASL  ; multiply by 2
 $E17C       M_nnX:1 75 51    ADC  array3,x  ; $51,X  ; a bit like multiply by 3  ; freighter=00, cruiser=3, ptboat=6
 $E17E        M_nn:1 65 09    ADC  var0-1  ; $09  ; newly-spawned ship-type
 $E180      M_impl:0 AA       TAX
-$E181     M_nnnnX:2 BD 13 EE LDA  some_other_table,x  ; $EE13,X
-$E184        M_nn:1 C5 08    CMP  var0  ; $08  ; x-pos of current ship?
-$E186        M_rr:1 B0 35    BCS  +super_duper_big_jump  ; $E1BD  ; branch if >= x-pos of current ship
-$E188        M_rr:1 90 0D    BCC  +little_skip1  ; $E197
+$E181     M_nnnnX:2 BD 13 EE LDA  map_gap_from_existing_ship_to_new_ship,x  ; $EE13,X
+$E184        M_nn:1 C5 08    CMP  var0  ; $08  ; compare with x-width between spawn-edge and closest existing ship
+$E186        M_rr:1 B0 35    BCS  +not_big_enough_gap_yet  ; $E1BD  ; branch if required_gap >= x-width spawn-edge to closest ship
+$E188        M_rr:1 90 0D    BCC  +sufficient_gap_to_spawn_new_ship  ; $E197
 +big_skip1:
 $E18A      M_nnnn:2 20 93 E8 JSR  random_num_gen_into_A  ; $E893  ; put magic number in A
 $E18D      M_impl:0 A8       TAY
@@ -479,10 +487,10 @@ $E192      M_nnnn:2 2C A9 FF BIT  $FFA9
   +skip_to_lda_ff:
   $E193     M_immnn:1 A9 FF    LDA  #$FF  ; current ship = mirrored
 $E195        M_nn:1 85 0A    STA  var0-2  ; $0A  ; set curr ship to mirrored
-+little_skip1:
++sufficient_gap_to_spawn_new_ship:
 $E197        M_nn:1 A6 23    LDX  var5  ; $23  ; idx to curr ship
 $E199     M_immnn:1 A9 01    LDA  #$01
-$E19B       M_nnX:1 95 39    STA  array0,x  ; $39,X  ; ship visibility table, set it to 1/visible
+$E19B       M_nnX:1 95 39    STA  ships_visibility,x  ; $39,X  ; ship visibility table, set it to 1/visible
 $E19D       M_nnX:1 95 3D    STA  array0-1,x  ; $3D,X
 $E19F        M_nn:1 A5 09    LDA  var0-1  ; $09  ; newly-spawned ship-type?
 $E1A1       M_nnX:1 95 51    STA  array3,x  ; $51,X  ; ship-type of all ships
@@ -494,14 +502,14 @@ $E1AB        M_rr:1 D0 03    BNE  +tiny_skip  ; $E1B0  ; branch if not pt-boat
 $E1AD      M_nnnn:2 20 3C E9 JSR  v1_reset_and_gate_off  ; $E93C  ; turn off v1 if we've spawned a pt-boat
 +tiny_skip:
 $E1B0        M_nn:1 A5 0A    LDA  var0-2  ; $0A  ; current ship mirror-state ($01=normal, $ff=mirrored)
-$E1B2       M_nnX:1 95 4D    STA  array2-1,x  ; $4D,X  ; mirror orientation of all ships
+$E1B2       M_nnX:1 95 4D    STA  ships_mirror_flag,x  ; $4D,X  ; mirror orientation of all ships
 $E1B4        M_rr:1 10 03    BPL  +skip_to_lda_00  ; $E1B9  ; branch if normal ship-orientation
-$E1B6     M_immnn:1 A9 88    LDA  #$88  ; a = #$88 (dec136) for reversed ship-mirror orientation
+$E1B6     M_immnn:1 A9 88    LDA  #$88  ; a = #$88 (dec136) (the right-edge xpos) for reversed ship-mirror orientation
 $E1B8      M_nnnn:2 2C A9 00 BIT  $00A9
   +skip_to_lda_00:
-  $E1B9     M_immnn:1 A9 00    LDA  #$00  ; a = 0 for normal ship-mirror orientation
-$E1BB       M_nnX:1 95 45    STA  array1,x  ; $45,X  ; x-pos of all ships
-+super_duper_big_jump:
+  $E1B9     M_immnn:1 A9 00    LDA  #$00  ; a = 0 (the left-edge xpos) for normal ship-mirror orientation
+$E1BB       M_nnX:1 95 45    STA  ships_xpos,x  ; $45,X  ; x-pos of all ships
++not_big_enough_gap_yet:
 $E1BD        M_nn:1 C6 23    DEC  var5  ; $23  ; idx to curr ship
 $E1BF        M_rr:1 30 03    BMI  +skip_to_rts  ; $E1C4
 $E1C1      M_nnnn:2 4C 04 E0 JMP  -big_retry  ; $E004
@@ -1364,7 +1372,6 @@ $E4CF     M_immnn:1 A2 03    LDX  #$03
 $E4D1     M_nnnnX:2 BC 28 EE LDY  kooky_screen_locations,x  ; $EE28,X
 $E4D4      M_InnY:1 B1 02    LDA  (scr_ptr_lo),y  ; ($02),Y  ; read the char at this screen location
 $E4D6     M_immnn:1 C9 60    CMP  #$60  ; first bullet char in group
-
 $E4D8        M_rr:1 90 04    BCC  +less_than_range_of_bullet_chars  ; $E4DE
 $E4DA     M_immnn:1 A9 26    LDA  #$26  ; ' ' space char
 $E4DC      M_InnY:1 91 02    STA  (scr_ptr_lo),y  ; ($02),Y  ; draw ' ' space char over prior bullet
@@ -1602,7 +1609,7 @@ $E6BA         M_A:0 4A       LSR
 $E6BB         M_A:0 4A       LSR
 $E6BC         M_A:0 4A       LSR  ; divide by 8
 $E6BD        M_nn:1 85 14    STA  txt_y_pos  ; $14
-$E6BF        M_nn:1 24 48    BIT  array1+3  ; $48
+$E6BF        M_nn:1 24 48    BIT  ships_xpos+3  ; $48
 
 adjust_scr_and_clr_ptr_locations:
 '-------------------------------
@@ -2015,7 +2022,7 @@ $E989      M_nnnn:2 8D 12 D4 STA  $D412  ; v3_ctrl_reg  (noise wave, gate off)  
 +skip4:
 $E98C     M_immnn:1 A2 03    LDX  #$03
 -loop1:
-$E98E       M_nnX:1 B5 39    LDA  array0,x  ; $39,X
+$E98E       M_nnX:1 B5 39    LDA  ships_visibility,x  ; $39,X
 $E990        M_rr:1 F0 08    BEQ  +skip5  ; $E99A
 $E992        M_rr:1 30 06    BMI  +skip5  ; $E99A
 $E994       M_nnX:1 B5 51    LDA  array3,x  ; $51,X  ; possibly index to the type of ship on screen
@@ -2403,12 +2410,27 @@ some_table:  (used by ADC at $e091 and compared against #$a0 = 160)
  :000EE1E 00                                                | .
   - dec: 24, 24, 16, 0, 10, 32, 70
 
-some_other_table:  (used by lda at $e181)
+map_gap_from_existing_ship_to_new_ship:  (used by lda at $e181)
  :000EE13 20 46 68 20 24 58 20 24  30 02 01 00 02 05 0A 60  |  Fh $X $0......`
-  - groups of 3 (relating to ship-type in some way)
-  - [0] = 20 46 68
-  - [1] = 20 24 58
-  - [2] = 20 24 30
+  - groups of 3 (relating to ship-type of existing ship closest to spawn edge)
+  - i.e., map[3][3], where:
+    - 1st idx is existing_ship_type
+    - 2nd idx is newly_spawned_ship_type
+  - The rough gist is, if the existing nearest ship is slow, and the new ship is faster, then we'll need a bigger gap?
+    - [0] = 20 46 68  (if existing ship was a freighter, use this group)
+        - #$20 (32) = gap needed if newly spawned ship is a freighter and nearest existing ship is freighter
+        - #$46 (70) = gap needed if newly spawned ship is a cruiser and nearest existing ship is freighter
+                        - since cruiser is slightly faster than freighter, we need a slightly bigger gap
+        - #$68 (104) = gap needed if newly spawned ship is a pt-boat and nearest existing ship is freighter
+                        - since pt-boat is much faster than freighter, we need an even bigger gap
+    - [1] = 20 24 58  (if existing ship was a cruiser, use this group)
+        - #$20 (32) = gap needed if newly spawned ship is a freighter and nearest existing ship is a cruiser
+        - #$24 (36) = gap needed if newly spawned ship is a cruiser and nearest existing ship is a cruiser
+        - #$58 (88) = gap needed if newly spawned ship is a pt-boat and nearest existing ship is a cruiser
+    - [2] = 20 24 30  (if existing ship was a pt-boat, use this group)
+        - #$20 (32) = gap needed if newly spawned ship is a freighter and nearest existing ship is a pt-boat
+        - #$24 (36) = gap needed if newly spawned ship is a cruiser and nearest existing ship is a pt-boat
+        - #$30 (48) = gap needed if newly spawned ship is a pt-boat and nearest existing ship is a pt-boat
 
 yet_another_table:
  :000EE1C 02 01 00 
