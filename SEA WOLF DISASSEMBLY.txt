@@ -32,7 +32,10 @@ $09 var0-1:
   - dec at $e3fe
   - sta at $e40a  (maybe it stores the current paddle position?)
   - lda at $e519  (seems to store the char representing the missile shot to be drawn to the screen)
-$0a var0-2: (can either be #$01 or #$ff) - mirror orientation of current ship?
+$0a curr_ship_mirror_state:
+  - can either be:
+    - #$01 = normal (ship faces to the right, will travel left to right)
+    - #$ff = mirrored (ship faces to the left, will travel right to left)
   - sta at $e123
   - sta at $e195  (can either be #$01 or #$ff)
 $0e var0-6:
@@ -55,8 +58,9 @@ $13 txt_x_pos:  the x-position to draw text from  :  set to #$12 (18) in print_r
 $14 txt_y_pos:  the y-position (row) to draw text from  :  set to #$18 (24) in print_remaining_game_time
            - set to #$00 in init_game_screen
            - set to #$17  (23) in prepare_game_screen
-$16 var4:
-  - set to #$FF in start_game
+$16 real_game_mode_flag:  (is it some kind of attract-mode flag?)
+  - if set to #$FF, this means user will control the paddles for real gameplay
+  - if set to #$00, attract mode is on. This means that computer will control both paddles automatically for attract mode
   - ldy at $e3e1
 $17 initial_game_time  (in minutes?)
 $18 buff_spr2spr_coll:  buffered value of sprite-to-sprite collision
@@ -413,7 +417,7 @@ $E11B        M_nn:1 85 08    STA  var0  ; $08  ; the number of existing ships th
 $E11D        M_nn:1 C6 08    DEC  var0  ; $08
 $E11F        M_nn:1 A6 85    LDX  array14  ; $85  ; the first existing ship-idx on same y-pos as newly spawned ship
 $E121       M_nnX:1 B5 4D    LDA  ships_mirror_flag,x  ; $4D,X  ; mirror orientation of all ships? (01=normal, ff=reversed)
-$E123        M_nn:1 85 0A    STA  var0-2  ; $0A  ; the mirror orientation of the first existing ship on same ypos as newly spawned ship
+$E123        M_nn:1 85 0A    STA  curr_ship_mirror_state  ; $0A  ; the mirror orientation of the first existing ship on same ypos as newly spawned ship
 $E125        M_rr:1 30 29    BMI  +skip3  ; $E150  ; if mirror orientation = $ff (mirrored), then branch
 $E127     M_immnn:1 C0 01    CPY  #$01
 $E129        M_rr:1 F0 1E    BEQ  +skip4  ; $E149  ; if no# of existing ships on same ypos as new ship is only one, then branch
@@ -486,7 +490,7 @@ $E190     M_immnn:1 A9 01    LDA  #$01  ; current ship = normal
 $E192      M_nnnn:2 2C A9 FF BIT  $FFA9
   +skip_to_lda_ff:
   $E193     M_immnn:1 A9 FF    LDA  #$FF  ; current ship = mirrored
-$E195        M_nn:1 85 0A    STA  var0-2  ; $0A  ; set curr ship to mirrored
+$E195        M_nn:1 85 0A    STA  curr_ship_mirror_state  ; $0A  ; set curr ship to mirrored
 +sufficient_gap_to_spawn_new_ship:
 $E197        M_nn:1 A6 23    LDX  var5  ; $23  ; idx to curr ship
 $E199     M_immnn:1 A9 01    LDA  #$01
@@ -501,7 +505,7 @@ $E1A9     M_immnn:1 C0 02    CPY  #$02  ; is ship-type = pt-boat?
 $E1AB        M_rr:1 D0 03    BNE  +tiny_skip  ; $E1B0  ; branch if not pt-boat
 $E1AD      M_nnnn:2 20 3C E9 JSR  v1_reset_and_gate_off  ; $E93C  ; turn off v1 if we've spawned a pt-boat
 +tiny_skip:
-$E1B0        M_nn:1 A5 0A    LDA  var0-2  ; $0A  ; current ship mirror-state ($01=normal, $ff=mirrored)
+$E1B0        M_nn:1 A5 0A    LDA  curr_ship_mirror_state  ; $0A  ; current ship mirror-state ($01=normal, $ff=mirrored)
 $E1B2       M_nnX:1 95 4D    STA  ships_mirror_flag,x  ; $4D,X  ; mirror orientation of all ships
 $E1B4        M_rr:1 10 03    BPL  +skip_to_lda_00  ; $E1B9  ; branch if normal ship-orientation
 $E1B6     M_immnn:1 A9 88    LDA  #$88  ; a = #$88 (dec136) (the right-edge xpos) for reversed ship-mirror orientation
@@ -1015,13 +1019,15 @@ $E2A6      M_nnnn:2 20 5F E3 JSR  redraw_torpedo_amount_indicator  ; $E35F
 +skip_if_not_60:
 +skip_if_zero:
 $E2A9        M_nn:1 A5 23    LDA  var5  ; $23
-$E2AB        M_nn:1 A4 16    LDY  var4  ; $16
-$E2AD        M_rr:1 D0 0A    BNE  +skip_if_var4_not_zero  ; $E2B9
+$E2AB        M_nn:1 A4 16    LDY  real_game_mode_flag  ; $16
+$E2AD        M_rr:1 D0 0A    BNE  +skip_if_in_real_game_mode_flag  ; $E2B9
+' if in attract mode, randomly decide when to fire missiles
 $E2AF      M_nnnn:2 20 93 E8 JSR  random_num_gen_into_A  ; $E893
 $E2B2     M_immnn:1 C9 03    CMP  #$03
-$E2B4        M_rr:1 90 12    BCC  +skip_if_<_3  ; $E2C8  ; branch if less than 3
+$E2B4        M_rr:1 90 12    BCC  +auto_fire_missile_while_in_attract  ; $E2C8  ; branch if less than 3
 $E2B6      M_nnnn:2 4C BF E2 JMP  +skip_jmp  ; $E2BF
-+skip_if_var4_not_zero:
++skip_if_in_real_game_mode_flag:
+' if not in attract, we're in real game, to read user input for fire button
 $E2B9      M_nnnn:2 20 83 E7 JSR  read_paddle_fire_button  ; $E783
 $E2BC      M_impl:0 AA       TAX
 $E2BD        M_rr:1 D0 09    BNE  +paddle_fires_pressed  ; $E2C8  ; branch if any paddle fires pressed
@@ -1030,7 +1036,7 @@ $E2BF        M_nn:1 A6 23    LDX  var5  ; $23
 $E2C1     M_immnn:1 A9 00    LDA  #$00
 $E2C3       M_nnX:1 95 33    STA  arrayA,x  ; $33,X  (something to do with game time?)
 $E2C5      M_nnnn:2 4C 57 E3 JMP  +big_jmp_to_near_end  ; $E357
-+skip_if_<_3:
++auto_fire_missile_while_in_attract:
 +paddle_fires_pressed:
 $E2C8        M_nn:1 A6 23    LDX  var5  ; $23
 $E2CA       M_nnX:1 B5 33    LDA  arrayA,x  ; $33,X  ; (something to do with game time?)
@@ -1207,8 +1213,9 @@ $E3D8        M_nn:1 85 14    STA  txt_y_pos  ; $14
 $E3DA     M_immnn:1 A9 00    LDA  #$00
 $E3DC        M_nn:1 85 13    STA  txt_x_pos  ; $13
 $E3DE      M_nnnn:2 20 C0 E6 JSR  adjust_scr_and_clr_ptr_locations  ; $E6C0
-$E3E1        M_nn:1 A4 16    LDY  var4  ; $16
-$E3E3        M_rr:1 D0 20    BNE  +branch_ahead1  ; $E405
+$E3E1        M_nn:1 A4 16    LDY  real_game_mode_flag  ; $16
+$E3E3        M_rr:1 D0 20    BNE  +skip_if_in_real_game_mode  ; $E405
+' if we're in attract mode, move paddles around automatically?
 $E3E5       M_nnX:1 B5 35    LDA  arrayBB,x  ; $35,X
 $E3E7        M_nn:1 85 09    STA  var0-1  ; $09
 $E3E9       M_nnX:1 D5 37    CMP  arrayE,x  ; $37,X
@@ -1228,7 +1235,7 @@ $E3FD      M_nnnn:2 2C C6 09 BIT  $09C6
 +jump_ahead:
 $E400        M_nn:1 A5 09    LDA  var0-1  ; $09
 $E402      M_nnnn:2 4C 0C E4 JMP  +jump_ahead2  ; $E40C
-+branch_ahead1:
++skip_if_in_real_game_mode:
 $E405        M_nn:1 A5 23    LDA  var5  ; $23
 $E407      M_nnnn:2 20 F0 F0 JSR  read_paddle_position  ; $F0F0
 $E40A        M_nn:1 85 09    STA  var0-1  ; $09
@@ -1522,6 +1529,7 @@ $E5C2      M_nnnn:2 20 5F E3 JSR  redraw_torpedo_amount_indicator  ; $E35F
 $E5C5     M_immnn:1 A2 01    LDX  #$01
 $E5C7      M_nnnn:2 20 5F E3 JSR  redraw_torpedo_amount_indicator  ; $E35F
 $E5CA      M_nnnn:2 4C F3 E8 JMP  allow_interrupts  ; $E8F3
+midway_in_preparing_game_screen:
 $E5CD      M_nnnn:2 20 F5 E8 JSR  interrupt_precursor  ; $E8F5
 $E5D0      M_nnnn:2 20 99 E7 JSR  init_game_screen  ; $E799
 $E5D3     M_immnn:1 A2 4F    LDX  #$4F  ; dec79
@@ -1678,9 +1686,11 @@ $E6DF      M_impl:0 60       RTS
 
 add_points_to_score_then_update_high_score_and_reprint:
 '-----------------------------------------------------
-$E6E0        M_nn:1 A4 16    LDY  var4  ; $16  ; was set to #$ff in start_game
-$E6E2        M_rr:1 D0 01    BNE  $E6E5
+$E6E0        M_nn:1 A4 16    LDY  real_game_mode_flag  ; $16  ; was set to #$ff in start_game
+$E6E2        M_rr:1 D0 01    BNE  +skip_if_in_real_game_mode  ; $E6E5
+' if we are in attract mode, bail out early (we won't add anything to the score)
 $E6E4      M_impl:0 60       RTS
++skip_if_in_real_game_mode:
 $E6E5      M_impl:0 F8       SED
 $E6E6      M_impl:0 18       CLC
 $E6E7       M_nnX:1 75 1D    ADC  p1_score_lo,x  ; $1D,X
@@ -2218,17 +2228,17 @@ $E9C6      M_impl:0 60       RTS
 start_game:
 '---------
 $E9C7      M_nnnn:2 20 93 EB JSR  init_game_vars  ; $EB93
-$E9CA     M_immnn:1 A9 FF    LDA  #$FF
-$E9CC        M_nn:1 85 16    STA  var4  ; $16
+$E9CA     M_immnn:1 A9 FF    LDA  #$FF  ; turn on flag to say we are in real game (and not in attract mode)
+$E9CC        M_nn:1 85 16    STA  real_game_mode_flag  ; $16
 $E9CE        M_nn:1 A5 17    LDA  initial_game_time  ; $17
 $E9D0        M_nn:1 85 28    STA  minutes_left  ; $28
 $E9D2        M_nn:1 85 33    STA  var10  ; $33
 $E9D4        M_nn:1 85 34    STA  var11  ; $34
 $E9D6     M_immnn:1 A9 00    LDA  #$00
 $E9D8        M_nn:1 85 1D    STA  p1_score_lo  ; var5  ; $1D
-$E9DA        M_nn:1 85 1E    STA  var6  ; $1E
+$E9DA        M_nn:1 85 1E    STA  p2_score_lo  ; $1E
 $E9DC        M_nn:1 85 1F    STA  p1_score_hi  ; var7  ; $1F
-$E9DE        M_nn:1 85 20    STA  var8  ; $20
+$E9DE        M_nn:1 85 20    STA  p2_score_hi  ; $20
 $E9E0      M_nnnn:2 20 7D E5 JSR  prepare_game_screen ; $E57D
 $E9E3      M_nnnn:2 20 30 E9 JSR  init_sid  ; $E930
 $E9E6     M_immnn:1 A9 3F    LDA  #$3F  ; %0011 1111
@@ -2247,9 +2257,10 @@ $EA05     M_immnn:1 A2 96    LDX  #$96
 $EA07      M_nnnn:2 20 59 E7 JSR  timer_loop  ; $E759
 $EA0A      M_impl:0 CA       DEX
 $EA0B        M_rr:1 D0 FA    BNE  $EA07
-$EA0D     M_immnn:1 A9 00    LDA  #$00
-$EA0F        M_nn:1 85 16    STA  $16
-$EA11      M_nnnn:2 20 CD E5 JSR  $E5CD
+jump_here_after_cold_start:
+$EA0D     M_immnn:1 A9 00    LDA  #$00  ; turn off flag to say we are in attract mode game (and not in real game mode)
+$EA0F        M_nn:1 85 16    STA  real_game_mode_flag  ; $16
+$EA11      M_nnnn:2 20 CD E5 JSR  midway_in_preparing_game_screen  ; $E5CD
 $EA14      M_impl:0 A8       TAY
 $EA15        M_rr:1 D0 4A    BNE  $EA61
 $EA17      M_nnnn:2 20 93 EB JSR  init_game_vars  ; $EB93
@@ -2281,7 +2292,7 @@ $EA45      M_nnnn:2 20 39 E8 JSR  draw_inline_text  ; $E839
 
 $EA5B      M_nnnn:2 20 58 EB JSR  game_loop  ; $EB58
 $EA5E      M_impl:0 A8       TAY
-$EA5F        M_rr:1 F0 AC    BEQ  $EA0D
+$EA5F        M_rr:1 F0 AC    BEQ  jump_here_after_cold_start  ; $EA0D
 $EA61      M_nnnn:2 20 99 E7 JSR  init_game_screen  ; $E799
 $EA64     M_immnn:1 A9 00    LDA  #$00
 $EA66      M_nnnn:2 8D 15 D0 STA  $D015  ; sprite display enable (hide all sprites)
@@ -2391,20 +2402,21 @@ $EB65      M_nnnn:2 20 C8 E1 JSR  buoy_logic  ; $E1C8
 $EB68      M_nnnn:2 20 7D E2 JSR  handle_missile_firing_and_state  ; $E27D
 $EB6B      M_nnnn:2 20 CE E3 JSR  redraw_player_submarines  ; $E3CE
 $EB6E      M_nnnn:2 20 5F E4 JSR  bullet_redraw_and_ship_assessment  ; $E45F
-$EB71        M_nn:1 A5 16    LDA  var4  ; $16
-$EB73        M_rr:1 F0 03    BEQ  +skip1  ; $EB78
+$EB71        M_nn:1 A5 16    LDA  real_game_mode_flag  ; $16
+$EB73        M_rr:1 F0 03    BEQ  +skip_if_in_attract_mode  ; $EB78
 $EB75      M_nnnn:2 20 67 E9 JSR  assess_sound_states  ; $E967
-+skip1:
++skip_if_in_attract_mode:
 $EB78      M_nnnn:2 20 4E E8 JSR  update_game_time_left  ; $E84E
 $EB7B      M_nnnn:2 20 59 E7 JSR  timer_loop  ; $E759
-$EB7E        M_nn:1 A5 16    LDA  var4  ; $16
-$EB80        M_rr:1 D0 0A    BNE  +skip1  ; $EB8C
+$EB7E        M_nn:1 A5 16    LDA  real_game_mode_flag  ; $16
+$EB80        M_rr:1 D0 0A    BNE  +if_in_real_game_then_skip_exit_attract_check  ; $EB8C
+exit_attract_check:
 $EB82        M_nn:1 E6 1B    INC  dunno1  ; $1B
 $EB84      M_nnnn:2 20 36 E5 JSR  paddle_and_function_key_reading_routine  ; $E536
 $EB87      M_impl:0 A8       TAY
 $EB88     M_immnn:1 C9 01    CMP  #$01
 $EB8A        M_rr:1 F0 06    BEQ  +skip_to_end  ; $EB92  ; was paddle-fire or F1 pressed?
-+skip1:
++if_in_real_game_then_skip_exit_attract_check:
 $EB8C        M_nn:1 A5 28    LDA  minutes_left  ; $28
 $EB8E        M_nn:1 05 27    ORA  decimal_secs_in_minutes_left  ; $27
 $EB90        M_rr:1 D0 C6    BNE  -loopback  ; $EB58
@@ -2437,6 +2449,58 @@ $EBB7        M_nn:1 85 5E    STA  var16  ; $5E
 $EBB9     M_immnn:1 A9 3B    LDA  #$3B  ; dec59
 $EBBB        M_nn:1 85 26    STA  secs_in_minute_left  ; $26
 $EBBD      M_impl:0 60       RTS
+
+vic_init_values:
+ :000EBBE 1B 00 00 00 00 08 00 10  FF 00 FF 00 0F 00 00 03  | ................
+ :000EBCE 00 00 00 00 00 00 00 00  00 00 00 00 00           | .............
+' $d011 = vic_ctrl_reg = 1B = %0001 1011
+'     bit7 = raster_compare
+'     bit6 = extended colour text (0=disable)
+'     bit5 = bitmap mode (0=disable)
+'     bit4 = blank screen to border colour (1=disable)
+'     bit3 = select 24/25 row text (1=25rows)
+'   bit2-0 = smooth scroll to y-dot position (val=3)
+' $d012 = read/write raster value for compare irq (00)
+' $d013 = light-pen latch xpos (00)
+' $d014 = light-pen latch ypos (00)
+' $d015 = sprite display enable (00 = disable all)
+' $d016 = vic_ctrl_reg = 08 (%0000 1000)
+'   bit7-6 = unused
+'   bit5   = always set to zero
+'   bit4   = multi-colour mode (0 = disable)
+'   bit3   = select 38/40 column text (1 = 40 columns)
+'   bit2-0 = smooth scroll to x-pos (val = 0)
+' $d017 = sprites_expand_vert = 00
+' $d018 = vic_mem_ctrl_reg = 10 (%0001 0000)
+'   bit7-4 = video_matrix_base_addr (screen memory) = %0001 (i.e., default $0400 location)
+'   bit3-1 = char dot-data base addr = %000 ; from $0000 to $07ff (based on vic-ii bank chosen by $DD00 - see c64 ref page 101)
+'  $d019 = vic_interrupt_flag_reg = ff (%1111 1111)
+'   bit7 = set on any enabled VIC IRQ condition
+'   bit3 = light-pen triggered irq
+'   bit2 = sprite-to-sprite collision irq
+'   bit1 = sprite-to-background collision irq
+'   bit0 = raster-compare irq flag
+' $d01a = irq mask reg = 00 (0 = interrupt disabled)
+' $d01b = sprite-to-background priority display = FF (1 = sprite)
+' $d01c = sprite 0-7 multi-colour mode = 00 (0 = disable)
+' $d01d = sprite 0-7 expand 2x horizontal = $0F = %0000 1111
+          (i.e., expand sprites 0-3 horz - for the ships)
+' $d01e = sprite-to-sprite collision detect = 00
+' $d01f = sprite-to-background collision detect = 00
+' $d020 = border colour = 03 (cyan?)
+' $d021 = background colour 0 = 00 (black)
+' $d022 = background colour 1 = 00
+' $d023 = background colour 2 = 00
+' $d024 = background colour 3 = 00
+' $d025 = sprite multi-colour register 0 = 00
+' $d026 = sprite multi-colour register 1 = 00
+' $d027 = sprite 0 colour = 00
+' $d028 = sprite 1 colour = 00
+' $d029 = sprite 2 colour = 00
+' $d02a = sprite 3 colour = 00
+' $d02b = sprite 4 colour = 00
+' $d02c = sprite 5 colour = 00
+' $d02d = sprite 6 colour = 00
 
 sid_init_values:
  :000EBDC 88 13 00 08 81 00 21 98  3A 00 08 80 8C 4B B0 04  | ......!.:....K..
@@ -2525,58 +2589,171 @@ sid_init_values:
 '    $d418.4 = filter low-pass mode = 1 (on)
 '    $d418.3-0 = output volume = 4
 
-some_other_irq_routine:
-'---------------------
+cold_start_handler:
+'-----------------
 $EBF5      M_impl:0 78       SEI
 $EBF6      M_impl:0 D8       CLD
 $EBF7     M_immnn:1 A2 2F    LDX  #$2F
-$EBF9      M_impl:0 9A       TXS
+$EBF9      M_impl:0 9A       TXS  ; Why stack pointer so low? Aah, to make room for char-data copied into $0130 and onwards at $EC5C
 $EBFA     M_immnn:1 A2 1D    LDX  #$1D
-$EBFC     M_nnnnX:2 BD BE EB LDA  $EBBE,X
+$EBFC     M_nnnnX:2 BD BE EB LDA  vic_init_values,x  ; $EBBE,X
 $EBFF     M_nnnnX:2 9D 11 D0 STA  $D011,X
 $EC02      M_impl:0 CA       DEX
 $EC03        M_rr:1 10 F7    BPL  $EBFC
-$EC05      M_nnnn:2 AD 1E D0 LDA  $D01E
-$EC08      M_nnnn:2 AD 1F D0 LDA  $D01F
-$EC0B      M_nnnn:2 20 30 E9 JSR  $E930
-$EC0E     M_immnn:1 A9 7F    LDA  #$7F
-$EC10      M_nnnn:2 8D 0D DC STA  $DC0D
-$EC13     M_immnn:1 A9 00    LDA  #$00
-$EC15      M_nnnn:2 8D 0F DC STA  $DC0F
+$EC05      M_nnnn:2 AD 1E D0 LDA  $D01E  ; sprite-to-sprite collision detect (read it to reset the value)
+$EC08      M_nnnn:2 AD 1F D0 LDA  $D01F  ; sprite-to-background collision detect (read it to reset the value)
+$EC0B      M_nnnn:2 20 30 E9 JSR  init_sid  ; $E930
+$EC0E     M_immnn:1 A9 7F    LDA  #$7F   ; %0111 1111
+$EC10      M_nnnn:2 8D 0D DC STA  $DC0D  ; cia_irq_ctrl_reg (only allow IRQ, not others)
+$EC13     M_immnn:1 A9 00    LDA  #$00   ; %0000 0000
+$EC15      M_nnnn:2 8D 0F DC STA  $DC0F  ; cia_ctrl_reg_B (use clk, timer b count system 2 clks, continuous, pulse, no, stop)
 $EC18     M_immnn:1 A2 00    LDX  #$00
-$EC1A      M_nnnn:2 8E 03 DC STX  $DC03
+$EC1A      M_nnnn:2 8E 03 DC STX  $DC03  ; ddr_port_b
 $EC1D      M_impl:0 CA       DEX
-$EC1E      M_nnnn:2 8E 02 DC STX  $DC02
-$EC21     M_immnn:1 A9 E5    LDA  #$E5
-$EC23        M_nn:1 85 01    STA  $01
-$EC25     M_immnn:1 A9 2F    LDA  #$2F
-$EC27        M_nn:1 85 00    STA  $00
+$EC1E      M_nnnn:2 8E 02 DC STX  $DC02  ; ddr_port_a
+$EC21     M_immnn:1 A9 E5    LDA  #$E5   ; %1110 0101
+$EC23        M_nn:1 85 01    STA  $01    ; (cassette-motor=off, cassette-switch=closed, char-rom-in=no, kernal-rom=off, basic-rom=on)
+$EC25     M_immnn:1 A9 2F    LDA  #$2F   ; %0010 1111
+$EC27        M_nn:1 85 00    STA  $00    ; mos 6510 ddr (1=output, 0=input)
 $EC29     M_immnn:1 A9 06    LDA  #$06
-$EC2B      M_nnnn:2 8D 04 DC STA  $DC04
+$EC2B      M_nnnn:2 8D 04 DC STA  $DC04  ; timer_a_low_byte
 $EC2E     M_immnn:1 A9 47    LDA  #$47
-$EC30      M_nnnn:2 8D 05 DC STA  $DC05
-$EC33     M_immnn:1 A9 18    LDA  #$18
-$EC35      M_nnnn:2 8D 0E DC STA  $DC0E
+$EC30      M_nnnn:2 8D 05 DC STA  $DC05  ; timer_a_high_byte
+$EC33     M_immnn:1 A9 18    LDA  #$18   ; %0001 1000
+$EC35      M_nnnn:2 8D 0E DC STA  $DC0E  ; cia_ctrl_reg_a (todclk=60Hz, serialio=input, tmracnt=system2clk, forceloadtmra=yes
+                                         ;                 tmramode=oneshot, tmraoutputmode=pulse, outonpb6=no, startstoptmra=stop)
 $EC38     M_immnn:1 A9 01    LDA  #$01
-$EC3A      M_nnnn:2 8D 1A D0 STA  $D01A
+$EC3A      M_nnnn:2 8D 1A D0 STA  $D01A  ; irq_mask_reg (raster_compare_irq = enabled)
 $EC3D     M_immnn:1 A2 02    LDX  #$02
-$EC3F     M_immnn:1 A9 00    LDA  #$00
+$EC3F     M_immnn:1 A9 00    LDA  #$00   ; initialise-to-zero all global variables in zero-page
 $EC41       M_nnX:1 95 00    STA  $00,X
 $EC43      M_impl:0 E8       INX
 $EC44        M_rr:1 D0 FB    BNE  $EC41
 $EC46     M_immnn:1 A9 03    LDA  #$03
-$EC48        M_nn:1 85 17    STA  $17
-$EC4A     M_nnnnX:2 BD 5C EC LDA  $EC5C,X
-$EC4D     M_nnnnX:2 9D 30 01 STA  $0130,X
-$EC50     M_nnnnX:2 BD D4 EC LDA  $ECD4,X
-$EC53     M_nnnnX:2 9D A8 01 STA  $01A8,X
+$EC48        M_nn:1 85 17    STA  initial_game_time  ; $17
+$EC4A     M_nnnnX:2 BD 5C EC LDA  char_data_group1,x  ; $EC5C,X
+$EC4D     M_nnnnX:2 9D 30 01 STA  $0130,X  ; copy across charset to vicii-bank 0, starting at charidx $26 (' ' space char)
+$EC50     M_nnnnX:2 BD D4 EC LDA  char_data_group2,x  ; $ECD4,X
+$EC53     M_nnnnX:2 9D A8 01 STA  $01A8,X  ; copy across charset to vicii-bank 0, starting at charidx $35 (letter 'O')
 $EC56      M_impl:0 E8       INX
 $EC57        M_rr:1 D0 F1    BNE  $EC4A
-$EC59      M_nnnn:2 4C 0D EA JMP  $EA0D
+$EC59      M_nnnn:2 4C 0D EA JMP  jump_here_after_cold_start  ; $EA0D
 
-unknown_data:
+char_data_group1:
+'---------------
+  - starting at chridx $26
  :000EC5C 00 00 00 00 00 00 00 00  38 6C C6 C6 FE C6 C6 00  | ........8l......
  :000EC6C FC 66 66 7C 66 66 FC 00  3C 66 C0 C0 C0 66 3C 00  | .ff|ff..<f...f<.
+ :000EC7C F8 64 66 66 66 64 F8 00  FE 60 60 7C 60 60 FE 00  | .dfffd...``|``..
+ :000EC8C FE 60 60 7C 60 60 F0 00  3C 66 C0 DE C6 66 3C 00  | .``|``..<f...f<.
+char idx $26 address: $0130
++--------+--------+--------+--------+--------+--------+--------+--------+
+|        |  ***   |******  |  ****  |*****   |******* |******* |  ****  |
+|        | ** **  | **  ** | **  ** | **  *  | **     | **     | **  ** |
+|        |**   ** | **  ** |**      | **  ** | **     | **     |**      |
+|        |**   ** | *****  |**      | **  ** | *****  | *****  |** **** |
+|        |******* | **  ** |**      | **  ** | **     | **     |**   ** |
+|        |**   ** | **  ** | **  ** | **  *  | **     | **     | **  ** |
+|        |**   ** |******  |  ****  |*****   |******* |****    |  ****  |
+|        |        |        |        |        |        |        |        |
++--------+--------+--------+--------+--------+--------+--------+--------+
+
+ :000EC9C C6 C6 C6 FE C6 C6 C6 00  3C 18 18 18 18 18 3C 00  | ........<.....<.
+ :000ECAC 1E 0C 0C 0C CC CC 78 00  C6 CC D8 F0 D8 CC C6 00  | ......x.........
+ :000ECBC F0 60 60 60 60 60 FE 00  C6 EE FE D6 C6 C6 C6 00  | .`````..........
+ :000ECCC C6 E6 F6 DE CE C6 C6 00                           | ........
+char idx $2E address: $0170
++--------+--------+--------+--------+--------+--------+--------+
+|**   ** |  ****  |   **** |**   ** |****    |**   ** |**   ** |
+|**   ** |   **   |    **  |**  **  | **     |*** *** |***  ** |
+|**   ** |   **   |    **  |** **   | **     |******* |**** ** |
+|******* |   **   |    **  |****    | **     |** * ** |** **** |
+|**   ** |   **   |**  **  |** **   | **     |**   ** |**  *** |
+|**   ** |   **   |**  **  |**  **  | **     |**   ** |**   ** |
+|**   ** |  ****  | ****   |**   ** |******* |**   ** |**   ** |
+|        |        |        |        |        |        |        |
++--------+--------+--------+--------+--------+--------+--------+
+
+char_data_group2:
+'---------------
+ :000ECD4 7C EE C6 C6 C6 EE 7C 00  FC 66 66 7C 60 60 F0 00  | |.....|..ff|``..
+ :000ECE4 38 64 C2 C2 CA 64 3A 00  FC C6 C6 FC D8 CC C6 00  | 8d...d:.........
+ :000ECF4 7C C6 C0 7C 06 C6 7C 00  7E 18 18 18 18 18 3C 00  | |..|..|.~.....<.
+ :000ED04 C6 C6 C6 C6 C6 C6 7C 00  C6 C6 C6 6C 6C 38 38 00  | ......|....ll88.
+char idx $35 address: $01A8
++--------+--------+--------+--------+--------+--------+--------+--------+
+| *****  |******  |  ***   |******  | *****  | ****** |**   ** |**   ** |
+|*** *** | **  ** | **  *  |**   ** |**   ** |   **   |**   ** |**   ** |
+|**   ** | **  ** |**    * |**   ** |**      |   **   |**   ** |**   ** |
+|**   ** | *****  |**    * |******  | *****  |   **   |**   ** | ** **  |
+|**   ** | **     |**  * * |** **   |     ** |   **   |**   ** | ** **  |
+|*** *** | **     | **  *  |**  **  |**   ** |   **   |**   ** |  ***   |
+| *****  |****    |  *** * |**   ** | *****  |  ****  | *****  |  ***   |
+|        |        |        |        |        |        |        |        |
++--------+--------+--------+--------+--------+--------+--------+--------+
+
+ :000ED14 C6 C6 C6 D6 D6 FE 6C 00  C6 C6 6C 38 6C C6 C6 00  | ......l...l8l...
+ :000ED24 C6 C6 6C 7C 38 38 38 00  FE C6 0C 38 60 C6 FE 00  | ..l|888....8`...
+ :000ED34 00 00 00 00 18 18 00 00  00 18 18 00 18 18 00 00  | ................
+ :000ED44 00 00 00 7E 7E 00 00 00  0C 18 30 30 30 18 0C 00  | ...~~.....000...
+char idx $3D address: $01E8
++--------+--------+--------+--------+--------+--------+--------+--------+
+|**   ** |**   ** |**   ** |******* |        |        |        |    **  |
+|**   ** |**   ** |**   ** |**   ** |        |   **   |        |   **   |
+|**   ** | ** **  | ** **  |    **  |        |   **   |        |  **    |
+|** * ** |  ***   | *****  |  ***   |        |        | ****** |  **    |
+|** * ** | ** **  |  ***   | **     |   **   |   **   | ****** |  **    |
+|******* |**   ** |  ***   |**   ** |   **   |   **   |        |   **   |
+| ** **  |**   ** |  ***   |******* |        |        |        |    **  |
+|        |        |        |        |        |        |        |        |
++--------+--------+--------+--------+--------+--------+--------+--------+
+
+ :000ED54 30 18 0C 0C 0C 18 30 00  7C C6 CE D6 E6 C6 7C 00  | 0.....0.|.....|.
+ :000ED64 18 38 18 18 18 18 3C 00  7C C6 C6 0C 38 E0 FE 00  | .8....<.|...8...
+ :000ED74 7C C6 06 1C 06 C6 7C 00  0C 1C 2C 4C FE 0C 0C 00  | |.....|...,L....
+ :000ED84 FE C0 C0 FC 06 C6 7C 00  1C 30 60 FC C6 C6 7C 00  | ......|..0`...|.
+char idx $45 address: $0228
++--------+--------+--------+--------+--------+--------+--------+--------+
+|  **    | *****  |   **   | *****  | *****  |    **  |******* |   ***  |
+|   **   |**   ** |  ***   |**   ** |**   ** |   ***  |**      |  **    |
+|    **  |**  *** |   **   |**   ** |     ** |  * **  |**      | **     |
+|    **  |** * ** |   **   |    **  |   ***  | *  **  |******  |******  |
+|    **  |***  ** |   **   |  ***   |     ** |******* |     ** |**   ** |
+|   **   |**   ** |   **   |***     |**   ** |    **  |**   ** |**   ** |
+|  **    | *****  |  ****  |******* | *****  |    **  | *****  | *****  |
+|        |        |        |        |        |        |        |        |
++--------+--------+--------+--------+--------+--------+--------+--------+
+
+ :000ED94 7E C6 0C 18 18 18 18 00  7C C6 C6 7C C6 C6 7C 00  | ~.......|..|..|.
+ :000EDA4 7C C6 C6 7E 06 0C 38 00  00 3F 7F FF FF 7F 3F 00  | |..~..8..?....?.
+ :000EDB4 00 FF FF FF FF FF FF 00  00 FF FF FF FF FF FF 00  | ................
+ :000EDC4 00 8C CC FF FF CC 8C 00  60 80 40 29 CF 09 09 09  | ........`.@)....
+char idx $4D address: $0268
++--------+--------+--------+--------+--------+--------+--------+--------+
+| ****** | *****  | *****  |        |        |        |        | **     |
+|**   ** |**   ** |**   ** |  ******|********|********|*   **  |*       |
+|    **  |**   ** |**   ** | *******|********|********|**  **  | *      |
+|   **   | *****  | ****** |********|********|********|********|  * *  *|
+|   **   |**   ** |     ** |********|********|********|********|**  ****|
+|   **   |**   ** |    **  | *******|********|********|**  **  |    *  *|
+|   **   | *****  |  ***   |  ******|********|********|*   **  |    *  *|
+|        |        |        |        |        |        |        |    *  *|
++--------+--------+--------+--------+--------+--------+--------+--------+
+
+some_unused_char_maybe:
+'---------------------
+  - This looks like HAL (HAL Laboratories?)
+ :000EDD4 A4 EE AA 00 20 20 38 00                           | ....  8.
++--------+
+|* *  *  |
+|*** *** |
+|* * * * |
+|        |
+|  *     |
+|  *     |
+|  ***   |
+|        |
++--------+
 
 scr_row_ptr_lo:
 '-------------
@@ -2859,3 +3036,9 @@ set_sprite_colour:
 $F125     M_nnnnX:2 BD 2C F1 LDA  $F12C,X
 $F128     M_nnnnX:2 9D 27 D0 STA  $D027,X
 $F12B      M_impl:0 60       RTS
+
+irq_pointers:
+ :000FFFA 04 E9 F5 EB 04 E9                                 | ......
+  - [0] = $E904 : interrupt_routine (NMI handler)
+  - [1] = $EBF5 : cold_start_handler (Cold start handler)
+  - [2] = $E904 : interrupt_routine (IRQ and BRK handler)
