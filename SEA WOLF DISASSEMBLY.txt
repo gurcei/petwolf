@@ -129,8 +129,8 @@ $33-$34 last_paddle_fire_state[2]:
   - sta at $e2c3  (set to #$00)  - paddle fire button is off
   - sta at $e2d3  (set to #$ff)  - paddle fire button is on
   - lda at $e2d5
-$33 var10: set to same value as initial_game_time in start_game
-$34 var11: set to same value as initial_game_time in start_game
+  - set to same value as initial_game_time in start_game
+  - set to same value as initial_game_time in start_game
 $35-36 players_xpos[2]: (some detail relating to player1 and 2)
   - [0] = player1 x-pos in pixel units
   - [1] = player2 y-pos in pixel units
@@ -189,14 +189,17 @@ $55-xx ships_explosion_tmr[x]: explosion duration countdown timer of each ship (
   - sta at $e053  (sets is to max timer value of #$18 / 24)
   - dec at $e0c2
   - lda at $e0c6
-$5d-$60 array5[4]: (possibly data relating to player1 and 2)
+$5d-$60 buoys_visibility[4]: (possibly data relating to buoys)
+                   - #$00 = invisible
+                   - #$01 = visible
+                   - #$ff = shot/exploding
   - lda at $e1d8 (with index of var5)
   - sta at $e218 (sets it to #$ff) (if xpos of buoy <12 or >=254)
   - lda at $e224
   - sta at $e253 (sets it to #$00 - on occasions when x-pos > 148)
   - sta at $e349 (set to #$01)
-$5d var15: set to #$01 in init_game_vars
-$5e var16: set to #$01 in init_game_vars
+  - set to #$01 in init_game_vars
+  - set to #$01 in init_game_vars
 $61-64:  buoys_xpos[4]:  (array of all buoy x-positions)
   - lda at $e1df (with index of var5)
   - sta at $e320 (set to #$00)
@@ -207,8 +210,8 @@ $65-$68:  buoys_ypos[4]:  (array of all buoy y-positions)
           - (the absolute sprite x-pos for these is #$92 and #$B2)
           - (that's a difference of #$32)
   - lda at $e1e3 (with index of var5)
-$65 var25: set to #$60 (96) in init_game_vars
-$66 var26: set to #$60 (96) in init_game_vars
+  - set to #$60 (96) in init_game_vars
+  - set to #$60 (96) in init_game_vars
 $69-$6c: array8[4]:
   - sta at $e21c (set to #$18 / dec24)
   - dec at $e260 (indexed by var5)
@@ -786,12 +789,12 @@ $E1D0        M_nn:1 C6 24    DEC  dunno3  ; $24
 $E1D2     M_immnn:1 A9 03    LDA  #$03
 $E1D4        M_nn:1 85 23    STA  var5  ; $23
 $E1D6        M_nn:1 A6 23    LDX  var5  ; $23
-$E1D8       M_nnX:1 B5 5D    LDA  array5,x  ; $5D,X
-$E1DA        M_rr:1 D0 03    BNE  +skip2  ; $E1DF  ; branch if non-zero
+$E1D8       M_nnX:1 B5 5D    LDA  buoys_visibility,x  ; $5D,X
+$E1DA        M_rr:1 D0 03    BNE  +buoy_is_visible_or_exploading  ; $E1DF  ; branch if non-zero
 -big_retry:
    ' loops on a decrementing var5 until all the way to zero
-$E1DC      M_nnnn:2 4C 75 E2 JMP  +jmp_to_end  ; $E275
-+skip2:
+$E1DC      M_nnnn:2 4C 75 E2 JMP  +jmp_to_next_buoy  ; $E275
++buoy_is_visible_or_exploading:
 $E1DF       M_nnX:1 B5 61    LDA  buoys_xpos,x  ; $61,X
 $E1E1        M_nn:1 85 11    STA  var1  ; $11  (x-position of current buoy)
 $E1E3       M_nnX:1 B5 65    LDA  buoys_ypos,x   ; $65,X  ; (array of all buoy y-positions)
@@ -827,16 +830,16 @@ $E211        M_rr:1 D0 11    BNE  +skip_due_to_no_spr_to_back_collision  ; $E224
 ' newly spawned buoy too close to other objects?
 $E213     M_immnn:1 A9 FF    LDA  #$FF
 $E215     M_nnnnY:2 99 7D 00 STA  array12,y  ; $007D,Y
-$E218       M_nnX:1 95 5D    STA  array5,x  ; $5D,X
+$E218       M_nnX:1 95 5D    STA  buoys_visibility,x  ; $5D,X
 $E21A     M_immnn:1 A9 18    LDA  #$18  ; dec24
 $E21C       M_nnX:1 95 69    STA  array8,x  ; $69,X
 $E21E      M_nnnn:2 20 5D E9 JSR  trigger_voice3_sound  ; $E95D  ; (probably explosion sound?)
-$E221      M_nnnn:2 4C 75 E2 JMP  +jmp_to_end  ; $E275
+$E221      M_nnnn:2 4C 75 E2 JMP  +jmp_to_next_buoy  ; $E275
 +skip_due_to_no_spr_to_back_collision:
-$E224       M_nnX:1 B5 5D    LDA  array5,x  ; $5D,X
+$E224       M_nnX:1 B5 5D    LDA  buoys_visibility,x  ; $5D,X
 $E226        M_rr:1 30 36    BMI  +skip_on_neg  ; $E25E
 $E228        M_nn:1 A5 24    LDA  $24
-$E22A        M_rr:1 D0 49    BNE  +jmp_to_end  ; $E275
+$E22A        M_rr:1 D0 49    BNE  +jmp_to_next_buoy  ; $E275
 $E22C        M_nn:1 E6 11    INC  var1  ; $11  ; x-pos of current ship
 $E22E        M_nn:1 A5 11    LDA  var1  ; $11
 $E230     M_immnn:1 C9 94    CMP  #$94  ; 148
@@ -853,15 +856,15 @@ $E245     M_nnnnX:2 9D 2B D0 STA  $D02B,X  ; sprite 4-7 colour (set it to white 
 $E248      M_impl:0 8A       TXA
 $E249     M_immnn:1 09 04    ORA  #$04
 $E24B      M_nnnn:2 20 DD E8 JSR  turn_on_sprite_A  ; $E8DD
-$E24E      M_nnnn:2 4C 75 E2 JMP  +jmp_to_end  ; $E275
+$E24E      M_nnnn:2 4C 75 E2 JMP  +jmp_to_next_buoy  ; $E275
 +skip_if_xpos_>=148:
 -retry_if_zero:
 $E251     M_immnn:1 A9 00    LDA  #$00
-$E253       M_nnX:1 95 5D    STA  array5,x  ; $5D,X
+$E253       M_nnX:1 95 5D    STA  buoys_visibility,x  ; $5D,X
 $E255      M_impl:0 8A       TXA
 $E256     M_immnn:1 09 04    ORA  #$04
 $E258      M_nnnn:2 20 E8 E8 JSR  turn_off_sprite_A  ; $E8E8
-$E25B      M_nnnn:2 4C 75 E2 JMP  +jmp_to_end  ; $E275
+$E25B      M_nnnn:2 4C 75 E2 JMP  +jmp_to_next_buoy  ; $E275
 +skip_on_neg:
 $E25E        M_nn:1 A6 23    LDX  var5  ; $23
 $E260       M_nnX:1 D6 69    DEC  array8,x  ; $69,X
@@ -877,7 +880,7 @@ $E26F      M_impl:0 38       SEC
 $E270        M_nn:1 E5 08    SBC  var0  ; $08
 $E272     M_nnnnX:2 9D FC 07 STA  $07FC,X  ; sprite-pointers for sprites 4-7
                                            ; sprite-pointer can be set to anything between $F5 - $F8  (maybe $F6 to $F8 really)
-+jmp_to_end:
++jmp_to_next_buoy:
 $E275        M_nn:1 C6 23    DEC  var5  ; $23
 $E277        M_rr:1 30 03    BMI  +skip_to_rts  ; $E27C
 $E279      M_nnnn:2 4C D6 E1 JMP  -big_retry  ; $E1D6
@@ -1084,21 +1087,21 @@ $E308        M_nn:1 A5 25    LDA  dunno4  ; $25
 $E30A     M_immnn:1 49 02    EOR  #$02  ; toggle bit1
 $E30C        M_nn:1 85 25    STA  dunno4  ; $25
 $E30E      M_impl:0 AA       TAX
-$E30F       M_nnX:1 B5 5D    LDA  array5,x  ; $5D,X
-$E311        M_rr:1 F0 07    BEQ  +skip_if_array5_idx_val_is_zero  ; $E31A
-$E313       M_nnX:1 B5 5E    LDA  array5+1,x  ; $5E,X
-$E315        M_rr:1 F0 13    BEQ  +skip_if_array5+1_idx_val_is_zero  ; $E32A
+$E30F       M_nnX:1 B5 5D    LDA  buoys_visibility,x  ; $5D,X
+$E311        M_rr:1 F0 07    BEQ  +skip_if_buoys_visibility_is_zero  ; $E31A
+$E313       M_nnX:1 B5 5E    LDA  buoys_visibility+1,x  ; $5E,X
+$E315        M_rr:1 F0 13    BEQ  +skip_if_buoys_visibility+1_is_zero  ; $E32A
 $E317      M_nnnn:2 4C 57 E3 JMP  +big_jmp_to_near_end  ; $E357
-+skip_if_array5_idx_val_is_zero:
-$E31A       M_nnX:1 B5 5E    LDA  array5+1,x ; $5E,X
-$E31C        M_rr:1 D0 1C    BNE  +skip_if_array5+1_idx_val_is_not_zero  ; $E33A
++skip_if_buoys_visibility_is_zero:
+$E31A       M_nnX:1 B5 5E    LDA  buoys_visibility+1,x ; $5E,X
+$E31C        M_rr:1 D0 1C    BNE  +skip_if_buoys_visibility+1_is_not_zero  ; $E33A
 $E31E     M_immnn:1 A9 00    LDA  #$00
 $E320       M_nnX:1 95 61    STA  buoys_xpos,x  ; $61,X
 $E322      M_impl:0 18       CLC
 $E323     M_immnn:1 69 44    ADC  #$44  ; dec68
 $E325       M_nnX:1 95 62    STA  buoys_xpos+1,x  ; $62,X
 $E327      M_nnnn:2 4C 47 E3 JMP  +modest_jmp_near_end  ; $E347
-+skip_if_array5+1_idx_val_is_zero:
++skip_if_buoys_visibility+1_is_zero:
 $E32A       M_nnX:1 B5 61    LDA  buoys_xpos,x  ; $61,X
 $E32C     M_immnn:1 C9 4C    CMP  #$4C  ; dec76
 $E32E        M_rr:1 B0 03    BCS  branch_if_arrayC_idx_val_>=76  ; $E333
@@ -1108,7 +1111,7 @@ $E332      M_nnnn:2 2C E9 44 BIT  $44E9
   $E333     M_immnn:1 E9 44    SBC  #$44  ; dec68
 $E335       M_nnX:1 95 62    STA  buoys_xpos+1,x  ; $62,X
 $E337      M_nnnn:2 4C 47 E3 JMP  +modest_jmp_near_end  ; $E347
-+skip_if_array5+1_idx_val_is_not_zero:
++skip_if_buoys_visibility+1_is_not_zero:
 $E33A       M_nnX:1 B5 62    LDA  buoys_xpos+1,x  ; $62,X
 $E33C     M_immnn:1 C9 4C    CMP  #$4C  ; dec76
 $E33E        M_rr:1 B0 03    BCS  branch_if_arrayC+1_idx_val_>=76  ; $E343
@@ -1119,8 +1122,8 @@ $E342      M_nnnn:2 2C E9 44 BIT  $44E9
 $E345       M_nnX:1 95 61    STA  buoys_xpos,x  ; $61,X
 +modest_jmp_near_end:
 $E347     M_immnn:1 A9 01    LDA  #$01
-$E349       M_nnX:1 95 5D    STA  array5,x  ; $5D,X
-$E34B       M_nnX:1 95 5E    STA  array5+1,x  ; $5E,X
+$E349       M_nnX:1 95 5D    STA  buoys_visibility,x  ; $5D,X
+$E34B       M_nnX:1 95 5E    STA  buoys_visibility+1,x  ; $5E,X
 $E34D      M_impl:0 8A       TXA
 $E34E         M_A:0 4A       LSR
 $E34F      M_impl:0 A8       TAY
@@ -2245,8 +2248,8 @@ $E9CA     M_immnn:1 A9 FF    LDA  #$FF  ; turn on flag to say we are in real gam
 $E9CC        M_nn:1 85 16    STA  real_game_mode_flag  ; $16
 $E9CE        M_nn:1 A5 17    LDA  initial_game_time  ; $17
 $E9D0        M_nn:1 85 28    STA  minutes_left  ; $28
-$E9D2        M_nn:1 85 33    STA  var10  ; $33
-$E9D4        M_nn:1 85 34    STA  var11  ; $34
+$E9D2        M_nn:1 85 33    STA  last_paddle_fire_state  ; $33
+$E9D4        M_nn:1 85 34    STA  last_paddle_fire_state+1  ; $34
 $E9D6     M_immnn:1 A9 00    LDA  #$00
 $E9D8        M_nn:1 85 1D    STA  p1_score_lo  ; var5  ; $1D
 $E9DA        M_nn:1 85 1E    STA  p2_score_lo  ; $1E
@@ -2454,11 +2457,11 @@ $EBA7        M_nn:1 85 61    STA  buoys_xpos  ; $61
 $EBA9     M_immnn:1 A9 44    LDA  #$44
 $EBAB        M_nn:1 85 62    STA  buoys_xpos+1  ; $62
 $EBAD     M_immnn:1 A9 60    LDA  #$60
-$EBAF        M_nn:1 85 65    STA  var25  ; $65
-$EBB1        M_nn:1 85 66    STA  var26  ; $66
+$EBAF        M_nn:1 85 65    STA  buoys_ypos  ; $65
+$EBB1        M_nn:1 85 66    STA  buoys_ypos+1  ; $66
 $EBB3     M_immnn:1 A9 01    LDA  #$01
-$EBB5        M_nn:1 85 5D    STA  var15  ; $5D
-$EBB7        M_nn:1 85 5E    STA  var16  ; $5E
+$EBB5        M_nn:1 85 5D    STA  buoys_visibility  ; $5D
+$EBB7        M_nn:1 85 5E    STA  buoys_visibility+1  ; $5E
 $EBB9     M_immnn:1 A9 3B    LDA  #$3B  ; dec59
 $EBBB        M_nn:1 85 26    STA  secs_in_minute_left  ; $26
 $EBBD      M_impl:0 60       RTS
