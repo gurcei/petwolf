@@ -24,10 +24,10 @@ $08 var0:  (maybe a generic loop index variable)
   - sty at $e390 (set to #$04)
   - dec at $e39b (this makes me think that var0 is a generic loop index variable)
   - sta at $F0FB (in relation to paddle position)
-$09 var0-1:
+$09 genvarA:
   - sta at $e100  (potentially could be set to either #$00 or #$01 or #$02 at this point, so maybe ship-type?)
   - adc at $e17e
-  - sta at $e3e7
+  - sta at $e3e7  (current player x-pos)
   - inc at $e3fb
   - dec at $e3fe
   - sta at $e40a  (maybe it stores the current paddle position?)
@@ -124,13 +124,16 @@ $31 p1_num_missiles:
   - set to #$04 in init_game_vars
   - sta at $e2a4 (set to #$04)  (for reload?)
 $32 p2_num_missiles: set to #$04 in init_game_vars
-$33-$34 arrayA[2]:  (some detail relating to player1 and 2)
-  - sta at $e2c3  (set to #$00)
-  - sta at $e2d3  (set to #$ff)
+$33-$34 last_paddle_fire_state[2]:  
+  - used to assure one-shot logic of the fire button (not rapid fire)
+  - sta at $e2c3  (set to #$00)  - paddle fire button is off
+  - sta at $e2d3  (set to #$ff)  - paddle fire button is on
   - lda at $e2d5
 $33 var10: set to same value as initial_game_time in start_game
 $34 var11: set to same value as initial_game_time in start_game
-$35-36 arrayBB[2]: (some detail relating to player1 and 2)
+$35-36 players_xpos[2]: (some detail relating to player1 and 2)
+  - [0] = player1 x-pos in pixel units
+  - [1] = player2 y-pos in pixel units
                    (maybe it is the current player1/2 x-positions)
                    - submarine chars can only be drawn on columns 0 to 39
                    - but I think the value stored here is x4 (so from 0 to 159)
@@ -138,7 +141,7 @@ $35-36 arrayBB[2]: (some detail relating to player1 and 2)
   - lda at $e2e4
   - lda at $e3e5
   - sta at $e442 (it is later divided by 4 and used as an x-pos to draw the player's submarine)
-$37-38 arrayE[2]: (some detail relating to player1 and 2)
+$37-38 attract_mode_player_xpos_waypoint[2]: (some detail relating to player1 and 2)
   - cmp at $e3e9
   - sta at $e3f4
 $39-$3c ships_visibility[4]: visibility of ships
@@ -210,11 +213,11 @@ $69-$6c: array8[4]:
   - sta at $e21c (set to #$18 / dec24)
   - dec at $e260 (indexed by var5)
   - lda at $e264 (indexed by var5)
-$6d-74 array9[8]:  (x-positions of all ships?)
+$6d-74 torpedo_fire_xpos[8]:  (x-positions of all torpedoes)
   - read at $e031
   - read at $e200 (with ,y index at 7)
   - sta at $e2e9
-$75-$7c array10[8]:  (y-positions of all ships?)
+$75-$7c torpedo_fire_ypos[8]:  (y-positions of all torpedoes)
   - read at $e025
   - lda at $e1f4  (starting from index=7)
   - lda at $e465 (starting from index=7)
@@ -223,15 +226,19 @@ $7d-xx array12[x]:
   - sta at $e215 (sets it to #$ff)
 $85-$A4 array14[32]:  contains the ship-index that was spawned recently?
   - sta at $e111  ; seems to keep a list of existing ship indexes that are on the same ypos as the newly spawned ship
+                    (these are sorted on their xpos, depending on the mirror/direction the ships are going)
   - ldx at $e11f
   - sta at $e48c  ; resets entire array to zeroes
   - sta at $e4ba  ; stores from the middle of the table and onwards 
-$fe-$ff array30[2]: (some detail relating to player1 and 2)
+$fe-$ff filtered_player_xpos[2]:
+  - This stores the smoothed/filtered x-pos of the player's sub in 0-148 range (2-pixel units / pixel-pairs)
+  - This value is calculated within 'read_paddle_position'
+  - Later at $E442, it is copied across to 'players_xpos'
   - adc at $F109
   - sta at $F11F
 
 
-$02a8-xxxx arrayF[x]:
+$02a8-xxxx vicbank0_sub_charset1[x]:
   - (some sort of screen row buffer of row contents copied from submarine_charset1 / $ee48)
   - sta at $e435
 
@@ -264,13 +271,13 @@ $E01E     M_nnnnY:2 B9 0E EE LDA  ship_type_widths,y  ; $EE0E,Y  ; maybe it can 
 $E021        M_nn:1 85 08    STA  var0  ; $08
 $E023     M_immnn:1 A0 07    LDY  #$07
 -retry_stuff:
-$E025     M_nnnnY:2 B9 75 00 LDA  array10,y  ; $0075,Y  ; y-position of all ships?
+$E025     M_nnnnY:2 B9 75 00 LDA  torpedo_fire_ypos,y  ; $0075,Y  ; y-position of all torpedoes
 $E028        M_rr:1 F0 15    BEQ  +skip_stuff  ; $E03F
 $E02A      M_impl:0 38       SEC
 $E02B        M_nn:1 E5 12    SBC  var2  ; $12  ; y-pos of current ship?
 $E02D     M_immnn:1 C9 10    CMP  #$10  ; (dec16)
 $E02F        M_rr:1 B0 0E    BCS  +skip_stuff  ; $E03F  ; branch if >= 16
-$E031     M_nnnnY:2 B9 6D 00 LDA  array9,y  ; $006D,Y  ; x-pos of all ships?
+$E031     M_nnnnY:2 B9 6D 00 LDA  torpedo_fire_xpos,y  ; $006D,Y  ; x-pos of all torpedoes
 $E034      M_impl:0 38       SEC
 $E035        M_nn:1 E5 11    SBC  var1  ; $11  ; x-pos of current ship?
 $E037     M_immnn:1 C9 FE    CMP  #$FE
@@ -394,7 +401,7 @@ $E0FA      M_nnnn:2 2C A9 01 BIT  $01A9
 $E0FD      M_nnnn:2 2C A9 02 BIT  $02A9
   +skip_to_lda_2:
   $E0FE     M_immnn:1 A9 02    LDA  #$02
-$E100        M_nn:1 85 09    STA  var0-1  ; $09  ; new ship-type of newly spawned ship
+$E100        M_nn:1 85 09    STA  genvarA  ; $09  ; new ship-type of newly spawned ship
 some_comparison_of_this_new_ship_against_existing_ships:
   ' perhaps to see if they clash?
 $E102     M_immnn:1 A0 00    LDY  #$00
@@ -476,7 +483,7 @@ $E177        M_nn:1 85 08    STA  var0  ; $08  ; holds x-width between the spawn
 $E179       M_nnX:1 B5 51    LDA  ships_type,x  ; $51,X  ; get the ship-type of the closest ship to the spawn-edge
 $E17B         M_A:0 0A       ASL  ; multiply by 2
 $E17C       M_nnX:1 75 51    ADC  ships_type,x  ; $51,X  ; a bit like multiply by 3  ; freighter=00, cruiser=3, ptboat=6
-$E17E        M_nn:1 65 09    ADC  var0-1  ; $09  ; newly-spawned ship-type
+$E17E        M_nn:1 65 09    ADC  genvarA  ; $09  ; newly-spawned ship-type
 $E180      M_impl:0 AA       TAX
 $E181     M_nnnnX:2 BD 13 EE LDA  map_gap_from_existing_ship_to_new_ship,x  ; $EE13,X
 $E184        M_nn:1 C5 08    CMP  var0  ; $08  ; compare with x-width between spawn-edge and closest existing ship
@@ -496,7 +503,7 @@ $E197        M_nn:1 A6 23    LDX  var5  ; $23  ; idx to curr ship
 $E199     M_immnn:1 A9 01    LDA  #$01
 $E19B       M_nnX:1 95 39    STA  ships_visibility,x  ; $39,X  ; ship visibility table, set it to 1/visible
 $E19D       M_nnX:1 95 3D    STA  ships_move_tmr,x  ; $3D,X
-$E19F        M_nn:1 A5 09    LDA  var0-1  ; $09  ; newly-spawned ship-type?
+$E19F        M_nn:1 A5 09    LDA  genvarA  ; $09  ; newly-spawned ship-type?
 $E1A1       M_nnX:1 95 51    STA  ships_type,x  ; $51,X  ; ship-type of all ships
 $E1A3      M_impl:0 A8       TAY
 $E1A4     M_nnnnY:2 B9 1C EE LDA  ships_movement_delay,y  ; $EE1C,Y  ; find the movement frame-rate delay for this ship-type
@@ -797,15 +804,15 @@ $E1ED     M_nnnnY:2 39 38 EE AND  or_bitfields,y  ; $EE38,Y
 $E1F0        M_rr:1 F0 32    BEQ  +skip_due_to_no_spr_to_back_collision  ; $E224  ; branch if the bit isn't on (no spr-to-back collision with this sprite)
 $E1F2     M_immnn:1 A0 07    LDY  #$07
 -retry1:
-$E1F4     M_nnnnY:2 B9 75 00 LDA  array10,y  ; $0075,Y  ; y-pos of all ships?
+$E1F4     M_nnnnY:2 B9 75 00 LDA  torpedo_fire_ypos,y  ; $0075,Y  ; y-pos of all torpedoes
 $E1F7        M_rr:1 F0 15    BEQ  +skip_on_zero  ; $E20E
 $E1F9      M_impl:0 38       SEC
 $E1FA        M_nn:1 E5 12    SBC  var2  ; $12  ; (y-position of the current buoy)
 $E1FC     M_immnn:1 C9 15    CMP  #$15  ; dec21
 $E1FE        M_rr:1 B0 0E    BCS  +branch_if_ypos_>=21  ; $E20E  ; branch if >= dec21
-$E200     M_nnnnY:2 B9 6D 00 LDA  array9,y  ; $006D,Y
+$E200     M_nnnnY:2 B9 6D 00 LDA  torpedo_fire_xpos,y  ; $006D,Y  ; x-pos of all torpedoes
 $E203      M_impl:0 38       SEC
-$E204        M_nn:1 E5 11    SBC  var1  ; $11  ; (x-position of the current ship)
+$E204        M_nn:1 E5 11    SBC  var1  ; $11  ; (x-position of the current buoy)
 $E206     M_immnn:1 C9 FE    CMP  #$FE  ; dec254
 $E208        M_rr:1 B0 09    BCS  +branch_if_xpos_>=254  ; $E213 ; branch if >= 254
 $E20A     M_immnn:1 C9 0C    CMP  #$0C  ; dec12
@@ -817,6 +824,7 @@ $E20F        M_rr:1 10 E3    BPL  -retry1  ; $E1F4
 $E211        M_rr:1 D0 11    BNE  +skip_due_to_no_spr_to_back_collision  ; $E224
 +branch_if_xpos_<12:
 +branch_if_xpos_>=254:
+' newly spawned buoy too close to other objects?
 $E213     M_immnn:1 A9 FF    LDA  #$FF
 $E215     M_nnnnY:2 99 7D 00 STA  array12,y  ; $007D,Y
 $E218       M_nnX:1 95 5D    STA  array5,x  ; $5D,X
@@ -1032,23 +1040,23 @@ $E2B9      M_nnnn:2 20 83 E7 JSR  read_paddle_fire_button  ; $E783
 $E2BC      M_impl:0 AA       TAX
 $E2BD        M_rr:1 D0 09    BNE  +paddle_fires_pressed  ; $E2C8  ; branch if any paddle fires pressed
 +skip_jmp:
-$E2BF        M_nn:1 A6 23    LDX  var5  ; $23
-$E2C1     M_immnn:1 A9 00    LDA  #$00
-$E2C3       M_nnX:1 95 33    STA  arrayA,x  ; $33,X  (something to do with game time?)
+$E2BF        M_nn:1 A6 23    LDX  var5  ; $23  ; player idx (0=player1, 1=player2)
+$E2C1     M_immnn:1 A9 00    LDA  #$00  ; set flag to record that paddle fire state is presently off
+$E2C3       M_nnX:1 95 33    STA  last_paddle_fire_state,x  ; $33,X
 $E2C5      M_nnnn:2 4C 57 E3 JMP  +big_jmp_to_near_end  ; $E357
 +auto_fire_missile_while_in_attract:
 +paddle_fires_pressed:
 $E2C8        M_nn:1 A6 23    LDX  var5  ; $23
-$E2CA       M_nnX:1 B5 33    LDA  arrayA,x  ; $33,X  ; (something to do with game time?)
-$E2CC        M_rr:1 F0 03    BEQ  +skip_if_arrayA_idx_val_is_zero  ; $E2D1
+$E2CA       M_nnX:1 B5 33    LDA  last_paddle_fire_state,x  ; $33,X
+$E2CC        M_rr:1 F0 03    BEQ  +skip_if_last_paddle_fire_state_is_off  ; $E2D1
 $E2CE      M_nnnn:2 4C 57 E3 JMP  +big_jmp_to_near_end  ; $E357
-+skip_if_arrayA_idx_val_is_zero:
++skip_if_last_paddle_fire_state_is_off:
 $E2D1     M_immnn:1 A9 FF    LDA  #$FF
-$E2D3       M_nnX:1 95 33    STA  arrayA,x  ; $33,X
+$E2D3       M_nnX:1 95 33    STA  last_paddle_fire_state,x  ; $33,X
 $E2D5       M_nnX:1 B5 2F    LDA  missile_reload_timers,x  ; $2F,X
-$E2D7        M_rr:1 F0 03    BEQ  +skip_if_arrayB_idx_val_is_zero  ; $E2DC
+$E2D7        M_rr:1 F0 03    BEQ  +skip_if_missile_reload_timer_is_zero  ; $E2DC
 $E2D9      M_nnnn:2 4C 57 E3 JMP  +big_jmp_to_near_end  ; $E357
-+skip_if_arrayB_idx_val_is_zero:
++skip_if_missile_reload_timer_is_zero:
 $E2DC      M_impl:0 8A       TXA
 $E2DD         M_A:0 0A       ASL
 $E2DE         M_A:0 0A       ASL  ; multiply by 4
@@ -1056,12 +1064,12 @@ $E2DF      M_impl:0 18       CLC
 $E2E0       M_nnX:1 75 31    ADC  p1_num_missiles,x  ; $31,X
 $E2E2      M_impl:0 A8       TAY
 $E2E3      M_impl:0 88       DEY
-$E2E4       M_nnX:1 B5 35    LDA  arrayBB,x  ; $35,X
+$E2E4       M_nnX:1 B5 35    LDA  players_xpos,x  ; $35,X
 $E2E6      M_impl:0 18       CLC
 $E2E7     M_immnn:1 69 07    ADC  #$07
-$E2E9     M_nnnnY:2 99 6D 00 STA  array9,y  ; $006D,Y
-$E2EC     M_immnn:1 A9 A0    LDA  #$A0
-$E2EE     M_nnnnY:2 99 75 00 STA  array10,y  ; $0075,Y
+$E2E9     M_nnnnY:2 99 6D 00 STA  torpedo_fire_xpos,y  ; $006D,Y
+$E2EC     M_immnn:1 A9 A0    LDA  #$A0  ; dec160
+$E2EE     M_nnnnY:2 99 75 00 STA  torpedo_fire_ypos,y  ; $0075,Y  ; y-position of submarine torpedo/fire
 $E2F1     M_immnn:1 A9 00    LDA  #$00
 $E2F3     M_nnnnY:2 99 7D 00 STA  array12,y  ; $007D,Y
 $E2F6       M_nnX:1 D6 31    DEC  p1_num_missiles,x  ; $31,X
@@ -1180,8 +1188,8 @@ $E3A2      M_impl:0 60       RTS
 $E3A3     M_immnn:1 A2 16    LDX  #$16  ; dec22
 $E3A5     M_immnn:1 A0 32    LDY  #$32  ; dec50
 -loop_for_dex:
-$E3A7     M_nnnnX:2 BD B7 E3 LDA  $E3B7,X
-$E3AA      M_InnY:1 91 02    STA  ($02),Y
+$E3A7     M_nnnnX:2 BD B7 E3 LDA  time_to_load_msg,x  ; $E3B7,X
+$E3AA      M_InnY:1 91 02    STA  scr_ptr_lo,y  ; ($02),Y
 $E3AC      M_impl:0 88       DEY
 $E3AD     M_immnn:1 C0 28    CPY  #$28  ; dec40
 $E3AF        M_rr:1 D0 02    BNE  +skip_if_y_not_40  ; $E3B3
@@ -1192,6 +1200,7 @@ $E3B4        M_rr:1 10 F1    BPL  -loop_for_dex  ; $E3A7
 $E3B6      M_impl:0 60       RTS
 
 
+time_to_load_msg:
  :000E3B7 3A 2F 33 2B 26 3A 35 26  32 35 27 2A 42 49 26 39  | :/3+&:5&25'*BI&9
            T  I  M  E     T  O      L  O  A  D  :  3     S
  :000E3C7 2B 29 35 34 2A 39 41                               | +)54*9
@@ -1200,7 +1209,7 @@ $E3B6      M_impl:0 60       RTS
 
 redraw_player_submarines:
 '-----------------------
-$E3CE     M_immnn:1 A9 01    LDA  #$01
+$E3CE     M_immnn:1 A9 01    LDA  #$01  ; player index (0=player1, 1=player2)
 $E3D0        M_nn:1 85 23    STA  var5  ; $23
 -big_loopback:
 $E3D2        M_nn:1 A6 23    LDX  var5  ; $23
@@ -1216,32 +1225,35 @@ $E3DE      M_nnnn:2 20 C0 E6 JSR  adjust_scr_and_clr_ptr_locations  ; $E6C0
 $E3E1        M_nn:1 A4 16    LDY  real_game_mode_flag  ; $16
 $E3E3        M_rr:1 D0 20    BNE  +skip_if_in_real_game_mode  ; $E405
 ' if we're in attract mode, move paddles around automatically?
-$E3E5       M_nnX:1 B5 35    LDA  arrayBB,x  ; $35,X
-$E3E7        M_nn:1 85 09    STA  var0-1  ; $09
-$E3E9       M_nnX:1 D5 37    CMP  arrayE,x  ; $37,X
-$E3EB        M_rr:1 D0 0C    BNE  +branch_ahead2  ; $E3F9
+$E3E5       M_nnX:1 B5 35    LDA  players_xpos,x  ; $35,X
+$E3E7        M_nn:1 85 09    STA  genvarA  ; $09  ; hold x-pos of current player
+$E3E9       M_nnX:1 D5 37    CMP  attract_mode_player_xpos_waypoint,x  ; $37,X
+$E3EB        M_rr:1 D0 0C    BNE  +still_travelling_to_xpos_waypoint  ; $E3F9
+' if we get here, the attract mode paddle movement has reached the current waypoint,
+' so it's time to pick a new waypoint to automatically travel towards
 -retry_if_>=147:
 $E3ED      M_nnnn:2 20 93 E8 JSR  random_num_gen_into_A  ; $E893
 $E3F0     M_immnn:1 C9 93    CMP  #$93  ; dec147
 $E3F2        M_rr:1 B0 F9    BCS  -retry_if_>=147  ; $E3ED ; branch if >= 147
-$E3F4       M_nnX:1 95 37    STA  arrayE,x  ; $37,X
+$E3F4       M_nnX:1 95 37    STA  attract_mode_player_xpos_waypoint,x  ; $37,X
 $E3F6      M_nnnn:2 4C 00 E4 JMP  +jump_ahead  ; $E400
-+branch_ahead2:
-$E3F9        M_rr:1 B0 03    BCS  +skip_to_dec  ; $E3FE
-$E3FB        M_nn:1 E6 09    INC  var0-1  ; $09
++still_travelling_to_xpos_waypoint:
+$E3F9        M_rr:1 B0 03    BCS  +skip_to_dec  ; $E3FE  ; if current player x-pos >= waypoint, then branch (for decrement)
+' otherwise player x-pos is less than waypoint (and we need to increment)
+$E3FB        M_nn:1 E6 09    INC  genvarA  ; $09  ; move paddle automatically to right
 $E3FD      M_nnnn:2 2C C6 09 BIT  $09C6
   +skip_to_dec:
-  $E3FE        M_nn:1 C6 09    DEC  var0-1 ; $09
+  $E3FE        M_nn:1 C6 09    DEC  genvarA ; $09  ; move paddle automatically to left
 +jump_ahead:
-$E400        M_nn:1 A5 09    LDA  var0-1  ; $09
+$E400        M_nn:1 A5 09    LDA  genvarA  ; $09
 $E402      M_nnnn:2 4C 0C E4 JMP  +jump_ahead2  ; $E40C
 +skip_if_in_real_game_mode:
 $E405        M_nn:1 A5 23    LDA  var5  ; $23
 $E407      M_nnnn:2 20 F0 F0 JSR  read_paddle_position  ; $F0F0
-$E40A        M_nn:1 85 09    STA  var0-1  ; $09
+$E40A        M_nn:1 85 09    STA  genvarA  ; $09
 +jump_ahead2:
 $E40C        M_nn:1 A6 23    LDX  var5  ; $23
-$E40E       M_nnX:1 B5 35    LDA  arrayBB,x  ; $35,X  ; some player1/2 detail (maybe player submarine x-pos x 4)
+$E40E       M_nnX:1 B5 35    LDA  players_xpos,x  ; $35,X  ; some player1/2 detail (maybe player submarine x-pos x 4)
 $E410         M_A:0 4A       LSR
 $E411         M_A:0 4A       LSR
 $E412      M_impl:0 A8       TAY
@@ -1254,28 +1266,29 @@ $E417      M_InnY:1 91 02    STA  ($02),Y  ; wipe away existing player submarine
 $E419      M_impl:0 C8       INY
 $E41A      M_impl:0 CA       DEX
 $E41B        M_rr:1 D0 FA    BNE  -loop1  ; $E417
-$E41D        M_nn:1 A5 09    LDA  var0-1  ; $09
+$E41D        M_nn:1 A5 09    LDA  genvarA  ; $09
 $E41F     M_immnn:1 29 03    AND  #$03
 $E421      M_impl:0 AA       TAX
 $E422     M_nnnnX:2 BC E8 EE LDY  submarine_charset_idx,x  ; $EEE8,X  ; choose between submarine_charset1/2/3/4
-$E425        M_nn:1 A5 23    LDA  var5  ; $23
-$E427        M_rr:1 D0 03    BNE  +skip_more  ; $E42C
-$E429     M_immnn:1 A2 00    LDX  #$00  ; row0
+$E425        M_nn:1 A5 23    LDA  var5  ; $23  ; player 1 or 2 index (0=player1, 1=player2)
+$E427        M_rr:1 D0 03    BNE  +jump_if_player2  ; $E42C
+$E429     M_immnn:1 A2 00    LDX  #$00  ; relative index for vic-bank0 chars describing current player1 submarine
+                                        ; (absolute char idx range 55-59)
 $E42B      M_nnnn:2 2C A2 28 BIT  $28A2
-  +skip_more:
-  $E42C     M_immnn:1 A2 28    LDX  #$28  ; dec40  ; row1
-$E42E     M_immnn:1 A9 28    LDA  #$28  ; dec40
+  +jump_if_player2:
+  $E42C     M_immnn:1 A2 28    LDX  #$28  ; dec40  ; relative index for vic-bank0 chars describing current player2 submarine
+$E42E     M_immnn:1 A9 28    LDA  #$28  ; dec40  ; (absolute char idx range 5a-5e)
 $E430        M_nn:1 85 08    STA  var0  ; $08
 -loopy:
 $E432     M_nnnnY:2 B9 48 EE LDA  submarine_charset1,y  ; $EE48,Y
-$E435     M_nnnnX:2 9D A8 02 STA  arrayF,x  ; $02A8,X
+$E435     M_nnnnX:2 9D A8 02 STA  vicbank0_sub_charset1,x  ; $02A8,X
 $E438      M_impl:0 E8       INX
 $E439      M_impl:0 C8       INY
 $E43A        M_nn:1 C6 08    DEC  var0  ; $08
 $E43C        M_rr:1 D0 F4    BNE  -loopy ; $E432
 $E43E        M_nn:1 A6 23    LDX  var5  ; $23
-$E440        M_nn:1 A5 09    LDA  var0-1  ; $09
-$E442       M_nnX:1 95 35    STA  arrayBB,x  ; $35,X  ; some player1/2 detail
+$E440        M_nn:1 A5 09    LDA  genvarA  ; $09
+$E442       M_nnX:1 95 35    STA  players_xpos,x  ; $35,X  ; some player1/2 detail
 $E444         M_A:0 4A       LSR
 $E445         M_A:0 4A       LSR
 $E446      M_impl:0 A8       TAY
@@ -1309,7 +1322,7 @@ $E45F     M_immnn:1 A9 07    LDA  #$07  ; iterator over all the current ships (7
 $E461        M_nn:1 85 23    STA  var5  ; $23
 -jumbo_loopback:
 $E463        M_nn:1 A6 23    LDX  var5  ; $23
-$E465       M_nnX:1 B5 75    LDA  array10,x  ; $75,X  ; y-position of all ships?
+$E465       M_nnX:1 B5 75    LDA  torpedo_fire_ypos,x  ; $75,X  ; y-position of all torpedoes
 $E467        M_rr:1 D0 03    BNE  +skip1  ; $E46C
 $E469      M_nnnn:2 4C 2E E5 JMP  +jump_to_near_end  ; $E52E
 +skip1:
@@ -1346,14 +1359,14 @@ $E496         M_A:0 4A       LSR
 $E497         M_A:0 4A       LSR  ; divide by 16
 $E498      M_impl:0 A8       TAY
 $E499     M_nnnnY:2 B9 B4 EF LDA  another_kooky_table,y  ; $EFB4,Y  ; has values like #$00, #$40 and #$80 (over index0 to 11)
-$E49C        M_nn:1 85 09    STA  var0-1  ; $09
-$E49E       M_nnX:1 B5 6D    LDA  array9,x  ; $6D,X  ; x-position of all ships
+$E49C        M_nn:1 85 09    STA  genvarA  ; $09
+$E49E       M_nnX:1 B5 6D    LDA  torpedo_fire_xpos,x  ; $6D,X  ; x-position of all torpedoes
 $E4A0     M_immnn:1 29 03    AND  #$03
 $E4A2         M_A:0 0A       ASL
 $E4A3         M_A:0 0A       ASL
 $E4A4         M_A:0 0A       ASL
 $E4A5         M_A:0 0A       ASL ; multiply by 16
-$E4A6        M_nn:1 05 09    ORA  var0-1  ; $09  ; could be value of either #$00 or #$40 or #$80
+$E4A6        M_nn:1 05 09    ORA  genvarA  ; $09  ; could be value of either #$00 or #$40 or #$80
 $E4A8      M_impl:0 A8       TAY  ; used as index in kooky2_table later
 $E4A9        M_nn:1 A5 08    LDA  var0  ; $08
 $E4AB     M_immnn:1 29 07    AND  #$07
@@ -1370,9 +1383,9 @@ $E4BD      M_impl:0 C8       INY
 $E4BE        M_nn:1 C6 0E    DEC  var0-6  ; $0E
 $E4C0        M_rr:1 D0 F0    BNE  -loopback1  ; $E4B2
 $E4C2        M_nn:1 A6 23    LDX  var5  ; $23  ; ought to be an index from 0 to 7
-$E4C4       M_nnX:1 B5 6D    LDA  array9,x  ; $6D,X
+$E4C4       M_nnX:1 B5 6D    LDA  torpedo_fire_xpos,x  ; $6D,X
 $E4C6        M_nn:1 85 11    STA  var1  ; $11  ; x-pos of current ship?
-$E4C8       M_nnX:1 B5 75    LDA  array10,x  ; $75,X
+$E4C8       M_nnX:1 B5 75    LDA  torpedo_fire_ypos,x  ; $75,X
 $E4CA        M_nn:1 85 12    STA  var2  ; $12  ; y-pos of current ship?
 $E4CC      M_nnnn:2 20 B1 E6 JSR  set_scr_and_clr_ptr_locations_based_on_ship_xy_pos  ; $E6B1
 $E4CF     M_immnn:1 A2 03    LDX  #$03
@@ -1392,7 +1405,7 @@ $E4E5     M_immnn:1 C9 10    CMP  #$10  ; dec16
 $E4E7        M_rr:1 90 3F    BCC  +branch_near_end  ; $E528  ; branch if less than 16
 $E4E9       M_nnX:1 B4 7D    LDY  array12,x  ; $7D,X
 $E4EB        M_rr:1 D0 3B    BNE  +branch_near_end  ; $E528
-$E4ED       M_nnX:1 95 75    STA  array10,x  ; $75,X  ; y-pos of all ships?
+$E4ED       M_nnX:1 95 75    STA  torpedo_fire_ypos,x  ; $75,X  ; y-pos of all torpedoes
 $E4EF        M_nn:1 85 12    STA  var2  ; $12  ; y-pos of current ship
 $E4F1      M_nnnn:2 20 B1 E6 JSR  set_scr_and_clr_ptr_locations_based_on_ship_xy_pos  ; $E6B1
 $E4F4        M_nn:1 A4 10    LDY  var0-8  ; $10
@@ -1407,7 +1420,7 @@ $E501        M_rr:1 D0 F5    BNE  -loopback4  ; $E4F8
 $E503        M_nn:1 A5 0F    LDA  var0-7  ; $0F
 $E505      M_impl:0 18       CLC
 $E506     M_immnn:1 69 63    ADC  #$63  ; dec99
-$E508        M_nn:1 85 09    STA  var0-1  ; $09  ; could it relate to current paddle position?
+$E508        M_nn:1 85 09    STA  genvarA  ; $09  ; could it relate to current paddle position?
 $E50A     M_immnn:1 A2 03    LDX  #$03
 -big_loop1:
 $E50C     M_nnnnX:2 BC 28 EE LDY  kooky_screen_locations,x  ; $EE28,X
@@ -1418,19 +1431,19 @@ $E515     M_immnn:1 C9 60    CMP  #$60  ; #$60 = first shot char in group
 
 $E517        M_rr:1 90 08    BCC  +branch_if_less_than_shot_char  ; $E521
 +branch_if_space_char:
-$E519        M_nn:1 A5 09    LDA  var0-1  ; $09
+$E519        M_nn:1 A5 09    LDA  genvarA  ; $09
 $E51B      M_InnY:1 91 02    STA  (scr_ptr_lo),y  ; ($02),Y
 $E51D        M_nn:1 A5 2E    LDA  whatis6  ; $2E  ; some colour choice between yellow or light-brown
 $E51F      M_InnY:1 91 04    STA  (clr_ptr_lo),y  ; ($04),Y
 +branch_if_less_than_shot_char:
-$E521        M_nn:1 C6 09    DEC  var0-1  ; $09
+$E521        M_nn:1 C6 09    DEC  genvarA  ; $09
 $E523      M_impl:0 CA       DEX
 $E524        M_rr:1 10 E6    BPL  -big_loop1  ; $E50C
 $E526        M_rr:1 30 06    BMI  +jump_to_near_end  ; $E52E
 +branch_near_end:
 $E528        M_nn:1 A6 23    LDX  var5  ; $23
 $E52A     M_immnn:1 A9 00    LDA  #$00
-$E52C       M_nnX:1 95 75    STA  array10,x  ; $75,X  ; y-pos of all ships
+$E52C       M_nnX:1 95 75    STA  torpedo_fire_ypos,x  ; $75,X  ; y-pos of all torpedoes
 +jump_to_near_end:
 $E52E        M_nn:1 C6 23    DEC  var5  ; $23
 $E530        M_rr:1 30 03    BMI  +skip_to_end  ; $E535
@@ -2270,7 +2283,7 @@ $EA1E     M_immnn:1 A2 01    LDX  #$01
 $EA20      M_nnnn:2 20 93 E8 JSR  random_num_gen_into_A  ; $E893
 $EA23     M_immnn:1 C9 28    CMP  #$28  ; dec40
 $EA25        M_rr:1 B0 F9    BCS  $EA20  ; if a >= 40 then loop
-$EA27       M_nnX:1 95 35    STA  arrayBB,x  ; $35,X  ; place both player subs at some random 0-39 char xpos
+$EA27       M_nnX:1 95 35    STA  players_xpos,x  ; $35,X  ; place both player subs at some random 0-39 char xpos
 $EA29      M_impl:0 CA       DEX
 $EA2A        M_rr:1 10 F4    BPL  $EA20
 $EA2C      M_nnnn:2 20 7D E5 JSR  prepare_game_screen  ; $E57D
@@ -3046,42 +3059,60 @@ no_idea_yet:
 
 read_paddle_position:
 --------------------
-$F0F0      M_impl:0 AA       TAX
+$F0F0      M_impl:0 AA       TAX  ; X = player index (0=player1, 1=player2)
 $F0F1      M_impl:0 38       SEC
 $F0F2     M_immnn:1 A9 C8    LDA  #$C8  ; dec200
 $F0F4     M_nnnnX:2 FD 19 D4 SBC  $D419,X  ; adc paddle1 pos ($d419) or paddle2 pos ($d41a)
-$F0F7        M_rr:1 B0 02    BCS  +branch_if_>=200  ; $F0FB  ; branch if 200 >= current paddle pos of player
-$F0F9     M_immnn:1 A9 00    LDA  #$00
+$F0F7        M_rr:1 B0 02    BCS  +branch_if_>=200  ; $F0FB  ; branch if subtraction didn't cause a borrow (i.e. if paddle pos didn't surpass #$c8 / 200)
+$F0F9     M_immnn:1 A9 00    LDA  #$00  ; if paddle-pos surpassed #$c8/200, then we set it to #$00
 +branch_if_>=200:
-$F0FB        M_nn:1 85 08    STA  var0  ; $08
-$F0FD         M_A:0 4A       LSR
+$F0FB        M_nn:1 85 08    STA  var0  ; $08  ; otherwise paddle is set to be #$C8 minus paddle-pos
+                                               ; I.e., keep in the range of 0 to 200
+$F0FD         M_A:0 4A       LSR  ; A=0 to 100
 $F0FE      M_impl:0 18       CLC
-$F0FF        M_nn:1 65 08    ADC  var0  ; $08
-$F101         M_A:0 6A       ROR
+$F0FF        M_nn:1 65 08    ADC  var0  ; $08  A = 1.5 * var0 (range: 0 to 300)
+$F101         M_A:0 6A       ROR  ; A = 0.75 * var0  (range: 0 to 150?)
+                                  ; I wonder about carry-flag being on sometimes and going to bit7
+                                  ; Aah, this logic is fine, the carry-bit becomes like a 'high byte',
+                                  ; and the ROR pushes the bit0 of this high byte into our low byte reg A.
 $F102     M_immnn:1 A0 00    LDY  #$00
 $F104        M_nn:1 84 08    STY  var0  ; $08
 $F106     M_immnn:1 A0 03    LDY  #$03
+' Seems like prior x-pos of the player's submarine is added to the current paddle pos three times
+' So the carry bits accumulate in var0. So var0 is like the 'high byte' of this addition.
+' Later, when the two ror's occur, it's like a division by 4, which brings it all back to the 8-bit range.
+;
+; I sense this is a smoothing filter, to prevent too much jitter on the paddles, by putting a heavier weighting
+; on the prior xpos (x3) and smaller weighter on the newer xpos (x1), then divide by 4 to average it out.
+;
+; NOTE: I think the 0-150 range for sub movement relates to how the submarine_charset1/2/3/4 move the sub by increments of
+; 2 pixels (not one). So the units of this amount aren't pixels by units of 2-pixels (or pixel pairs, if you prefer)
 -retry1:
 $F108      M_impl:0 18       CLC
-$F109       M_nnX:1 75 FE    ADC  array30,x  ; $FE,X
-$F10B        M_rr:1 90 02    BCC  +skip1  ; $F10F
-$F10D        M_nn:1 E6 08    INC  var0  ; $08
+$F109       M_nnX:1 75 FE    ADC  filtered_player_xpos,x  ; $FE,X  ; let's assume filtered_player_xpos is initialised to zero, nothing gets added
+$F10B        M_rr:1 90 02    BCC  +skip1  ; $F10F     ; for this assumed initial case, we'll branch)
+$F10D        M_nn:1 E6 08    INC  var0  ; $08  ; var0 will contain how many times a carry happened (how many times the adc passed 255)
 +skip1:
 $F10F      M_impl:0 88       DEY
 $F110        M_rr:1 D0 F6    BNE  -retry1  ; $F108
+; So A = 3 x (old xpos) + new paddle xpos (in 2-pixel units)
 $F112        M_nn:1 66 08    ROR  var0  ; $08
 $F114         M_A:0 6A       ROR
 $F115        M_nn:1 66 08    ROR  var0  ; $08
-$F117         M_A:0 6A       ROR
+$F117         M_A:0 6A       ROR  ; shift A right twice (/4), and in bits7-6, place the var0 count of how many carries occurred
+                                  ; this
 $F118      M_impl:0 38       SEC
-$F119     M_immnn:1 E9 02    SBC  #$02
-$F11B        M_rr:1 B0 02    BCS  +skip2  ; $F11F
-$F11D     M_immnn:1 A9 00    LDA  #$00
-+skip2
-$F11F       M_nnX:1 95 FE    STA  array30,x  ; $FE,X
+$F119     M_immnn:1 E9 02    SBC  #$02   ; A=(0to150 range) - 2 = (-2 to 148 range)
+$F11B        M_rr:1 B0 02    BCS  +skip2  ; $F11F  ; branch if sbc didn't cause borrow (A-2 was >= 0)
+; I suppose it could only get here if var0 was 0 (i.e., that count of carries in the y-loop was zero)
+$F11D     M_immnn:1 A9 00    LDA  #$00  ; so if no carries occurred, store a value of #$00
+                                        ; i.e., assure range is 0 to 148
++skip2:
+$F11F       M_nnX:1 95 FE    STA  filtered_player_xpos,x  ; $FE,X  ; This stores the smoothed/filtered x-pos of the player's sub in 0-148 range
 $F121      M_impl:0 60       RTS
 
 some_unknown_data:
+' doesn't appear to be used anywhere
  :000F122 FF FF FF
 
 set_sprite_colour:
@@ -3102,6 +3133,57 @@ void_data:
  :000FB70 FF FF FF FF FF FF FF FF  FF FF FF FF FF FF FF FF
 
 sprite_data:
+' NOTE: I was a bit puzzled as to how the program as able to see these sprites
+' at address $3B80 and onwards. (I couldn't find any code that copied it there!)
+'
+' It finally made sense after I read an explanation here:
+' - http://www.floodgap.com/retrobits/ckb/secret/ultimax.html
+'
+' > The VIC-II, however, sees all 64K in its usual 16K clumps, with ROM banked
+' > into the upper 4K of its current "slice" (meaning $F000-$FFFF of the
+' > cartridge ROM actually "appears" at $3000-$3FFF in the default VIC addressing
+' > space as well).'
+'
+' NOTE2: As I was using a cracked version of this game for the disassembly, I
+' noticed that its decrunching routine appeared to indeed copy the sprites down
+' to this lower $3B80 region. I.e., perhaps the cracked game didn't rely on this
+' "ultimax" mode of behaviour? I might be able to assess this later by checking
+' what the /LORAM, /HIRAM, /GAME and /EXROM lines were set to...
+'
+' Taking a look at memory location $01, it is set to $E5 (%1110 0101)
+'   bit0 = /LORAM = 1
+'   bit1 = /HIRAM = 0
+'   bit2 = /CHAREN = 1
+'   bit3 = Cassette Data Output Line = 0
+'   bit4 = Cassette Switch Sense = 0 (Switch open)
+'   bit5 = Cassette Motor Control = 1 (Motor off)
+'   bit7-6 = 1 (undefined)
+'
+' The /GAME and /EXROM lines can only be set via a cartridge
+' (pins 8 and 9, respectively)
+'
+' This memory mapping mode is described in the manual as:
+' 
+' > This map provides 60K bytes of RAM and I/O devices.
+' > The user must write his own I/O driver routines.
+'
+' This $E5 value may have been placed in $01 via either the
+' 'cold_start_handler' routine, or possibly the decrunching routine?
+'
+' NOTE3: Ah, the earlier-mentioned web paged elaborated on the reasons the
+' decruncher did this:
+' - http://www.floodgap.com/retrobits/ckb/secret/ultimax.html
+'
+' > This is the only mode where the VIC-II can access external memory (i.e., 
+' > memory outside of its default 16K slice), engineered to allow the cartridge's
+' > sprite and character data to be visible to the VIC-II without copying it and
+' > wasting what little RAM is present -- particularly important since the Ultimax
+' > has no built-in character set! (However, because of the processor's
+' > restrictions it would be very stupid for software to attempt to use memory
+' > higher than $1000.) Because of this complex little internal hackery, you must
+' > also copy $F000-$FFFF to $3000-$3FFF before running an Ultimax cartridge dump
+' > or the game will have scrambled graphics.
+
  :000FB80 49 00 00 10 80 00 00 00  00 00 C0 00 00 CC 00 18  | I...............
  :000FB90 CC 00 18 CC 00 18 CE 00  D8 FE 07 F9 BB 3F BF EE  | .............?..
  :000FBA0 FF EB FF FE FF FF FE 7F  FF FC 7F FF F8 3F FF F0  | .............?..
