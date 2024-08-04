@@ -227,7 +227,17 @@ $75-$7c torpedo_fire_ypos[8]:  (y-positions of all torpedoes)
 $7d-xx array12[x]:
   - sta at $e046
   - sta at $e215 (sets it to #$ff)
-$85-$A4 array14[32]:  contains the ship-index that was spawned recently?
+$85-$A4 genarrayA[32]:
+  - multi-purpose array
+  - PURPOSE1: within 'game_mechanics_iteration:'
+    - is used to store a list of existing ship indexes that are on the same ypos as the newly spawned ship
+                    (these are sorted on their xpos, depending on the mirror/direction the ships are going)
+
+  - PURPOSE2: within 'bullet_redraw_and_ship_assessment:'
+    - prepares the bullet chars needed for each player's missile custom char-based soft-sprites
+      - which is then copied down to vic-bank0 at $0300 - $03ff
+      - I.e., vicbank0_missile_chars_for_player1/2
+
   - sta at $e111  ; seems to keep a list of existing ship indexes that are on the same ypos as the newly spawned ship
                     (these are sorted on their xpos, depending on the mirror/direction the ships are going)
   - ldx at $e11f
@@ -241,12 +251,84 @@ $fe-$ff filtered_player_xpos[2]:
   - sta at $F11F
 
 
-$02a8-xxxx vicbank0_sub_charset1[x]:
-  - (some sort of screen row buffer of row contents copied from submarine_charset1 / $ee48)
+$02a8-02cf vicbank0_sub_chars_for_player1[5][8]:
+  - The custom char-based soft-sprite used for player1's submarine, whose contents are copied from
+    from submarine_charset1/2/3/4 ($ee48), depending on which 2-pixel location the sub is at 
   - sta at $e435
+char idx $55-59 address: $02A80-02
++--------+--------+--------+--------+--------+
+|        |        | **     |        |        |
+|        |       *|*****   |        |        |
+|        |       *|*****   |        |        |
+|    ****|********|********|********|        |
+|  ******|********|********|********|**      |
+|  ******|********|********|********|**      |
+|    ****|********|********|********|        |
+|        |        |        |        |        |
++--------+--------+--------+--------+--------+
 
-$0300-xxxx arrayG[x]:
-  - sta at $e4fa  (seems to copy across a chunk of array14?)
+$02d0-02ff vicbank0_sub_chars_for_player2[5][8]:
+  - The custom char-based soft-sprite used for player2's submarine, whose contents are copied from
+    from submarine_charset1/2/3/4 ($ee48), depending on which 2-pixel location the sub is at 
++--------+--------+--------+--------+--------+
+|        |        |     ** |        |        |
+|        |        |   *****|*       |        |
+|        |        |   *****|*       |        |
+|        |********|********|********|****    |
+|      **|********|********|********|******  |
+|      **|********|********|********|******  |
+|        |********|********|********|****    |
+|        |        |        |        |        |
++--------+--------+--------+--------+--------+
+
+$0300-037F vicbank0_missile_chars_for_player1[4][4][8]: ([4 missiles][4 chars per missile][8 bytes per char])
+  - sta at $e4fa  (seems to copy across a chunk of genarrayA?)
+- E.g. if player1 has fired all 4 missiles, it may look like this:
+
+ MISSILE 4           MISSILE 3           MISSILE 2           MISSILE 1
++--------+--------+ +--------+--------+ +--------+--------+ +--------+--------+
+|60   ** |62      | |64      |66      | |68      |6a      | |6c      |6e      |
+|     ** |        | |        |        | |        |        | |        |        |
+|    ****|        | | *      |        | |       *|        | |       *|        |
+|    ****|        | |***     |        | |      **|*       | |      **|*       |
+|    ****|        | |***     |        | |      **|*       | |      **|*       |
+|    ****|        | |***     |        | |      **|*       | |      **|*       |
+|    ****|        | |***     |        | |      **|*       | |      **|*       |
+|     ** |        | | *      |        | |       *|        | |       *|        |
++--------+--------+ +--------+--------+ +--------+--------+ +--------+--------+
+|61      |63      | |65      |67      | |69      |6b      | |6d      |6f      |
+|        |        | |        |        | |        |        | |        |        |
+|        |        | |        |        | |        |        | |        |        |
+|        |        | |        |        | |        |        | |        |        |
+|        |        | |        |        | |        |        | |        |        |
+|        |        | |        |        | |        |        | |        |        |
+|        |        | |        |        | |        |        | |        |        |
+|        |        | |        |        | |        |        | |        |        |
++--------+--------+ +--------+--------+ +--------+--------+ +--------+--------+
+
+
+$0380-03ff vicbank0_missile_chars_for_player2[4][4][8]: ([4 missiles][4 chars per missile][8 bytes per char])
+- E.g. if player2 has fired all 4 missiles, it may look like this:
+ MISSILE 4           MISSILE 3           MISSILE 2           MISSILE 1
++--------+--------+ +--------+--------+ +--------+--------+ +--------+--------+
+|70      |72      | |74      |76      | |78      |7a      | |7c      |7e      |
+|        |        | |        |        | |        |        | |        |        |
+|        |        | |   *    |        | | *      |        | |   *    |        |
+|        |        | |  ***   |        | |***     |        | |  ***   |        |
+|        |        | |  ***   |        | |***     |        | |  ***   |        |
+|        |        | |  ***   |        | |***     |        | |  ***   |        |
+|        |        | |  ***   |        | |***     |        | |  ***   |        |
+|   **   |        | |   *    |        | | *      |        | |   *    |        |
++--------+--------+ +--------+--------+ +--------+--------+ +--------+--------+
+|71 **   |73      | |75      |77      | |79      |7b      | |7d      |7f      |
+|  ****  |        | |        |        | |        |        | |        |        |
+|  ****  |        | |        |        | |        |        | |        |        |
+|  ****  |        | |        |        | |        |        | |        |        |
+|  ****  |        | |        |        | |        |        | |        |        |
+|  ****  |        | |        |        | |        |        | |        |        |
+|   **   |        | |        |        | |        |        | |        |        |
+|        |        | |        |        | |        |        | |        |        |
++--------+--------+ +--------+--------+ +--------+--------+ +--------+--------+
 
 '--------------------------------
 
@@ -416,7 +498,7 @@ $E10A       M_nnX:1 B5 49    LDA  ships_ypos,x  ; $49,X  ; y-pos of all ships
 $E10C        M_nn:1 C5 08    CMP  var0  ; $08  ; y-pos of current ship?
 $E10E        M_rr:1 D0 05    BNE  +skip2  ; $E115  ; if new ship has different y-pos to existing ships, then branch
 $E110      M_impl:0 8A       TXA
-$E111     M_nnnnY:2 99 85 00 STA  array14,y  ; $0085,Y
+$E111     M_nnnnY:2 99 85 00 STA  genarrayA,y  ; $0085,Y
 $E114      M_impl:0 C8       INY
 +skip2:
 $E115      M_impl:0 CA       DEX
@@ -425,7 +507,7 @@ $E118      M_impl:0 98       TYA  ; y = the number of existing ships that are on
 $E119        M_rr:1 F0 6F    BEQ  +big_skip1  ; $E18A  ; branch if no other existing ships are on the same ypos as newly spawned ship
 $E11B        M_nn:1 85 08    STA  var0  ; $08  ; the number of existing ships that are on the same ypos as newly spawned ship
 $E11D        M_nn:1 C6 08    DEC  var0  ; $08
-$E11F        M_nn:1 A6 85    LDX  array14  ; $85  ; the first existing ship-idx on same y-pos as newly spawned ship
+$E11F        M_nn:1 A6 85    LDX  genarrayA  ; $85  ; the first existing ship-idx on same y-pos as newly spawned ship
 $E121       M_nnX:1 B5 4D    LDA  ships_mirror_flag,x  ; $4D,X  ; mirror orientation of all ships? (01=normal, ff=reversed)
 $E123        M_nn:1 85 0A    STA  curr_ship_mirror_state  ; $0A  ; the mirror orientation of the first existing ship on same ypos as newly spawned ship
 $E125        M_rr:1 30 29    BMI  +skip3  ; $E150  ; if mirror orientation = $ff (mirrored), then branch
@@ -435,23 +517,23 @@ $E129        M_rr:1 F0 1E    BEQ  +skip4  ; $E149  ; if no# of existing ships on
 $E12B     M_immnn:1 A0 00    LDY  #$00    ; if we're here, then there are multiple existing ships on same ypos as new ship
 -retry3:
 ' some kind of sorting logic?
-$E12D       M_nnY:1 B6 85    LDX  array14,y  ; $85,Y  ; idx of existing ships on same ypos as new ship
-$E12F       M_nnX:1 B5 45    LDA  ships_xpos,x  ; $45,X  ; x-pos of all ships (x = index of an existing ship from the array14 list)
-$E131       M_nnY:1 B6 86    LDX  array14+1,y  ; $86,Y  ; idx of existing ship after this prior one
+$E12D       M_nnY:1 B6 85    LDX  genarrayA,y  ; $85,Y  ; idx of existing ships on same ypos as new ship
+$E12F       M_nnX:1 B5 45    LDA  ships_xpos,x  ; $45,X  ; x-pos of all ships (x = index of an existing ship from the genarrayA list)
+$E131       M_nnY:1 B6 86    LDX  genarrayA+1,y  ; $86,Y  ; idx of existing ship after this prior one
 $E133       M_nnX:1 D5 45    CMP  ships_xpos,x  ; $45,X  ; compare 1st ship's xpos with 2nd ships xpos
 $E135        M_rr:1 90 0D    BCC  +no_need_to_swap_pair  ; $E144  ; if 1st existing ship's xpos is less than 2nd existing ship's xpos, then branch
 $E137        M_rr:1 F0 0B    BEQ  +no_need_to_swap_pair ; $E144   ; or if their xpos are equal, branch too
 ' need to swap pair to sort them in order
-$E139     M_nnnnY:2 B9 85 00 LDA  array14,y  ; $0085,Y  ; a = xpos of 1st existing ship
-$E13C       M_nnY:1 96 85    STX  array14,y  ; $85,Y     ; let the 1st ship xpos now equal the 2nd ship xpos
-$E13E     M_nnnnY:2 99 86 00 STA  array14+1,y  ; $0086,Y  ; let the 2nd ship xpos now equal the 1st ship xpos (i.e. swap them)
+$E139     M_nnnnY:2 B9 85 00 LDA  genarrayA,y  ; $0085,Y  ; a = xpos of 1st existing ship
+$E13C       M_nnY:1 96 85    STX  genarrayA,y  ; $85,Y     ; let the 1st ship xpos now equal the 2nd ship xpos
+$E13E     M_nnnnY:2 99 86 00 STA  genarrayA+1,y  ; $0086,Y  ; let the 2nd ship xpos now equal the 1st ship xpos (i.e. swap them)
 $E141      M_nnnn:2 4C 2B E1 JMP  -jmp_retry  ; $E12B
 +no_need_to_swap_pair:
 $E144      M_impl:0 C8       INY
 $E145        M_nn:1 C4 08    CPY  var0  ; $08  ; the number of existing ships that are on the same ypos as newly spawned ship minus one
 $E147        M_rr:1 90 E4    BCC  -retry3  ; $E12D  ; if incremented y < no# of existing ships on same ypos minus one, then branch
 +skip4:
-$E149        M_nn:1 A6 85    LDX  array14  ; $85  ; 1st of existing (and sorted ships) that is closest to the left screen edge
+$E149        M_nn:1 A6 85    LDX  genarrayA  ; $85  ; 1st of existing (and sorted ships) that is closest to the left screen edge
 $E14B       M_nnX:1 B5 45    LDA  ships_xpos,x  ; $45,X  ; x-pos of all ships
 $E14D      M_nnnn:2 4C 77 E1 JMP  +another_skip  ; $E177
 +skip3:
@@ -462,21 +544,21 @@ $E152        M_rr:1 F0 1C    BEQ  +skip6  ; $E170  ; if there's only one existin
 ' sorting logic for mirrored case
 $E154     M_immnn:1 A0 00    LDY  #$00
 -retry4:
-$E156       M_nnY:1 B6 85    LDX  array14,y  ; $85,Y  ; idx of existing ships on same ypos as new ship
+$E156       M_nnY:1 B6 85    LDX  genarrayA,y  ; $85,Y  ; idx of existing ships on same ypos as new ship
 $E158       M_nnX:1 B5 45    LDA  ships_xpos,x  ; $45,X  ; get xpos of 1st existing ship
-$E15A       M_nnY:1 B6 86    LDX  array14+1,y  ; $86,Y  ; get idx of 2nd existing ship
+$E15A       M_nnY:1 B6 86    LDX  genarrayA+1,y  ; $86,Y  ; get idx of 2nd existing ship
 $E15C       M_nnX:1 D5 45    CMP  ships_xpos,x  ; $45,X ; compare 1st ship's xpos with 2nd ship's xpos
 $E15E        M_rr:1 B0 0B    BCS  +skip7  ; $E16B  ; if 1st ship's xpos is >= 2nd ship's xpos, then branch (no need to swap for sort)
-$E160     M_nnnnY:2 B9 85 00 LDA  array14,y  ; $0085,Y  ; a = xpos of 1st ship
-$E163       M_nnY:1 96 85    STX  array14,y  ; $85,Y    ; let 1st ship xpos now equal 2nd ship xpos
-$E165     M_nnnnY:2 99 86 00 STA  array14+1,y  ; $0086,Y  ; let 2nd ship xpos now equal 1st ship xpos (i.e. swap them)
+$E160     M_nnnnY:2 B9 85 00 LDA  genarrayA,y  ; $0085,Y  ; a = xpos of 1st ship
+$E163       M_nnY:1 96 85    STX  genarrayA,y  ; $85,Y    ; let 1st ship xpos now equal 2nd ship xpos
+$E165     M_nnnnY:2 99 86 00 STA  genarrayA+1,y  ; $0086,Y  ; let 2nd ship xpos now equal 1st ship xpos (i.e. swap them)
 $E168      M_nnnn:2 4C 54 E1 JMP  -jmp_back_a_little  ; $E154
 +skip7:
 $E16B      M_impl:0 C8       INY
 $E16C        M_nn:1 C4 08    CPY  var0  ; $08  ; the number of existing ships on same ypos as new ship minus one
 $E16E        M_rr:1 90 E6    BCC  -retry4  ; $E156  ; if incrementeed y < no# existing ships on same ypos minus one, then branch
 +skip6:
-$E170        M_nn:1 A6 85    LDX  array14  ; $85  ; 1st of existing (and sorted ships) that is closest to the right screen edge
+$E170        M_nn:1 A6 85    LDX  genarrayA  ; $85  ; 1st of existing (and sorted ships) that is closest to the right screen edge
 $E172     M_immnn:1 A9 88    LDA  #$88  ; dec136 (the right-most edge's xpos)
 $E174      M_impl:0 38       SEC
 $E175       M_nnX:1 F5 45    SBC  ships_xpos,x  ; $45,X  ; A = right_edge_xpos - 1st_existing_sorted_ships_xpos
@@ -1284,7 +1366,7 @@ $E42E     M_immnn:1 A9 28    LDA  #$28  ; dec40  ; (absolute char idx range 5a-5
 $E430        M_nn:1 85 08    STA  var0  ; $08
 -loopy:
 $E432     M_nnnnY:2 B9 48 EE LDA  submarine_charset1,y  ; $EE48,Y
-$E435     M_nnnnX:2 9D A8 02 STA  vicbank0_sub_charset1,x  ; $02A8,X
+$E435     M_nnnnX:2 9D A8 02 STA  vicbank0_sub_chars_for_player1,x  ; $02A8,X
 $E438      M_impl:0 E8       INX
 $E439      M_impl:0 C8       INY
 $E43A        M_nn:1 C6 08    DEC  var0  ; $08
@@ -1352,7 +1434,7 @@ $E486        M_nn:1 85 2E    STA  whatis6  ; $2E
 $E488     M_immnn:1 A0 1F    LDY  #$1F  ; dec31
 $E48A     M_immnn:1 A9 00    LDA  #$00
 -loopback2:
-$E48C     M_nnnnY:2 99 85 00 STA  array14,y  ; $0085,Y  ; reset entire array14[32] to zeroes
+$E48C     M_nnnnY:2 99 85 00 STA  genarrayA,y  ; $0085,Y  ; reset entire genarrayA[32] to zeroes
 $E48F      M_impl:0 88       DEY
 $E490        M_rr:1 10 FA    BPL  -loopback2  ; $E48C
 $E492        M_nn:1 A5 08    LDA  var0  ; $08  ; y-pos of current ship minus some_kooky_table value
@@ -1378,9 +1460,9 @@ $E4AE     M_immnn:1 A9 08    LDA  #$08
 $E4B0        M_nn:1 85 0E    STA  var0-6  ; $0E
 -loopback1:
 $E4B2     M_nnnnY:2 B9 EC EE LDA  kooky2_table,y  ; $EEEC,Y  ; y-range = 0 to 7  ; values of either #$00, #$E0 or #$40
-$E4B5       M_nnX:1 95 85    STA  array14,x  ; $85,X
+$E4B5       M_nnX:1 95 85    STA  genarrayA,x  ; $85,X
 $E4B7     M_nnnnY:2 B9 F4 EE LDA  kooky3_table,y  ; $EEF4,Y  ; y-range = 0 to 7 (all values in table are #$00)
-$E4BA       M_nnX:1 95 95    STA  array14+16,x  ; $95,X
+$E4BA       M_nnX:1 95 95    STA  genarrayA+16,x  ; $95,X
 $E4BC      M_impl:0 E8       INX
 $E4BD      M_impl:0 C8       INY
 $E4BE        M_nn:1 C6 0E    DEC  var0-6  ; $0E
@@ -1414,8 +1496,8 @@ $E4F1      M_nnnn:2 20 B1 E6 JSR  set_scr_and_clr_ptr_locations_based_on_ship_xy
 $E4F4        M_nn:1 A4 10    LDY  var0-8  ; $10
 $E4F6     M_immnn:1 A2 00    LDX  #$00
 -loopback4:
-$E4F8       M_nnX:1 B5 85    LDA  array14,x  ; $85,X
-$E4FA     M_nnnnY:2 99 00 03 STA  arrayG,y  ; $0300,Y
+$E4F8       M_nnX:1 B5 85    LDA  genarrayA,x  ; $85,X
+$E4FA     M_nnnnY:2 99 00 03 STA  vicbank0_missile_chars_for_player1,y  ; $0300,Y
 $E4FD      M_impl:0 C8       INY
 $E4FE      M_impl:0 E8       INX
 $E4FF     M_immnn:1 E0 20    CPX  #$20  ; 32
