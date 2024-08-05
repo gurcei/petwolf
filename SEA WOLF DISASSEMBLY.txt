@@ -14,6 +14,9 @@ $07 ret_ptr_hi:  (high-byte) address to return to after call to draw_inline_text
 $08 var0:  (maybe a generic loop index variable)
            (maybe relates to paddle position sometimes?)
   - set to #$01 in print_remaining_game_time
+in game_mechanics_iteration:
+  - sta at $e021 (stores a given ship_type_width,y) - for the ship that potentially had the collision with the missile
+
   - cmp at $e03b
   - sta at $e0eb
   - cmp at $e10c
@@ -39,7 +42,9 @@ $0a curr_ship_mirror_state:
   - sta at $e123
   - sta at $e195  (can either be #$01 or #$ff)
 $0e var0-6:
-  - sta at $e4b0  ; (set it to #$08)
+  - in bullet_redraw_and_ship_assessment:
+    - sta at $e4b0  ; (set it to #$08) 
+    - dec at #e4be (index for loopback1 loop)
 $0f var0-7:
   - sta at $e47c
 $10 var0-8:
@@ -212,10 +217,13 @@ $65-$68:  buoys_ypos[4]:  (array of all buoy y-positions)
   - lda at $e1e3 (with index of var5)
   - set to #$60 (96) in init_game_vars
   - set to #$60 (96) in init_game_vars
-$69-$6c: array8[4]:
-  - sta at $e21c (set to #$18 / dec24)
-  - dec at $e260 (indexed by var5)
-  - lda at $e264 (indexed by var5)
+$69-$6c: buoys_explode_timer[4]:
+  - upon a buoy exploding, it is set to 24, and decremented every frame
+  - its value is divided by 8 to assist as an index to which explosion frame to show (0 - 2)
+  - in buoy_logic:
+    - sta at $e21c (set to #$18 / dec24) - in response to a buoy being hit by a missile
+    - dec at $e260 (indexed by var5)
+    - lda at $e264 (indexed by var5)
 $6d-74 torpedo_fire_xpos[8]:  (x-positions of all torpedoes)
   - read at $e031
   - read at $e200 (with ,y index at 7)
@@ -224,9 +232,15 @@ $75-$7c torpedo_fire_ypos[8]:  (y-positions of all torpedoes)
   - read at $e025
   - lda at $e1f4  (starting from index=7)
   - lda at $e465 (starting from index=7)
-$7d-xx array12[x]:
-  - sta at $e046
-  - sta at $e215 (sets it to #$ff)
+$7d-84 torpedo_fire_state[8]: 
+  - #$00 = fired (is currently active on screen)
+  - #$ff = not fired yet (no longer visible on screen)
+  (index is the missile-index that hit the ship)
+  - sta at $e046 (sets it to #$ff upon a missile hitting a ship)
+  - sta at $e215 (sets it to #$ff upon a missile hitting a buoy)
+  - sta at $e2f3 (sets it to #$00 upon a missile being fired by a player)
+  - in bullet_redraw_and_ship_assessment:
+    - ldy at $e4e9
 $85-$A4 genarrayA[32]:
   - multi-purpose array
   - PURPOSE1: within 'game_mechanics_iteration:'
@@ -334,48 +348,52 @@ $0380-03ff vicbank0_missile_chars_for_player2[4][4][8]: ([4 missiles][4 chars pe
 
 game_mechanics_iteration:
 ------------------------
-  ' has logic to spawn new ships when needed
-$E000     M_immnn:1 A9 03    LDA  #$03
+' has logic to spawn new ships when needed
+' also checks for missile-to-ship collisions
+$E000     M_immnn:1 A9 03    LDA  #$03  ; iterator over all 4 possible ships
 $E002        M_nn:1 85 23    STA  var5  ; $23
--big_retry:
-$E004        M_nn:1 A6 23    LDX  var5  ; $23
+-retry_next_possible_ship:
+$E004        M_nn:1 A6 23    LDX  var5  ; $23  (ship iterator)
 $E006       M_nnX:1 B5 39    LDA  ships_visibility,x  ; $39,X  ; perhaps visibility of all ships
-$E008        M_rr:1 D0 03    BNE  +skip1  ; $E00D
-$E00A      M_nnnn:2 4C D5 E0 JMP  +big_jump_due_to_$39,x_being_zero  ; $E0D5  ; if $39,x is zero, then we do this jump
-+skip1:
+$E008        M_rr:1 D0 03    BNE  +current_ship_visible_or_exploding  ; $E00D
+$E00A      M_nnnn:2 4C D5 E0 JMP  +current_ship_not_visible  ; $E0D5  ; if $39,x is zero, then we do this jump
++current_ship_visible_or_exploding:
 $E00D       M_nnX:1 B5 49    LDA  ships_ypos,x  ; $49,X  ; y-pos of all ships
-$E00F        M_nn:1 85 12    STA  var2  ; $12  ; y-pos of current ship?
-$E011       M_nnX:1 B5 45    LDA  ships_xpos,x  ; $45,X  ; x-pos of all ships?
-$E013        M_nn:1 85 11    STA  var1  ; $11  ; x-pos of current ship?
+$E00F        M_nn:1 85 12    STA  var2  ; $12  ; y-pos of current ship
+$E011       M_nnX:1 B5 45    LDA  ships_xpos,x  ; $45,X  ; x-pos of all ships
+$E013        M_nn:1 85 11    STA  var1  ; $11  ; x-pos of current ship
 $E015        M_nn:1 A5 19    LDA  buff_spr2back_coll  ; $19
-$E017     M_nnnnX:2 3D 38 EE AND  sprite_bitfields,x  ; $EE38,X  ; x = currently assessed ship (from 0 - 3)
+$E017     M_nnnnX:2 3D 38 EE AND  or_bitfields,x  ; $EE38,X  ; x = currently assessed ship (from 0 - 3)
 $E01A        M_rr:1 F0 54    BEQ  +no_spr2back_collision_detected  ; $E070  ; if no sprite-to-back collision for this sprite-x, then branch
 ; if we're here, then there was a ship to missile-fire collision
-$E01C       M_nnX:1 B4 51    LDY  ships_type,x  ; $51,X  
-$E01E     M_nnnnY:2 B9 0E EE LDA  ship_type_widths,y  ; $EE0E,Y  ; maybe it can only have a value of #$00 or #$01
+$E01C       M_nnX:1 B4 51    LDY  ships_type,x  ; $51,X  ship-type of all ships (idx 0-3) #$00=freighter, #$01=cruiser, #$02=p.t. boat
+$E01E     M_nnnnY:2 B9 0E EE LDA  ship_type_widths,y  ; $EE0E,Y
 $E021        M_nn:1 85 08    STA  var0  ; $08
+' now figure out which of the 8 potential missiles hit this ship
 $E023     M_immnn:1 A0 07    LDY  #$07
--retry_stuff:
-$E025     M_nnnnY:2 B9 75 00 LDA  torpedo_fire_ypos,y  ; $0075,Y  ; y-position of all torpedoes
-$E028        M_rr:1 F0 15    BEQ  +skip_stuff  ; $E03F
+-retry_next_missile:
+' assess if this missile is in a valid yrange to have hit this ship
+$E025     M_nnnnY:2 B9 75 00 LDA  torpedo_fire_ypos,y  ; $0075,Y  ; y-position of all torpedoes (4 for player1 and 4 for player2)
+$E028        M_rr:1 F0 15    BEQ  +curr_torpedo_out_of_yrange_of_hit_ship  ; $E03F
 $E02A      M_impl:0 38       SEC
-$E02B        M_nn:1 E5 12    SBC  var2  ; $12  ; y-pos of current ship?
+$E02B        M_nn:1 E5 12    SBC  var2  ; $12  ; y-pos of current ship
 $E02D     M_immnn:1 C9 10    CMP  #$10  ; (dec16)
-$E02F        M_rr:1 B0 0E    BCS  +skip_stuff  ; $E03F  ; branch if >= 16
-$E031     M_nnnnY:2 B9 6D 00 LDA  torpedo_fire_xpos,y  ; $006D,Y  ; x-pos of all torpedoes
+$E02F        M_rr:1 B0 0E    BCS  +curr_torpedo_out_of_yrange_of_hit_ship  ; $E03F  ; branch if >= 16
+' yrange was valid, so now check missile is within xrange of hit ship
+$E031     M_nnnnY:2 B9 6D 00 LDA  torpedo_fire_xpos,y  ; $006D,Y  ; x-pos of all torpedoes (y=currently indexed torpedo)
 $E034      M_impl:0 38       SEC
-$E035        M_nn:1 E5 11    SBC  var1  ; $11  ; x-pos of current ship?
+$E035        M_nn:1 E5 11    SBC  var1  ; $11  ; x-pos of current ship
 $E037     M_immnn:1 C9 FE    CMP  #$FE
-$E039        M_rr:1 B0 09    BCS  +skip_more_stuff  ; $E044  ; branch if >= 254
-$E03B        M_nn:1 C5 08    CMP  var0  ; $08
-$E03D        M_rr:1 90 05    BCC  +skip_more_stuff  ; $E044
-+skip_stuff:
+$E039        M_rr:1 B0 09    BCS  +curr_torpedo_is_within_xrange_of_hit_ship  ; $E044  ; branch if >= 254
+$E03B        M_nn:1 C5 08    CMP  var0  ; $08  ; contains a given ship_type_width,y
+$E03D        M_rr:1 90 05    BCC  +curr_torpedo_is_within_xrange_of_hit_ship  ; $E044
++curr_torpedo_out_of_yrange_of_hit_ship:
 $E03F      M_impl:0 88       DEY
-$E040        M_rr:1 10 E3    BPL  -retry_stuff  ; $E025
+$E040        M_rr:1 10 E3    BPL  -retry_next_missile  ; $E025
 $E042        M_rr:1 D0 2C    BNE  +no_spr2back_collision_detected  ; $E070
-+skip_more_stuff:
-$E044     M_immnn:1 A9 FF    LDA  #$FF
-$E046     M_nnnnY:2 99 7D 00 STA  array12,y  ; $007D,Y
++curr_torpedo_is_within_xrange_of_hit_ship:
+$E044     M_immnn:1 A9 FF    LDA  #$FF  ; #$ff = this torpedo is no longer visible
+$E046     M_nnnnY:2 99 7D 00 STA  torpedo_fire_state,y  ; $007D,Y  (y=missile index that hit ship)
 $E049       M_nnX:1 B5 39    LDA  ships_visibility,x  ; $39,X
 $E04B        M_rr:1 30 23    BMI  +no_spr2back_collision_detected  ; $E070
 $E04D     M_immnn:1 A9 FF    LDA  #$FF
@@ -384,7 +402,7 @@ $E051     M_immnn:1 A9 18    LDA  #$18  ; dec24
 $E053       M_nnX:1 95 55    STA  ships_explosion_tmr,x  ; $55,X
 $E055     M_nnnnY:2 B9 AC EF LDA  some_colour_chooser_table,y  ; $EFAC,Y  ; seems to choose either yellow or orange?
 $E058     M_nnnnX:2 9D 27 D0 STA  $D027,X  ; $d027-$d02e = sprite 0-7 colours
-$E05B       M_nnX:1 B5 51    LDA  ships_type,x  ; $51,X   (index to the type of ship?)
+$E05B       M_nnX:1 B5 51    LDA  ships_type,x  ; $51,X   ship-type of all ships (idx 0-3) #$00=freighter, #$01=cruiser, #$02=p.t. boat
 $E05D      M_impl:0 AA       TAX
 $E05E     M_nnnnX:2 BD 1F EE LDA  ship_scores,x  ; $EE1F,X
 $E061      M_impl:0 48       PHA
@@ -455,7 +473,7 @@ $E0CB      M_impl:0 A8       TAY
 $E0CC     M_nnnnY:2 B9 C5 E1 LDA  explosion_sprite_pointers,y  ; $E1C5,Y
 $E0CF     M_nnnnX:2 9D F8 07 STA  $07F8,X  ; set current explosion frame sprite for this ship
 $E0D2      M_nnnn:2 4C BD E1 JMP  +super_duper_big_jump  ; $E1BD
-+big_jump_due_to_$39,x_being_zero:
++current_ship_not_visible:
   ' we jumped here due to current ship not being visible
 $E0D5      M_nnnn:2 20 93 E8 JSR  random_num_gen_into_A  ; $E893  ; it will return some magic value in A (based on dunno1 and dunno2)
 $E0D8     M_immnn:1 C9 03    CMP  #$03  ; make the spawning of a new ship a low-probability occurence (3 in 256 chance, i.e., 1/85)
@@ -609,7 +627,7 @@ $E1BB       M_nnX:1 95 45    STA  ships_xpos,x  ; $45,X  ; x-pos of all ships
 +super_duper_big_jump:
 $E1BD        M_nn:1 C6 23    DEC  var5  ; $23  ; idx to curr ship
 $E1BF        M_rr:1 30 03    BMI  +skip_to_rts  ; $E1C4
-$E1C1      M_nnnn:2 4C 04 E0 JMP  -big_retry  ; $E004
+$E1C1      M_nnnn:2 4C 04 E0 JMP  -retry_next_possible_ship  ; $E004
 +skip_to_rts:
 $E1C4      M_impl:0 60       RTS
 
@@ -909,17 +927,17 @@ $E20F        M_rr:1 10 E3    BPL  -retry1  ; $E1F4
 $E211        M_rr:1 D0 11    BNE  +skip_due_to_no_spr_to_back_collision  ; $E224
 +branch_if_xpos_<12:
 +branch_if_xpos_>=254:
-' newly spawned buoy too close to other objects?
-$E213     M_immnn:1 A9 FF    LDA  #$FF
-$E215     M_nnnnY:2 99 7D 00 STA  array12,y  ; $007D,Y
+' if we're here, a missile has hit a buoy
+$E213     M_immnn:1 A9 FF    LDA  #$FF  ; #$ff = this torpedo is no longer visible
+$E215     M_nnnnY:2 99 7D 00 STA  torpedo_fire_state,y  ; $007D,Y
 $E218       M_nnX:1 95 5D    STA  buoys_visibility,x  ; $5D,X
 $E21A     M_immnn:1 A9 18    LDA  #$18  ; dec24
-$E21C       M_nnX:1 95 69    STA  array8,x  ; $69,X
+$E21C       M_nnX:1 95 69    STA  buoys_explode_timer,x  ; $69,X
 $E21E      M_nnnn:2 20 5D E9 JSR  trigger_voice3_sound  ; $E95D  ; (probably explosion sound?)
 $E221      M_nnnn:2 4C 75 E2 JMP  +jmp_to_next_buoy  ; $E275
 +skip_due_to_no_spr_to_back_collision:
 $E224       M_nnX:1 B5 5D    LDA  buoys_visibility,x  ; $5D,X
-$E226        M_rr:1 30 36    BMI  +skip_on_neg  ; $E25E
+$E226        M_rr:1 30 36    BMI  +buoy_currently_exploding  ; $E25E
 $E228        M_nn:1 A5 24    LDA  $24
 $E22A        M_rr:1 D0 49    BNE  +jmp_to_next_buoy  ; $E275
 $E22C        M_nn:1 E6 11    INC  var1  ; $11  ; x-pos of current ship
@@ -947,21 +965,21 @@ $E255      M_impl:0 8A       TXA
 $E256     M_immnn:1 09 04    ORA  #$04
 $E258      M_nnnn:2 20 E8 E8 JSR  turn_off_sprite_A  ; $E8E8
 $E25B      M_nnnn:2 4C 75 E2 JMP  +jmp_to_next_buoy  ; $E275
-+skip_on_neg:
-$E25E        M_nn:1 A6 23    LDX  var5  ; $23
-$E260       M_nnX:1 D6 69    DEC  array8,x  ; $69,X
++buoy_currently_exploding:
+$E25E        M_nn:1 A6 23    LDX  var5  ; $23  ; current buoy index
+$E260       M_nnX:1 D6 69    DEC  buoys_explode_timer,x  ; $69,X
 $E262        M_rr:1 F0 ED    BEQ  -retry_if_zero  ; $E251
-$E264       M_nnX:1 B5 69    LDA  array8,x  ; $69,X
+$E264       M_nnX:1 B5 69    LDA  buoys_explode_timer,x  ; $69,X  (range 0-23)
 $E266         M_A:0 4A       LSR
 $E267         M_A:0 4A       LSR
-$E268         M_A:0 4A       LSR  ; divide by 8
+$E268         M_A:0 4A       LSR  ; divide by 8  (range 0-2)
 $E269     M_immnn:1 29 03    AND  #$03
-$E26B        M_nn:1 85 08    STA  var0  ; $08
+$E26B        M_nn:1 85 08    STA  var0  ; $08  ; index of buoy explode frame index to display
 $E26D     M_immnn:1 A9 F8    LDA  #$F8  ; dec248  (prepare buoy explosion sprite pointer)
 $E26F      M_impl:0 38       SEC
 $E270        M_nn:1 E5 08    SBC  var0  ; $08
 $E272     M_nnnnX:2 9D FC 07 STA  $07FC,X  ; sprite-pointers for sprites 4-7
-                                           ; sprite-pointer can be set to anything between $F5 - $F8  (maybe $F6 to $F8 really)
+                                           ; sprite-pointer can be set to anything between $F6 - $F8
 +jmp_to_next_buoy:
 $E275        M_nn:1 C6 23    DEC  var5  ; $23
 $E277        M_rr:1 30 03    BMI  +skip_to_rts  ; $E27C
@@ -1142,21 +1160,21 @@ $E2D5       M_nnX:1 B5 2F    LDA  missile_reload_timers,x  ; $2F,X
 $E2D7        M_rr:1 F0 03    BEQ  +skip_if_missile_reload_timer_is_zero  ; $E2DC
 $E2D9      M_nnnn:2 4C 57 E3 JMP  +big_jmp_to_near_end  ; $E357
 +skip_if_missile_reload_timer_is_zero:
-$E2DC      M_impl:0 8A       TXA
+$E2DC      M_impl:0 8A       TXA  ; X = player idx (0=player1, 1=player2)
 $E2DD         M_A:0 0A       ASL
-$E2DE         M_A:0 0A       ASL  ; multiply by 4
+$E2DE         M_A:0 0A       ASL  ; multiply by 4  (0=player1, 4=player2)
 $E2DF      M_impl:0 18       CLC
-$E2E0       M_nnX:1 75 31    ADC  p1_num_missiles,x  ; $31,X
-$E2E2      M_impl:0 A8       TAY
-$E2E3      M_impl:0 88       DEY
+$E2E0       M_nnX:1 75 31    ADC  p1_num_missiles,x  ; $31,X  ; let A be index to the next available missile for this player
+$E2E2      M_impl:0 A8       TAY  ; Y = idx to next available missile for this player
+$E2E3      M_impl:0 88       DEY  ; this decrement might be to assure the a kind of zero-indexed nature of referring to missiles here
 $E2E4       M_nnX:1 B5 35    LDA  players_xpos,x  ; $35,X
 $E2E6      M_impl:0 18       CLC
 $E2E7     M_immnn:1 69 07    ADC  #$07
 $E2E9     M_nnnnY:2 99 6D 00 STA  torpedo_fire_xpos,y  ; $006D,Y
 $E2EC     M_immnn:1 A9 A0    LDA  #$A0  ; dec160
 $E2EE     M_nnnnY:2 99 75 00 STA  torpedo_fire_ypos,y  ; $0075,Y  ; y-position of submarine torpedo/fire
-$E2F1     M_immnn:1 A9 00    LDA  #$00
-$E2F3     M_nnnnY:2 99 7D 00 STA  array12,y  ; $007D,Y
+$E2F1     M_immnn:1 A9 00    LDA  #$00  ; #$00 = this torpedo is now visible
+$E2F3     M_nnnnY:2 99 7D 00 STA  torpedo_fire_state,y  ; $007D,Y
 $E2F6       M_nnX:1 D6 31    DEC  p1_num_missiles,x  ; $31,X
 $E2F8      M_nnnn:2 20 5F E3 JSR  redraw_torpedo_amount_indicator  ; $E35F
 $E2FB      M_nnnn:2 20 53 E9 JSR  play_fire_shoot_sound_on_v2  ; $E953
@@ -1403,19 +1421,19 @@ sub_start_chars:
 
 bullet_redraw_and_ship_assessment:
 '--------------------------------
-$E45F     M_immnn:1 A9 07    LDA  #$07  ; iterator over all the current ships (7 counts down to 0 on each loopback)
+$E45F     M_immnn:1 A9 07    LDA  #$07  ; iterator over all possible missiles (7-4 are for player2, 3-0 are for player1)
 $E461        M_nn:1 85 23    STA  var5  ; $23
 -jumbo_loopback:
-$E463        M_nn:1 A6 23    LDX  var5  ; $23
+$E463        M_nn:1 A6 23    LDX  var5  ; $23  ; missile iterator
 $E465       M_nnX:1 B5 75    LDA  torpedo_fire_ypos,x  ; $75,X  ; y-position of all torpedoes
-$E467        M_rr:1 D0 03    BNE  +skip1  ; $E46C
+$E467        M_rr:1 D0 03    BNE  +torpedo_ypos_is_nonzero  ; $E46C
 $E469      M_nnnn:2 4C 2E E5 JMP  +jump_to_near_end  ; $E52E
-+skip1:
-$E46C      M_impl:0 48       PHA
++torpedo_ypos_is_nonzero:
+$E46C      M_impl:0 48       PHA  ; A=ypos of current torpedo
 $E46D         M_A:0 4A       LSR
 $E46E         M_A:0 4A       LSR
 $E46F         M_A:0 4A       LSR
-$E470         M_A:0 4A       LSR  ; divide by 16
+$E470         M_A:0 4A       LSR  ; divide by 16 (maybe torpedo locations can only be on 2x2 char boundaries or something?)
 $E471      M_impl:0 A8       TAY
 $E472      M_impl:0 68       PLA
 $E473      M_impl:0 38       SEC
@@ -1437,7 +1455,7 @@ $E48A     M_immnn:1 A9 00    LDA  #$00
 $E48C     M_nnnnY:2 99 85 00 STA  genarrayA,y  ; $0085,Y  ; reset entire genarrayA[32] to zeroes
 $E48F      M_impl:0 88       DEY
 $E490        M_rr:1 10 FA    BPL  -loopback2  ; $E48C
-$E492        M_nn:1 A5 08    LDA  var0  ; $08  ; y-pos of current ship minus some_kooky_table value
+$E492        M_nn:1 A5 08    LDA  var0  ; $08  ; y-pos of current torpedo minus some_kooky_table value
 $E494         M_A:0 4A       LSR
 $E495         M_A:0 4A       LSR
 $E496         M_A:0 4A       LSR
@@ -1452,16 +1470,16 @@ $E4A3         M_A:0 0A       ASL
 $E4A4         M_A:0 0A       ASL
 $E4A5         M_A:0 0A       ASL ; multiply by 16
 $E4A6        M_nn:1 05 09    ORA  genvarA  ; $09  ; could be value of either #$00 or #$40 or #$80
-$E4A8      M_impl:0 A8       TAY  ; used as index in kooky2_table later
+$E4A8      M_impl:0 A8       TAY  ; used as index in missile_char_data1 later
 $E4A9        M_nn:1 A5 08    LDA  var0  ; $08
 $E4AB     M_immnn:1 29 07    AND  #$07
 $E4AD      M_impl:0 AA       TAX
 $E4AE     M_immnn:1 A9 08    LDA  #$08
 $E4B0        M_nn:1 85 0E    STA  var0-6  ; $0E
 -loopback1:
-$E4B2     M_nnnnY:2 B9 EC EE LDA  kooky2_table,y  ; $EEEC,Y  ; y-range = 0 to 7  ; values of either #$00, #$E0 or #$40
+$E4B2     M_nnnnY:2 B9 EC EE LDA  missile_char_data1,y  ; $EEEC,Y  ; y-range = 0 to 7  ; values of either #$00, #$E0 or #$40
 $E4B5       M_nnX:1 95 85    STA  genarrayA,x  ; $85,X
-$E4B7     M_nnnnY:2 B9 F4 EE LDA  kooky3_table,y  ; $EEF4,Y  ; y-range = 0 to 7 (all values in table are #$00)
+$E4B7     M_nnnnY:2 B9 F4 EE LDA  missile_char_data2,y  ; $EEF4,Y  ; y-range = 0 to 7 (all values in table are #$00)
 $E4BA       M_nnX:1 95 95    STA  genarrayA+16,x  ; $95,X
 $E4BC      M_impl:0 E8       INX
 $E4BD      M_impl:0 C8       INY
@@ -1474,8 +1492,8 @@ $E4C8       M_nnX:1 B5 75    LDA  torpedo_fire_ypos,x  ; $75,X
 $E4CA        M_nn:1 85 12    STA  var2  ; $12  ; y-pos of current ship?
 $E4CC      M_nnnn:2 20 B1 E6 JSR  set_scr_and_clr_ptr_locations_based_on_ship_xy_pos  ; $E6B1
 $E4CF     M_immnn:1 A2 03    LDX  #$03
--loopback3:
-$E4D1     M_nnnnX:2 BC 28 EE LDY  kooky_screen_locations,x  ; $EE28,X
+-retry_next_char_of_2x2_char_missile:
+$E4D1     M_nnnnX:2 BC 28 EE LDY  missile_char_offsets,x  ; $EE28,X
 $E4D4      M_InnY:1 B1 02    LDA  (scr_ptr_lo),y  ; ($02),Y  ; read the char at this screen location
 $E4D6     M_immnn:1 C9 60    CMP  #$60  ; first bullet char in group
 $E4D8        M_rr:1 90 04    BCC  +less_than_range_of_bullet_chars  ; $E4DE
@@ -1483,13 +1501,14 @@ $E4DA     M_immnn:1 A9 26    LDA  #$26  ; ' ' space char
 $E4DC      M_InnY:1 91 02    STA  (scr_ptr_lo),y  ; ($02),Y  ; draw ' ' space char over prior bullet
 +less_than_range_of_bullet_chars:
 $E4DE      M_impl:0 CA       DEX
-$E4DF        M_rr:1 10 F0    BPL  -loopback3  ; $E4D1
-$E4E1        M_nn:1 A6 23    LDX  var5  ; $23
-$E4E3        M_nn:1 A5 08    LDA  var0  ; $08
+$E4DF        M_rr:1 10 F0    BPL  -retry_next_char_of_2x2_char_missile  ; $E4D1
+$E4E1        M_nn:1 A6 23    LDX  var5  ; $23  (missile iterator)
+$E4E3        M_nn:1 A5 08    LDA  var0  ; $08  y-pos of current torpedo minus some_kooky_table value
+                                             ; (value from 'some_kooky_table', can be either #$01, #$02, #$03)
 $E4E5     M_immnn:1 C9 10    CMP  #$10  ; dec16
 $E4E7        M_rr:1 90 3F    BCC  +branch_near_end  ; $E528  ; branch if less than 16
-$E4E9       M_nnX:1 B4 7D    LDY  array12,x  ; $7D,X
-$E4EB        M_rr:1 D0 3B    BNE  +branch_near_end  ; $E528
+$E4E9       M_nnX:1 B4 7D    LDY  torpedo_fire_state,x  ; $7D,X
+$E4EB        M_rr:1 D0 3B    BNE  +branch_near_end  ; $E528  ; branch if this torpedo is not currently visible on screen
 $E4ED       M_nnX:1 95 75    STA  torpedo_fire_ypos,x  ; $75,X  ; y-pos of all torpedoes
 $E4EF        M_nn:1 85 12    STA  var2  ; $12  ; y-pos of current ship
 $E4F1      M_nnnn:2 20 B1 E6 JSR  set_scr_and_clr_ptr_locations_based_on_ship_xy_pos  ; $E6B1
@@ -1508,7 +1527,7 @@ $E506     M_immnn:1 69 63    ADC  #$63  ; dec99
 $E508        M_nn:1 85 09    STA  genvarA  ; $09  ; could it relate to current paddle position?
 $E50A     M_immnn:1 A2 03    LDX  #$03
 -big_loop1:
-$E50C     M_nnnnX:2 BC 28 EE LDY  kooky_screen_locations,x  ; $EE28,X
+$E50C     M_nnnnX:2 BC 28 EE LDY  missile_char_offsets,x  ; $EE28,X
 $E50F      M_InnY:1 B1 02    LDA  (scr_ptr_lo),y  ; ($02),Y
 $E511     M_immnn:1 C9 26    CMP  #$26  ; is it a ' ' space char?
 $E513        M_rr:1 F0 04    BEQ  +branch_if_space_char  ; $E519
@@ -2950,7 +2969,9 @@ screen_offsets_for_each_missile:
     $2A = 42
     $02 = 2
 
-kooky_screen_locations:
+missile_char_offsets:
+' as each missile is drawn with custom-chars in a 2x2 group, these relative screen offsets
+' can quickly refer to each char offset of the 2x2 group
  :000EE28 00 28 01 29
   - $00 = 0
   - $28 = 40
@@ -3051,13 +3072,34 @@ submarine_charset4:
 +--------+--------+--------+--------+--------+
 
 submarine_charset_idx:
+' choose between submarine_charset1/2/3/4
  :000EEE8 00 28 50 78
 
-kooky2_table:
+missile_char_data1:
  :000EEEC 00 00 40 E0 E0 E0 E0 40
++--------+
+|        |
+|        |
+| *      |
+|***     |
+|***     |
+|***     |
+|***     |
+| *      |
++--------+
 
-kooky3_table:
+missile_char_data2:
  :000EEF4 00 00 00 00 00 00 00 00                           | ........
++--------+
+|        |
+|        |
+|        |
+|        |
+|        |
+|        |
+|        |
+|        |
++--------+
 
 some_colour_chooser_table:
  :000EFAC 07 07 07 07 08 08 08 08                           | ........
