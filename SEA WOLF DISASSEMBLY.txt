@@ -53,13 +53,13 @@ $0a curr_ship_mirror_state:
     - #$ff = mirrored (ship faces to the left, will travel right to left)
   - sta at $e123
   - sta at $e195  (can either be #$01 or #$ff)
-$0e var0-6:
+$0e var06:
   - in bullet_redraw_and_ship_assessment:
     - sta at $e4b0  ; (set it to #$08) 
     - dec at #e4be (index for loopback1 loop)
-$0f var0-7:
+$0f var07:
   - sta at $e47c
-$10 var0-8:
+$10 var08:
   - sta at $e481
 $11 var1:  (the x-position of current ship?)
   - sbc at $e035
@@ -1450,11 +1450,11 @@ $E477        M_nn:1 85 08    STA  genvarB  ; $08
 $E479      M_impl:0 8A       TXA  ; index to the current ship being assessed in loop
 $E47A         M_A:0 0A       ASL
 $E47B         M_A:0 0A       ASL  ; multiply by 4  ; so now ship0 = 0, ship1 = 4, ship2 = 8, ... ship7 = 28
-$E47C        M_nn:1 85 0F    STA  var0-7  ; $0F
+$E47C        M_nn:1 85 0F    STA  var07  ; $0F
 $E47E         M_A:0 0A       ASL
 $E47F         M_A:0 0A       ASL
 $E480         M_A:0 0A       ASL  ; multiply by 8  ; so now ship0 = 0, ship1 = 32, ship2 = 64, ... ship7 = 224
-$E481        M_nn:1 85 10    STA  var0-8  ; $10
+$E481        M_nn:1 85 10    STA  var08  ; $10
 $E483     M_nnnnX:2 BD AC EF LDA  some_colour_chooser_table,x  ; $EFAC,X  ; a choice between yellow or light brown over idx0 to 7
 $E486        M_nn:1 85 2E    STA  whatis6  ; $2E
 $E488     M_immnn:1 A0 1F    LDY  #$1F  ; dec31
@@ -1483,7 +1483,7 @@ $E4A9        M_nn:1 A5 08    LDA  genvarB  ; $08
 $E4AB     M_immnn:1 29 07    AND  #$07
 $E4AD      M_impl:0 AA       TAX
 $E4AE     M_immnn:1 A9 08    LDA  #$08
-$E4B0        M_nn:1 85 0E    STA  var0-6  ; $0E
+$E4B0        M_nn:1 85 0E    STA  var06  ; $0E
 -loopback1:
 $E4B2     M_nnnnY:2 B9 EC EE LDA  missile_char_data1,y  ; $EEEC,Y  ; y-range = 0 to 7  ; values of either #$00, #$E0 or #$40
 $E4B5       M_nnX:1 95 85    STA  genarrayA,x  ; $85,X
@@ -1491,7 +1491,7 @@ $E4B7     M_nnnnY:2 B9 F4 EE LDA  missile_char_data2,y  ; $EEF4,Y  ; y-range = 0
 $E4BA       M_nnX:1 95 95    STA  genarrayA+16,x  ; $95,X
 $E4BC      M_impl:0 E8       INX
 $E4BD      M_impl:0 C8       INY
-$E4BE        M_nn:1 C6 0E    DEC  var0-6  ; $0E
+$E4BE        M_nn:1 C6 0E    DEC  var06  ; $0E
 $E4C0        M_rr:1 D0 F0    BNE  -loopback1  ; $E4B2
 $E4C2        M_nn:1 A6 23    LDX  var5  ; $23  ; ought to be an index from 0 to 7
 $E4C4       M_nnX:1 B5 6D    LDA  torpedo_fire_xpos,x  ; $6D,X
@@ -1520,7 +1520,7 @@ $E4EB        M_rr:1 D0 3B    BNE  +branch_near_end  ; $E528  ; branch if this to
 $E4ED       M_nnX:1 95 75    STA  torpedo_fire_ypos,x  ; $75,X  ; y-pos of all torpedoes
 $E4EF        M_nn:1 85 12    STA  var2  ; $12  ; y-pos of current ship
 $E4F1      M_nnnn:2 20 B1 E6 JSR  set_scr_and_clr_ptr_locations_based_on_ship_xy_pos  ; $E6B1
-$E4F4        M_nn:1 A4 10    LDY  var0-8  ; $10
+$E4F4        M_nn:1 A4 10    LDY  var08  ; $10
 $E4F6     M_immnn:1 A2 00    LDX  #$00
 -loopback4:
 $E4F8       M_nnX:1 B5 85    LDA  genarrayA,x  ; $85,X
@@ -1529,7 +1529,7 @@ $E4FD      M_impl:0 C8       INY
 $E4FE      M_impl:0 E8       INX
 $E4FF     M_immnn:1 E0 20    CPX  #$20  ; 32
 $E501        M_rr:1 D0 F5    BNE  -loopback4  ; $E4F8
-$E503        M_nn:1 A5 0F    LDA  var0-7  ; $0F
+$E503        M_nn:1 A5 0F    LDA  var07  ; $0F
 $E505      M_impl:0 18       CLC
 $E506     M_immnn:1 69 63    ADC  #$63  ; dec99
 $E508        M_nn:1 85 09    STA  genvarA  ; $09  ; could it relate to current paddle position?
