@@ -11,21 +11,33 @@ $04 clr_ptr_lo: (low-byte) pointer to colour memory
 $05 clr_ptr_hi: (high-byte) pointer to colour memory
 $06 ret_ptr_lo:  (low-byte) address to return to after call to draw_inline_text
 $07 ret_ptr_hi:  (high-byte) address to return to after call to draw_inline_text
-$08 var0:  (maybe a generic loop index variable)
+$08 genvarB:  (maybe a generic loop index variable)
            (maybe relates to paddle position sometimes?)
-  - set to #$01 in print_remaining_game_time
-in game_mechanics_iteration:
-  - sta at $e021 (stores a given ship_type_width,y) - for the ship that potentially had the collision with the missile
+  - in print_remaining_game_time:
+    - set to #$01 
+  - in game_mechanics_iteration:
+    - sta at $e021 (stores a given ship_type_width,y) - for the ship that potentially had the collision with the missile
+    - cmp at $e03b (for checking x-range of ship against missile location)
+    - sta at $e0eb (stores the y-pos of the newly spawned ship)
+    - cmp at $e10c (compare y-pos of newly spawned ship to other ships, to find other ships on same row)
+    - sta at $e11b (the number of ships on same row as newly spawned ship)
+    - dec at $e11d (decrement, as the loop ahead will be comparing indexed ship to the indexed ship ahead of it, for sorting)
+    - cpy at $e145 (comparison of current ship index to the count-1 of other ships on same y-row)
+    - cpy at $e16c (comparison of current ship index to the count-1 of other ships on same y-row)
+    - sta at $e177 (holds x-width between the spawn-edge (left or right) and the closest existing ship)
+    - sta at $e184 (compare required gap with x-width between spawn-edge and closest existing ship)
+  - in buoy_logic:
+    - sta at $e26b (index of buoy explode frame index to display)
+    - sbc at $e270 (calculating genuine sprite frame index needed)
+  - redraw_torpedo_amount_indicator:
+    - sty at $e390 (set to #$04 - iterator over the screen offsets for 4 missile availability indicators for the current player)
+    - dec at $e39b (decrement to next offset)
+  - redraw_player_submarines:
+    - sta at $e430 (index of loop from 40 to 0, in order to copy across 5 chars to define player's sub (5x8=40) )
+    - dec at $e43a (next iteration of loop)
+  - bullet_redraw_and_ship_assessment:
+    - sta at $e477 (stores value indexed from some_kooky_table,y. Relates to missile fire chars in some way)
 
-  - cmp at $e03b
-  - sta at $e0eb
-  - cmp at $e10c
-  - sta at $e11b
-  - dec at $e11d
-  - sta at $e26b
-  - sbc at $e270 (subtracting from #$f8 / dec248)
-  - sty at $e390 (set to #$04)
-  - dec at $e39b (this makes me think that var0 is a generic loop index variable)
   - sta at $F0FB (in relation to paddle position)
 $09 genvarA:
   - sta at $e100  (potentially could be set to either #$00 or #$01 or #$02 at this point, so maybe ship-type?)
@@ -368,7 +380,7 @@ $E01A        M_rr:1 F0 54    BEQ  +no_spr2back_collision_detected  ; $E070  ; if
 ; if we're here, then there was a ship to missile-fire collision
 $E01C       M_nnX:1 B4 51    LDY  ships_type,x  ; $51,X  ship-type of all ships (idx 0-3) #$00=freighter, #$01=cruiser, #$02=p.t. boat
 $E01E     M_nnnnY:2 B9 0E EE LDA  ship_type_widths,y  ; $EE0E,Y
-$E021        M_nn:1 85 08    STA  var0  ; $08
+$E021        M_nn:1 85 08    STA  genvarB  ; $08
 ' now figure out which of the 8 potential missiles hit this ship
 $E023     M_immnn:1 A0 07    LDY  #$07
 -retry_next_missile:
@@ -385,7 +397,7 @@ $E034      M_impl:0 38       SEC
 $E035        M_nn:1 E5 11    SBC  var1  ; $11  ; x-pos of current ship
 $E037     M_immnn:1 C9 FE    CMP  #$FE
 $E039        M_rr:1 B0 09    BCS  +curr_torpedo_is_within_xrange_of_hit_ship  ; $E044  ; branch if >= 254
-$E03B        M_nn:1 C5 08    CMP  var0  ; $08  ; contains a given ship_type_width,y
+$E03B        M_nn:1 C5 08    CMP  genvarB  ; $08  ; contains a given ship_type_width,y
 $E03D        M_rr:1 90 05    BCC  +curr_torpedo_is_within_xrange_of_hit_ship  ; $E044
 +curr_torpedo_out_of_yrange_of_hit_ship:
 $E03F      M_impl:0 88       DEY
@@ -482,7 +494,7 @@ $E0DC      M_nnnn:2 4C BD E1 JMP  +super_duper_big_jump  ; $E1BD
 +decide_new_ship_details:
 $E0DF      M_nnnn:2 20 93 E8 JSR  random_num_gen_into_A  ; $E893  ; random_num_gen_into_A returns another magic value in A
 $E0E2     M_immnn:1 29 20    AND  #$20  ; this might set bit 5 or result in zero
-                                        ; randomly decide if the new ship should be on top-row or bottom-row
+                                        ; randomly decide if the new ship should be on top-row or bottom-row (dec0 or dec32)
 $E0E4      M_impl:0 18       CLC
 $E0E5     M_immnn:1 69 18    ADC  #$18  ; A can either be:
                                         ;   #$18 (24) for top-row ypos of new ship,  or...
@@ -490,7 +502,7 @@ $E0E5     M_immnn:1 69 18    ADC  #$18  ; A can either be:
                                         ; (add #$32 to these to get absolute ypos for ships, either #$4A or #$6A)
 $E0E7        M_nn:1 A6 23    LDX  var5  ; $23  ; curr ship idx
 $E0E9       M_nnX:1 95 49    STA  ships_ypos,x  ; $49,X  ; y-pos of all ships
-$E0EB        M_nn:1 85 08    STA  var0  ; $08  ; let var0 = y-pos of current ship
+$E0EB        M_nn:1 85 08    STA  genvarB  ; $08  ; let genvarB = y-pos of current ship (newly spawned)
 +decide_new_ship_type:
 $E0ED      M_nnnn:2 20 93 E8 JSR  random_num_gen_into_A ; $E893  ; get some other magic value in A
 $E0F0     M_immnn:1 C9 50    CMP  #$50  ; dec80
@@ -513,7 +525,7 @@ $E104     M_immnn:1 A2 03    LDX  #$03
 $E106       M_nnX:1 B5 39    LDA  ships_visibility,x  ; $39,X  ; is ship at this index visible yet?
 $E108        M_rr:1 F0 0B    BEQ  +skip2  ; $E115    ; branch if not visible?
 $E10A       M_nnX:1 B5 49    LDA  ships_ypos,x  ; $49,X  ; y-pos of all ships
-$E10C        M_nn:1 C5 08    CMP  var0  ; $08  ; y-pos of current ship?
+$E10C        M_nn:1 C5 08    CMP  genvarB  ; $08  ; y-pos of current ship?
 $E10E        M_rr:1 D0 05    BNE  +skip2  ; $E115  ; if new ship has different y-pos to existing ships, then branch
 $E110      M_impl:0 8A       TXA
 $E111     M_nnnnY:2 99 85 00 STA  genarrayA,y  ; $0085,Y
@@ -523,8 +535,8 @@ $E115      M_impl:0 CA       DEX
 $E116        M_rr:1 10 EE    BPL  -retry2  ; $E106
 $E118      M_impl:0 98       TYA  ; y = the number of existing ships that are on the same ypos as newly spawned ship
 $E119        M_rr:1 F0 6F    BEQ  +big_skip1  ; $E18A  ; branch if no other existing ships are on the same ypos as newly spawned ship
-$E11B        M_nn:1 85 08    STA  var0  ; $08  ; the number of existing ships that are on the same ypos as newly spawned ship
-$E11D        M_nn:1 C6 08    DEC  var0  ; $08
+$E11B        M_nn:1 85 08    STA  genvarB  ; $08  ; the number of existing ships that are on the same ypos as newly spawned ship
+$E11D        M_nn:1 C6 08    DEC  genvarB  ; $08
 $E11F        M_nn:1 A6 85    LDX  genarrayA  ; $85  ; the first existing ship-idx on same y-pos as newly spawned ship
 $E121       M_nnX:1 B5 4D    LDA  ships_mirror_flag,x  ; $4D,X  ; mirror orientation of all ships? (01=normal, ff=reversed)
 $E123        M_nn:1 85 0A    STA  curr_ship_mirror_state  ; $0A  ; the mirror orientation of the first existing ship on same ypos as newly spawned ship
@@ -548,7 +560,7 @@ $E13E     M_nnnnY:2 99 86 00 STA  genarrayA+1,y  ; $0086,Y  ; let the 2nd ship x
 $E141      M_nnnn:2 4C 2B E1 JMP  -jmp_retry  ; $E12B
 +no_need_to_swap_pair:
 $E144      M_impl:0 C8       INY
-$E145        M_nn:1 C4 08    CPY  var0  ; $08  ; the number of existing ships that are on the same ypos as newly spawned ship minus one
+$E145        M_nn:1 C4 08    CPY  genvarB  ; $08  ; the number of existing ships that are on the same ypos as newly spawned ship minus one
 $E147        M_rr:1 90 E4    BCC  -retry3  ; $E12D  ; if incremented y < no# of existing ships on same ypos minus one, then branch
 +skip4:
 $E149        M_nn:1 A6 85    LDX  genarrayA  ; $85  ; 1st of existing (and sorted ships) that is closest to the left screen edge
@@ -573,7 +585,7 @@ $E165     M_nnnnY:2 99 86 00 STA  genarrayA+1,y  ; $0086,Y  ; let 2nd ship xpos 
 $E168      M_nnnn:2 4C 54 E1 JMP  -jmp_back_a_little  ; $E154
 +skip7:
 $E16B      M_impl:0 C8       INY
-$E16C        M_nn:1 C4 08    CPY  var0  ; $08  ; the number of existing ships on same ypos as new ship minus one
+$E16C        M_nn:1 C4 08    CPY  genvarB  ; $08  ; the number of existing ships on same ypos as new ship minus one
 $E16E        M_rr:1 90 E6    BCC  -retry4  ; $E156  ; if incrementeed y < no# existing ships on same ypos minus one, then branch
 +skip6:
 $E170        M_nn:1 A6 85    LDX  genarrayA  ; $85  ; 1st of existing (and sorted ships) that is closest to the right screen edge
@@ -582,14 +594,14 @@ $E174      M_impl:0 38       SEC
 $E175       M_nnX:1 F5 45    SBC  ships_xpos,x  ; $45,X  ; A = right_edge_xpos - 1st_existing_sorted_ships_xpos
 +another_skip:
 ' assess the gap between closest existing ship and newly spawned ship
-$E177        M_nn:1 85 08    STA  var0  ; $08  ; holds x-width between the spawn-edge (left or right) and the closest existing ship
+$E177        M_nn:1 85 08    STA  genvarB  ; $08  ; holds x-width between the spawn-edge (left or right) and the closest existing ship
 $E179       M_nnX:1 B5 51    LDA  ships_type,x  ; $51,X  ; get the ship-type of the closest ship to the spawn-edge
 $E17B         M_A:0 0A       ASL  ; multiply by 2
 $E17C       M_nnX:1 75 51    ADC  ships_type,x  ; $51,X  ; a bit like multiply by 3  ; freighter=00, cruiser=3, ptboat=6
 $E17E        M_nn:1 65 09    ADC  genvarA  ; $09  ; newly-spawned ship-type
 $E180      M_impl:0 AA       TAX
 $E181     M_nnnnX:2 BD 13 EE LDA  map_gap_from_existing_ship_to_new_ship,x  ; $EE13,X
-$E184        M_nn:1 C5 08    CMP  var0  ; $08  ; compare with x-width between spawn-edge and closest existing ship
+$E184        M_nn:1 C5 08    CMP  genvarB  ; $08  ; compare with x-width between spawn-edge and closest existing ship
 $E186        M_rr:1 B0 35    BCS  +not_big_enough_gap_yet  ; $E1BD  ; branch if required_gap >= x-width spawn-edge to closest ship
 $E188        M_rr:1 90 0D    BCC  +sufficient_gap_to_spawn_new_ship  ; $E197
 +big_skip1:
@@ -974,10 +986,10 @@ $E266         M_A:0 4A       LSR
 $E267         M_A:0 4A       LSR
 $E268         M_A:0 4A       LSR  ; divide by 8  (range 0-2)
 $E269     M_immnn:1 29 03    AND  #$03
-$E26B        M_nn:1 85 08    STA  var0  ; $08  ; index of buoy explode frame index to display
+$E26B        M_nn:1 85 08    STA  genvarB  ; $08  ; index of buoy explode frame index to display
 $E26D     M_immnn:1 A9 F8    LDA  #$F8  ; dec248  (prepare buoy explosion sprite pointer)
 $E26F      M_impl:0 38       SEC
-$E270        M_nn:1 E5 08    SBC  var0  ; $08
+$E270        M_nn:1 E5 08    SBC  genvarB  ; $08
 $E272     M_nnnnX:2 9D FC 07 STA  $07FC,X  ; sprite-pointers for sprites 4-7
                                            ; sprite-pointer can be set to anything between $F6 - $F8
 +jmp_to_next_buoy:
@@ -1272,17 +1284,15 @@ $E38A      M_impl:0 AA       TAX
 $E38B      M_impl:0 CA       DEX  ; decrease number of player missiles by one
 -loop_to_draw_prior_torpedo_in_group:
 $E38C     M_immnn:1 A9 50    LDA  #$50  ; #$50 = start of torpedo char
-
-
 $E38E     M_immnn:1 A0 04    LDY  #$04
-$E390        M_nn:1 84 08    STY  var0  ; $08
-$E392     M_nnnnX:2 BC 24 EE LDY  screen_offsets_for_each_missile,x  ; $EE24,X
+$E390        M_nn:1 84 08    STY  genvarB  ; $08
+$E392     M_nnnnX:2 BC 24 EE LDY  screen_offsets_for_each_missile_indicator,x  ; $EE24,X
 -loop_to_draw_next_torpedo_char:
 $E395      M_InnY:1 91 02    STA  (scr_ptr_lo),y   ; ($02),Y
 $E397      M_impl:0 C8       INY
 $E398      M_impl:0 18       CLC
 $E399     M_immnn:1 69 01    ADC  #$01  ; increment to next torpedo char (e.g., #$50, #$51, #$52, #$53)
-$E39B        M_nn:1 C6 08    DEC  var0  ; $08
+$E39B        M_nn:1 C6 08    DEC  genvarB  ; $08
 $E39D        M_rr:1 D0 F6    BNE  -loop_to_draw_next_torpedo_char  ; $E395
 $E39F      M_impl:0 CA       DEX  ; decrease x to point to prior torpedo in group (aiming to redraw it on screen next)
 $E3A0        M_rr:1 10 EA    BPL  -loop_to_draw_prior_torpedo_in_group  ; $E38C
@@ -1364,8 +1374,6 @@ $E413     M_immnn:1 A2 05    LDX  #$05
 $E415     M_immnn:1 A9 26    LDA  #$26  ; ' ' space char
 -loop1:
 $E417      M_InnY:1 91 02    STA  ($02),Y  ; wipe away existing player submarine chars with spaces (submarine is 5 chars wide)
-
-
 $E419      M_impl:0 C8       INY
 $E41A      M_impl:0 CA       DEX
 $E41B        M_rr:1 D0 FA    BNE  -loop1  ; $E417
@@ -1380,14 +1388,14 @@ $E429     M_immnn:1 A2 00    LDX  #$00  ; relative index for vic-bank0 chars des
 $E42B      M_nnnn:2 2C A2 28 BIT  $28A2
   +jump_if_player2:
   $E42C     M_immnn:1 A2 28    LDX  #$28  ; dec40  ; relative index for vic-bank0 chars describing current player2 submarine
-$E42E     M_immnn:1 A9 28    LDA  #$28  ; dec40  ; (absolute char idx range 5a-5e)
-$E430        M_nn:1 85 08    STA  var0  ; $08
+$E42E     M_immnn:1 A9 28    LDA  #$28  ; dec40  ; index of loop from 40 to 0, in order to copy across 5 chars to define player's sub)
+$E430        M_nn:1 85 08    STA  genvarB  ; $08
 -loopy:
 $E432     M_nnnnY:2 B9 48 EE LDA  submarine_charset1,y  ; $EE48,Y
 $E435     M_nnnnX:2 9D A8 02 STA  vicbank0_sub_chars_for_player1,x  ; $02A8,X
 $E438      M_impl:0 E8       INX
 $E439      M_impl:0 C8       INY
-$E43A        M_nn:1 C6 08    DEC  var0  ; $08
+$E43A        M_nn:1 C6 08    DEC  genvarB  ; $08
 $E43C        M_rr:1 D0 F4    BNE  -loopy ; $E432
 $E43E        M_nn:1 A6 23    LDX  var5  ; $23
 $E440        M_nn:1 A5 09    LDA  genvarA  ; $09
@@ -1438,7 +1446,7 @@ $E471      M_impl:0 A8       TAY
 $E472      M_impl:0 68       PLA
 $E473      M_impl:0 38       SEC
 $E474     M_nnnnY:2 F9 C0 EF SBC  some_kooky_table,y  ; $EFC0,Y  ; (the table has values ranging from #$01 to #$03)
-$E477        M_nn:1 85 08    STA  var0  ; $08
+$E477        M_nn:1 85 08    STA  genvarB  ; $08
 $E479      M_impl:0 8A       TXA  ; index to the current ship being assessed in loop
 $E47A         M_A:0 0A       ASL
 $E47B         M_A:0 0A       ASL  ; multiply by 4  ; so now ship0 = 0, ship1 = 4, ship2 = 8, ... ship7 = 28
@@ -1455,7 +1463,7 @@ $E48A     M_immnn:1 A9 00    LDA  #$00
 $E48C     M_nnnnY:2 99 85 00 STA  genarrayA,y  ; $0085,Y  ; reset entire genarrayA[32] to zeroes
 $E48F      M_impl:0 88       DEY
 $E490        M_rr:1 10 FA    BPL  -loopback2  ; $E48C
-$E492        M_nn:1 A5 08    LDA  var0  ; $08  ; y-pos of current torpedo minus some_kooky_table value
+$E492        M_nn:1 A5 08    LDA  genvarB  ; $08  ; y-pos of current torpedo minus some_kooky_table value
 $E494         M_A:0 4A       LSR
 $E495         M_A:0 4A       LSR
 $E496         M_A:0 4A       LSR
@@ -1471,7 +1479,7 @@ $E4A4         M_A:0 0A       ASL
 $E4A5         M_A:0 0A       ASL ; multiply by 16
 $E4A6        M_nn:1 05 09    ORA  genvarA  ; $09  ; could be value of either #$00 or #$40 or #$80
 $E4A8      M_impl:0 A8       TAY  ; used as index in missile_char_data1 later
-$E4A9        M_nn:1 A5 08    LDA  var0  ; $08
+$E4A9        M_nn:1 A5 08    LDA  genvarB  ; $08
 $E4AB     M_immnn:1 29 07    AND  #$07
 $E4AD      M_impl:0 AA       TAX
 $E4AE     M_immnn:1 A9 08    LDA  #$08
@@ -1503,7 +1511,7 @@ $E4DC      M_InnY:1 91 02    STA  (scr_ptr_lo),y  ; ($02),Y  ; draw ' ' space ch
 $E4DE      M_impl:0 CA       DEX
 $E4DF        M_rr:1 10 F0    BPL  -retry_next_char_of_2x2_char_missile  ; $E4D1
 $E4E1        M_nn:1 A6 23    LDX  var5  ; $23  (missile iterator)
-$E4E3        M_nn:1 A5 08    LDA  var0  ; $08  y-pos of current torpedo minus some_kooky_table value
+$E4E3        M_nn:1 A5 08    LDA  genvarB  ; $08  y-pos of current torpedo minus some_kooky_table value
                                              ; (value from 'some_kooky_table', can be either #$01, #$02, #$03)
 $E4E5     M_immnn:1 C9 10    CMP  #$10  ; dec16
 $E4E7        M_rr:1 90 3F    BCC  +branch_near_end  ; $E528  ; branch if less than 16
@@ -1700,7 +1708,7 @@ $E649        M_nn:1 E6 07    INC  ret_ptr_hi  ; $07
 $E64B        M_rr:1 D0 E8    BNE  -loop1  ; $E635
 +skip1:
 $E64D     M_immnn:1 A9 02    LDA  #$02
-$E64F        M_nn:1 85 08    STA  var0  ; $08
+$E64F        M_nn:1 85 08    STA  genvarB  ; $08
 -loopback_wait_longer_on_title_screen:
 $E651     M_immnn:1 A0 78    LDY  #$78
 -loopback_wait_on_title_screen:
@@ -1710,7 +1718,7 @@ $E658        M_rr:1 F0 0D    BEQ  exit_from_title_screen_due_to_paddle_fire  ; $
 $E65A      M_nnnn:2 20 59 E7 JSR  timer_loop  ; $E759
 $E65D      M_impl:0 88       DEY
 $E65E        M_rr:1 D0 F3    BNE  loopback_wait_on_title_screen  ; $E653
-$E660        M_nn:1 C6 08    DEC  var0  ; $08
+$E660        M_nn:1 C6 08    DEC  genvarB  ; $08
 $E662        M_rr:1 D0 ED    BNE  loopback_wait_longer_on_title_screen  ; $E651
 $E664     M_immnn:1 A9 00    LDA  #$00
 $E666      M_nnnn:2 2C A9 FF BIT  $FFA9
@@ -1730,7 +1738,7 @@ $E676     M_nnnnX:2 9D 27 D0 STA  $D027,X  ; set colours of sprites 0, 1 and 2
 $E679      M_impl:0 CA       DEX
 $E67A        M_rr:1 10 F2    BPL  loopback_ship_sprite_colours  ; $E66E
 $E67C     M_immnn:1 A9 1D    LDA  #$1D  ; dec29
-$E67E        M_nn:1 85 08    STA  var0  ; $08
+$E67E        M_nn:1 85 08    STA  genvarB  ; $08
 
 loopy1:
 $E680     M_immnn:1 A2 04    LDX  #$04
@@ -1748,7 +1756,7 @@ $E693      M_nnnn:2 20 59 E7 JSR  timer_loop  ; $E759
 $E696      M_nnnn:2 20 36 E5 JSR  paddle_and_function_key_reading_routine  ; $E536
 $E699     M_immnn:1 C9 01    CMP  #$01
 $E69B        M_rr:1 F0 CA    BEQ  exit_from_title_screen_due_to_paddle_fire  ; $E667
-$E69D        M_nn:1 C6 08    DEC  var0  ; $08
+$E69D        M_nn:1 C6 08    DEC  genvarB  ; $08
 $E69F        M_rr:1 D0 DF    BNE  loopy1  ; $E680
 $E6A1      M_nnnn:2 4C 3E E6 JMP  write_line_routine  ; $E63E
 
@@ -1869,7 +1877,7 @@ print_two_digits_in_X_and_two_digits_in_A:
 ---------------------
 $E731      M_impl:0 48       PHA
 $E732     M_immnn:1 A9 00    LDA  #$00
-$E734        M_nn:1 85 08    STA  var0  ; $08
+$E734        M_nn:1 85 08    STA  genvarB  ; $08
 $E736      M_impl:0 8A       TXA
 $E737      M_nnnn:2 20 3B E7 JSR  print_two_digits_in_A  ; $E73B
 $E73A      M_impl:0 68       PLA
@@ -1889,7 +1897,7 @@ print_lower_nibble_digit_in_A:
 $E744     M_immnn:1 29 0F    AND  #$0F  ; then print digit in lower nibble
 +inner_jsr:
 $E746        M_rr:1 D0 08    BNE  +skip1  ; $E750
-$E748        M_nn:1 A6 08    LDX  var0  ; $08
+$E748        M_nn:1 A6 08    LDX  genvarB  ; $08
 $E74A        M_rr:1 D0 04    BNE  +skip1  ; $E750
 $E74C     M_immnn:1 A9 26    LDA  #$26    ; #$26 = ' ' space char in char-map
 $E74E        M_rr:1 D0 05    BNE  +skip2  ; $E755
@@ -2105,7 +2113,7 @@ $E879        M_nn:1 85 14    STA  txt_y_pos  ; $14
 $E87B      M_nnnn:2 20 C0 E6 JSR  adjust_scr_and_clr_ptr_locations  ; $E6C0
 $E87E     M_immnn:1 A0 00    LDY  #$00
 $E880     M_immnn:1 A9 01    LDA  #$01
-$E882        M_nn:1 85 08    STA  var0  ; $08
+$E882        M_nn:1 85 08    STA  genvarB  ; $08
 $E884        M_nn:1 A5 28    LDA  minutes_left  ; $28
 $E886      M_nnnn:2 20 44 E7 JSR  print_lower_nibble_digit_in_A  ; $E744
 $E889     M_immnn:1 A9 42    LDA  #$42  ; ':' char
@@ -2960,7 +2968,7 @@ possible_buoy_y_positions:
     $60 = 96
     $80 = 128
 
-screen_offsets_for_each_missile:
+screen_offsets_for_each_missile_indicator:
 ' (in the indicator group of 4 per player)
  :000EE24 2F 07 2A 02
 
@@ -3193,20 +3201,20 @@ $F0F4     M_nnnnX:2 FD 19 D4 SBC  $D419,X  ; adc paddle1 pos ($d419) or paddle2 
 $F0F7        M_rr:1 B0 02    BCS  +branch_if_>=200  ; $F0FB  ; branch if subtraction didn't cause a borrow (i.e. if paddle pos didn't surpass #$c8 / 200)
 $F0F9     M_immnn:1 A9 00    LDA  #$00  ; if paddle-pos surpassed #$c8/200, then we set it to #$00
 +branch_if_>=200:
-$F0FB        M_nn:1 85 08    STA  var0  ; $08  ; otherwise paddle is set to be #$C8 minus paddle-pos
+$F0FB        M_nn:1 85 08    STA  genvarB  ; $08  ; otherwise paddle is set to be #$C8 minus paddle-pos
                                                ; I.e., keep in the range of 0 to 200
 $F0FD         M_A:0 4A       LSR  ; A=0 to 100
 $F0FE      M_impl:0 18       CLC
-$F0FF        M_nn:1 65 08    ADC  var0  ; $08  A = 1.5 * var0 (range: 0 to 300)
-$F101         M_A:0 6A       ROR  ; A = 0.75 * var0  (range: 0 to 150?)
+$F0FF        M_nn:1 65 08    ADC  genvarB  ; $08  A = 1.5 * genvarB (range: 0 to 300)
+$F101         M_A:0 6A       ROR  ; A = 0.75 * genvarB  (range: 0 to 150?)
                                   ; I wonder about carry-flag being on sometimes and going to bit7
                                   ; Aah, this logic is fine, the carry-bit becomes like a 'high byte',
                                   ; and the ROR pushes the bit0 of this high byte into our low byte reg A.
 $F102     M_immnn:1 A0 00    LDY  #$00
-$F104        M_nn:1 84 08    STY  var0  ; $08
+$F104        M_nn:1 84 08    STY  genvarB  ; $08
 $F106     M_immnn:1 A0 03    LDY  #$03
 ' Seems like prior x-pos of the player's submarine is added to the current paddle pos three times
-' So the carry bits accumulate in var0. So var0 is like the 'high byte' of this addition.
+' So the carry bits accumulate in genvarB. So genvarB is like the 'high byte' of this addition.
 ' Later, when the two ror's occur, it's like a division by 4, which brings it all back to the 8-bit range.
 ;
 ; I sense this is a smoothing filter, to prevent too much jitter on the paddles, by putting a heavier weighting
@@ -3218,20 +3226,20 @@ $F106     M_immnn:1 A0 03    LDY  #$03
 $F108      M_impl:0 18       CLC
 $F109       M_nnX:1 75 FE    ADC  filtered_player_xpos,x  ; $FE,X  ; let's assume filtered_player_xpos is initialised to zero, nothing gets added
 $F10B        M_rr:1 90 02    BCC  +skip1  ; $F10F     ; for this assumed initial case, we'll branch)
-$F10D        M_nn:1 E6 08    INC  var0  ; $08  ; var0 will contain how many times a carry happened (how many times the adc passed 255)
+$F10D        M_nn:1 E6 08    INC  genvarB  ; $08  ; genvarB will contain how many times a carry happened (how many times the adc passed 255)
 +skip1:
 $F10F      M_impl:0 88       DEY
 $F110        M_rr:1 D0 F6    BNE  -retry1  ; $F108
 ; So A = 3 x (old xpos) + new paddle xpos (in 2-pixel units)
-$F112        M_nn:1 66 08    ROR  var0  ; $08
+$F112        M_nn:1 66 08    ROR  genvarB  ; $08
 $F114         M_A:0 6A       ROR
-$F115        M_nn:1 66 08    ROR  var0  ; $08
-$F117         M_A:0 6A       ROR  ; shift A right twice (/4), and in bits7-6, place the var0 count of how many carries occurred
+$F115        M_nn:1 66 08    ROR  genvarB  ; $08
+$F117         M_A:0 6A       ROR  ; shift A right twice (/4), and in bits7-6, place the genvarB count of how many carries occurred
                                   ; this
 $F118      M_impl:0 38       SEC
 $F119     M_immnn:1 E9 02    SBC  #$02   ; A=(0to150 range) - 2 = (-2 to 148 range)
 $F11B        M_rr:1 B0 02    BCS  +skip2  ; $F11F  ; branch if sbc didn't cause borrow (A-2 was >= 0)
-; I suppose it could only get here if var0 was 0 (i.e., that count of carries in the y-loop was zero)
+; I suppose it could only get here if genvarB was 0 (i.e., that count of carries in the y-loop was zero)
 $F11D     M_immnn:1 A9 00    LDA  #$00  ; so if no carries occurred, store a value of #$00
                                         ; i.e., assure range is 0 to 148
 +skip2:
