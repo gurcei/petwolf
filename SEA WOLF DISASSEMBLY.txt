@@ -11,8 +11,7 @@ $04 clr_ptr_lo: (low-byte) pointer to colour memory
 $05 clr_ptr_hi: (high-byte) pointer to colour memory
 $06 ret_ptr_lo:  (low-byte) address to return to after call to draw_inline_text
 $07 ret_ptr_hi:  (high-byte) address to return to after call to draw_inline_text
-$08 genvarB:  (maybe a generic loop index variable)
-           (maybe relates to paddle position sometimes?)
+$08 genvarB:
   - in print_remaining_game_time:
     - set to #$01 
   - in game_mechanics_iteration:
@@ -37,6 +36,11 @@ $08 genvarB:  (maybe a generic loop index variable)
     - dec at $e43a (next iteration of loop)
   - bullet_redraw_and_ship_assessment:
     - sta at $e477 (stores value indexed from some_kooky_table,y. Relates to missile fire chars in some way)
+    - lda at $e492 (retrieval of prior value)
+    - lda at $e4a9 (retrieval of prior value)
+    - lda at $e4e3 (retrieval of prior value)
+  - prepare_game_screen:
+    - sta at $e64f (set to #$02
 
   - sta at $F0FB (in relation to paddle position)
 $09 genvarA:
