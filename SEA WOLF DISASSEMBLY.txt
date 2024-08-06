@@ -99,10 +99,10 @@ $1B dunno1:
   - eor in $e8a0
 $1C dunno2:
   - rol in $e899
-$1D p1_score_lo: var5: the low two-digits of player1 score : set to #$00 in start_game
-$1E p2_score_lo: var6: the low two-digits of player2 score : set to #$00 in start_game
-$1F p1_score_hi: var7: the high two-digits of player1 score : set to #$00 in start_game
-$20 p2_score_hi: var8: the high two-digits of player2 score : set to #$00 in start_game
+$1D p1_score_lo: the low two-digits of player1 score : set to #$00 in start_game
+$1E p2_score_lo: the low two-digits of player2 score : set to #$00 in start_game
+$1F p1_score_hi: the high two-digits of player1 score : set to #$00 in start_game
+$20 p2_score_hi: the high two-digits of player2 score : set to #$00 in start_game
 $21 high_score_lo: the low two-digits of high score
 $22 high_score_hi: the high two-digits of high score
 $23 var5: (possibly a general index var used for different purposes in different places)
@@ -118,17 +118,22 @@ $23 var5: (possibly a general index var used for different purposes in different
   - ldx at $e2fe  (later used as index to p1_num_missiles,y) (gives me impression it is a generic index var)
   - lda at $e45f  (set to #$07)
 $24 dunno3:
-  - lda at $e1c8
-  - sta at $e1ce  (set to #$0b / dec11)
+  - buoy_logic:
+    - lda at $e1c8
+    - sta at $e1ce  (set to #$0b / dec11)
 $25 dunno4:
-  - lda at $e308
-  - sta at $e30a (bit 1 is toggled)
+  - handle_missile_firing_and_state:
+    - lda at $e308
+    - sta at $e30a (bit 1 is toggled)
 $26 secs_in_minute_left:  var9:  ; maybe a seconds in the minute countdown
   - set to #$3B (59) in init_game_vars
 $27 decimal_secs_in_minutes_left:
   - lda at $e84e
 $28 minutes_left:  game_time:  (in minutes?) (in decimal mode)
-$2a whatis2:
+$2a idx_to_v1_ptboat_beep_beep_freq_array:
+  - This is an index to an array describing on which frames will there be a beep sound made for the p.t. boat
+    - The array is v1_ptboat_beep_beep_freq_array
+    - Some entries in the array are #$0000 (silence), while others are the beep frequency, #$4EE8
   - dec at $e9a9
   - sta at $e9af (sets it to #$05)
 $2b whatis3:
@@ -139,7 +144,7 @@ $2d whatis5:
   - lda at $e967
   - dec at $e96b (only if whatis5 is not yet zero)
   - sta at $e970 (if it was previousy zero, it will be now set to #$03)
-$2e whatis6:
+$2e curr_missile_colour:
   - sta at $e486  (stores some colour choice between yellow or light-brown)
 $2f-$30 missile_reload_timers[2]: countdown-to-zero timers for each player, to decide when missiles for player are reloaded
     - timers start at #$B4 (180) - equates to "TIME TO LOAD: 3 SECONDS."
@@ -1452,11 +1457,15 @@ $E46C      M_impl:0 48       PHA  ; A=ypos of current torpedo
 $E46D         M_A:0 4A       LSR
 $E46E         M_A:0 4A       LSR
 $E46F         M_A:0 4A       LSR
-$E470         M_A:0 4A       LSR  ; divide by 16 (maybe torpedo locations can only be on 2x2 char boundaries or something?)
-$E471      M_impl:0 A8       TAY
-$E472      M_impl:0 68       PLA
+$E470         M_A:0 4A       LSR  ; divide by 16 (decide which 2x2 block y-pos this torpedo will reside in?)
+$E471      M_impl:0 A8       TAY  ; y-pos index of 2x2 block this torpedo/missile resides in
+$E472      M_impl:0 68       PLA  ; A=pure pixel ypos of current torpedo
 $E473      M_impl:0 38       SEC
 $E474     M_nnnnY:2 F9 C0 EF SBC  some_kooky_table,y  ; $EFC0,Y  ; (the table has values ranging from #$01 to #$03)
+                                  ; perhaps it is an index to the permutation of the missile that we want to draw
+                                  ; for #$03, it might be the largest-shaped missile, closest to the bottom of screen
+                                  ; for #$02, it might be the medium-shaped missile, used in the middle of screen
+                                  ; for #$01, it might be the smallest-shaped missile, closest to the top of screen
 $E477        M_nn:1 85 08    STA  genvarB  ; $08
 $E479      M_impl:0 8A       TXA  ; index to the current missile/torpedo being assessed in loop
 $E47A         M_A:0 0A       ASL
@@ -1473,13 +1482,13 @@ $E480         M_A:0 0A       ASL  ; multiply by 8  ; so now p1_missile4 = #$00, 
                                                    ;        p2_missile2 = #$c0, p2_missile1 = #$e0
 $E481        M_nn:1 85 10    STA  offset_to_char_data_addr_of_2x2_missile_chars  ; $10
 $E483     M_nnnnX:2 BD AC EF LDA  missiles_colour_table,x  ; $EFAC,X  ; a choice between yellow or light brown over idx0 to 7
-$E486        M_nn:1 85 2E    STA  whatis6  ; $2E
-$E488     M_immnn:1 A0 1F    LDY  #$1F  ; dec31
+$E486        M_nn:1 85 2E    STA  curr_missile_colour  ; $2E
+$E488     M_immnn:1 A0 1F    LDY  #$1F  ; dec31  ;
 $E48A     M_immnn:1 A9 00    LDA  #$00
--loopback2:
+-loop_to_wipe_array:
 $E48C     M_nnnnY:2 99 85 00 STA  genarrayA,y  ; $0085,Y  ; reset entire genarrayA[32] to zeroes
 $E48F      M_impl:0 88       DEY
-$E490        M_rr:1 10 FA    BPL  -loopback2  ; $E48C
+$E490        M_rr:1 10 FA    BPL  -loop_to_wipe_array  ; $E48C
 $E492        M_nn:1 A5 08    LDA  genvarB  ; $08  ; y-pos of current torpedo minus some_kooky_table value
 $E494         M_A:0 4A       LSR
 $E495         M_A:0 4A       LSR
@@ -1562,7 +1571,7 @@ $E517        M_rr:1 90 08    BCC  +branch_if_less_than_shot_char  ; $E521
 +branch_if_space_char:
 $E519        M_nn:1 A5 09    LDA  genvarA  ; $09
 $E51B      M_InnY:1 91 02    STA  (scr_ptr_lo),y  ; ($02),Y
-$E51D        M_nn:1 A5 2E    LDA  whatis6  ; $2E  ; some colour choice between yellow or light-brown
+$E51D        M_nn:1 A5 2E    LDA  curr_missile_colour  ; $2E  ; some colour choice between yellow or light-brown
 $E51F      M_InnY:1 91 04    STA  (clr_ptr_lo),y  ; ($04),Y
 +branch_if_less_than_shot_char:
 $E521        M_nn:1 C6 09    DEC  genvarA  ; $09
@@ -2277,8 +2286,9 @@ $E93B      M_impl:0 60       RTS
 
 v1_reset_and_gate_off:
 ---------------------
+' we've spawned a pt boat, so turn off prior ocean sound (to make way for pt boat beep-beep later)
 $E93C     M_immnn:1 A9 06    LDA  #$06
-$E93E        M_nn:1 85 2A    STA  whatis2  ; $2A
+$E93E        M_nn:1 85 2A    STA  idx_to_v1_ptboat_beep_beep_freq_array  ; $2A
 $E940     M_immnn:1 A9 00    LDA  #$00
 $E942      M_nnnn:2 8D 00 D4 STA  $D400  ; v1_freq_lo
 $E945      M_nnnn:2 8D 01 D4 STA  $D401  ; v1_freq_hi
@@ -2350,12 +2360,12 @@ $E9A5      M_impl:0 CA       DEX
 $E9A6        M_rr:1 10 F7    BPL  -loop2  ; $E99F
 $E9A8      M_impl:0 60       RTS
 +skip6:
-$E9A9        M_nn:1 C6 2A    DEC  whatis2  ; $2A
+$E9A9        M_nn:1 C6 2A    DEC  idx_to_v1_ptboat_beep_beep_freq_array  ; $2A
 $E9AB        M_rr:1 10 04    BPL  +skip7  ; $E9B1
 $E9AD     M_immnn:1 A9 05    LDA  #$05
-$E9AF        M_nn:1 85 2A    STA  whatis2  ; $2A
+$E9AF        M_nn:1 85 2A    STA  idx_to_v1_ptboat_beep_beep_freq_array  ; $2A
 +skip7:
-$E9B1        M_nn:1 A5 2A    LDA  whatis2  ; $2A
+$E9B1        M_nn:1 A5 2A    LDA  idx_to_v1_ptboat_beep_beep_freq_array  ; $2A
 $E9B3         M_A:0 0A       ASL  multiply by 2
 $E9B4      M_impl:0 AA       TAX
 $E9B5     M_nnnnX:2 BD 2C EE LDA  v1_ptboat_beep_beep_freq_array,x  ; $EE2C,X
