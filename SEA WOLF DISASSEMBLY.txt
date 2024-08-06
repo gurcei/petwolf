@@ -61,9 +61,16 @@ $0e var06:
   - in bullet_redraw_and_ship_assessment:
     - sta at $e4b0  ; (set it to #$08) 
     - dec at #e4be (index for loopback1 loop)
-$0f var07:
-  - sta at $e47c
-$10 var08:
+$0f offset_to_char_idx_of_2x2_missile_chars: offset to char index of 2x2 missile chars
+  - bullet_redraw_and_ship_assessment:
+    - sta at $e47c (multiply by 4  ; so now ship0 = 0, ship1 = 4, ship2 = 8, ... ship7 = 28)
+      - reg A will equal one of the following, depending on which missile is referenced:
+        ; p1_missile4 = #$00, p1_missile3 = #$04
+        ; p1_missile2 = #$08, p1_missile1 = #$0c
+        ; p2_missile4 = #$10, p2_missile3 = #$14
+        ; p2_missile2 = #$18, p2_missile1 = #$1c
+    - lda at $e503
+$10 offset_to_char_data_addr_of_2x2_missile_chars:
   - sta at $e481
 $11 var1:  (the x-position of current ship?)
   - sbc at $e035
@@ -416,7 +423,7 @@ $E04D     M_immnn:1 A9 FF    LDA  #$FF
 $E04F       M_nnX:1 95 39    STA  ships_visibility,x  ; $39,X
 $E051     M_immnn:1 A9 18    LDA  #$18  ; dec24
 $E053       M_nnX:1 95 55    STA  ships_explosion_tmr,x  ; $55,X
-$E055     M_nnnnY:2 B9 AC EF LDA  some_colour_chooser_table,y  ; $EFAC,Y  ; seems to choose either yellow or orange?
+$E055     M_nnnnY:2 B9 AC EF LDA  missiles_colour_table,y  ; $EFAC,Y  ; seems to choose either yellow or orange?
 $E058     M_nnnnX:2 9D 27 D0 STA  $D027,X  ; $d027-$d02e = sprite 0-7 colours
 $E05B       M_nnX:1 B5 51    LDA  ships_type,x  ; $51,X   ship-type of all ships (idx 0-3) #$00=freighter, #$01=cruiser, #$02=p.t. boat
 $E05D      M_impl:0 AA       TAX
@@ -1451,15 +1458,21 @@ $E472      M_impl:0 68       PLA
 $E473      M_impl:0 38       SEC
 $E474     M_nnnnY:2 F9 C0 EF SBC  some_kooky_table,y  ; $EFC0,Y  ; (the table has values ranging from #$01 to #$03)
 $E477        M_nn:1 85 08    STA  genvarB  ; $08
-$E479      M_impl:0 8A       TXA  ; index to the current ship being assessed in loop
+$E479      M_impl:0 8A       TXA  ; index to the current missile/torpedo being assessed in loop
 $E47A         M_A:0 0A       ASL
-$E47B         M_A:0 0A       ASL  ; multiply by 4  ; so now ship0 = 0, ship1 = 4, ship2 = 8, ... ship7 = 28
-$E47C        M_nn:1 85 0F    STA  var07  ; $0F
+$E47B         M_A:0 0A       ASL  ; multiply by 4  ; so now p1_missile4 = #$00, p1_missile3 = #$04
+                                                   ;        p1_missile2 = #$08, p1_missile1 = #$0c
+                                                   ;        p2_missile4 = #$10, p2_missile3 = #$14
+                                                   ;        p2_missile2 = #$18, p2_missile1 = #$1c
+$E47C        M_nn:1 85 0F    STA  offset_to_char_idx_of_2x2_missile_chars  ; $0F  ; offset to char index of 2x2 missile chars
 $E47E         M_A:0 0A       ASL
 $E47F         M_A:0 0A       ASL
-$E480         M_A:0 0A       ASL  ; multiply by 8  ; so now ship0 = 0, ship1 = 32, ship2 = 64, ... ship7 = 224
-$E481        M_nn:1 85 10    STA  var08  ; $10
-$E483     M_nnnnX:2 BD AC EF LDA  some_colour_chooser_table,x  ; $EFAC,X  ; a choice between yellow or light brown over idx0 to 7
+$E480         M_A:0 0A       ASL  ; multiply by 8  ; so now p1_missile4 = #$00, p1_missile3 = #$20
+                                                   ;        p1_missile2 = #$40, p1_missile1 = #$60
+                                                   ;        p2_missile4 = #$80, p2_missile3 = #$a0
+                                                   ;        p2_missile2 = #$c0, p2_missile1 = #$e0
+$E481        M_nn:1 85 10    STA  offset_to_char_data_addr_of_2x2_missile_chars  ; $10
+$E483     M_nnnnX:2 BD AC EF LDA  missiles_colour_table,x  ; $EFAC,X  ; a choice between yellow or light brown over idx0 to 7
 $E486        M_nn:1 85 2E    STA  whatis6  ; $2E
 $E488     M_immnn:1 A0 1F    LDY  #$1F  ; dec31
 $E48A     M_immnn:1 A9 00    LDA  #$00
@@ -1524,7 +1537,7 @@ $E4EB        M_rr:1 D0 3B    BNE  +branch_near_end  ; $E528  ; branch if this to
 $E4ED       M_nnX:1 95 75    STA  torpedo_fire_ypos,x  ; $75,X  ; y-pos of all torpedoes
 $E4EF        M_nn:1 85 12    STA  var2  ; $12  ; y-pos of current ship
 $E4F1      M_nnnn:2 20 B1 E6 JSR  set_scr_and_clr_ptr_locations_based_on_ship_xy_pos  ; $E6B1
-$E4F4        M_nn:1 A4 10    LDY  var08  ; $10
+$E4F4        M_nn:1 A4 10    LDY  offset_to_char_data_addr_of_2x2_missile_chars  ; $10
 $E4F6     M_immnn:1 A2 00    LDX  #$00
 -loopback4:
 $E4F8       M_nnX:1 B5 85    LDA  genarrayA,x  ; $85,X
@@ -1533,9 +1546,9 @@ $E4FD      M_impl:0 C8       INY
 $E4FE      M_impl:0 E8       INX
 $E4FF     M_immnn:1 E0 20    CPX  #$20  ; 32
 $E501        M_rr:1 D0 F5    BNE  -loopback4  ; $E4F8
-$E503        M_nn:1 A5 0F    LDA  var07  ; $0F
+$E503        M_nn:1 A5 0F    LDA  offset_to_char_idx_of_2x2_missile_chars  ; $0F
 $E505      M_impl:0 18       CLC
-$E506     M_immnn:1 69 63    ADC  #$63  ; dec99
+$E506     M_immnn:1 69 63    ADC  #$63  ; dec99  ; start at the last char-idx for this 2x2 missile soft-sprite (e.g., #$63 to #$60)
 $E508        M_nn:1 85 09    STA  genvarA  ; $09  ; could it relate to current paddle position?
 $E50A     M_immnn:1 A2 03    LDX  #$03
 -big_loop1:
@@ -3113,10 +3126,11 @@ missile_char_data2:
 |        |
 +--------+
 
-some_colour_chooser_table:
+missiles_colour_table:
  :000EFAC 07 07 07 07 08 08 08 08                           | ........
-
   - a choice between yellow or light brown, with index from 0-7
+  - player1's 4 missiles will all be yellow
+  - player2's 4 missiles will all be light brown
 
 another_kooky_table:
  :000EFB4 00 00 00 00 00 40 40 40  80 80 80 80
