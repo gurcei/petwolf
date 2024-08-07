@@ -35,7 +35,7 @@ $08 genvarB:
     - sta at $e430 (index of loop from 40 to 0, in order to copy across 5 chars to define player's sub (5x8=40) )
     - dec at $e43a (next iteration of loop)
   - bullet_redraw_and_ship_assessment:
-    - sta at $e477 (stores value indexed from some_kooky_table,y. Relates to missile fire chars in some way)
+    - sta at $e477 (stores value indexed from missile_speed_at_indexed_2x2_ypos,y)
     - lda at $e492 (retrieval of prior value)
     - lda at $e4a9 (retrieval of prior value)
     - lda at $e4e3 (retrieval of prior value)
@@ -57,10 +57,10 @@ $0a curr_ship_mirror_state:
     - #$ff = mirrored (ship faces to the left, will travel right to left)
   - sta at $e123
   - sta at $e195  (can either be #$01 or #$ff)
-$0e var06:
+$0e missile_chardata_row_iterator: iterator to write out the 8 bytes of small_missile_char_data_x_offset0/2 into genarrayA at a desired y-offset relating to missile position
   - in bullet_redraw_and_ship_assessment:
     - sta at $e4b0  ; (set it to #$08) 
-    - dec at #e4be (index for loopback1 loop)
+    - dec at #e4be (index for loop_back_to_next_row loop)
 $0f offset_to_char_idx_of_2x2_missile_chars: offset to char index of 2x2 missile chars
   - bullet_redraw_and_ship_assessment:
     - sta at $e47c (multiply by 4  ; so now ship0 = 0, ship1 = 4, ship2 = 8, ... ship7 = 28)
@@ -257,9 +257,13 @@ $6d-74 torpedo_fire_xpos[8]:  (x-positions of all torpedoes)
   - read at $e200 (with ,y index at 7)
   - sta at $e2e9
 $75-$7c torpedo_fire_ypos[8]:  (y-positions of all torpedoes)
+  - the missile-fire starts at ypos dec160, decrements until it reaches less than dec16
   - read at $e025
   - lda at $e1f4  (starting from index=7)
+  - sta at $e2ee (sets it to #$a0 / dec160) (when missile is initially fired)
   - lda at $e465 (starting from index=7)
+  - sta at $e52c (sets it to #$00 / dec0) (this occurs when missile-fire is no longer visible on screen)
+                                          (if the ypos of the missile is less than #$10 / dec16, it will become invisible)
 $7d-84 torpedo_fire_state[8]: 
   - #$00 = fired (is currently active on screen)
   - #$ff = not fired yet (no longer visible on screen)
@@ -1453,20 +1457,20 @@ $E465       M_nnX:1 B5 75    LDA  torpedo_fire_ypos,x  ; $75,X  ; y-position of 
 $E467        M_rr:1 D0 03    BNE  +torpedo_ypos_is_nonzero  ; $E46C
 $E469      M_nnnn:2 4C 2E E5 JMP  +jump_to_near_end  ; $E52E
 +torpedo_ypos_is_nonzero:
-$E46C      M_impl:0 48       PHA  ; A=ypos of current torpedo
+$E46C      M_impl:0 48       PHA  ; A=ypos of current torpedo (can be in range of dec0 to dec160)
 $E46D         M_A:0 4A       LSR
 $E46E         M_A:0 4A       LSR
 $E46F         M_A:0 4A       LSR
 $E470         M_A:0 4A       LSR  ; divide by 16 (decide which 2x2 block y-pos this torpedo will reside in?)
 $E471      M_impl:0 A8       TAY  ; y-pos index of 2x2 block this torpedo/missile resides in
+                                  ; (range of dec0 to dec10)
 $E472      M_impl:0 68       PLA  ; A=pure pixel ypos of current torpedo
 $E473      M_impl:0 38       SEC
-$E474     M_nnnnY:2 F9 C0 EF SBC  some_kooky_table,y  ; $EFC0,Y  ; (the table has values ranging from #$01 to #$03)
-                                  ; perhaps it is an index to the permutation of the missile that we want to draw
-                                  ; for #$03, it might be the largest-shaped missile, closest to the bottom of screen
-                                  ; for #$02, it might be the medium-shaped missile, used in the middle of screen
-                                  ; for #$01, it might be the smallest-shaped missile, closest to the top of screen
-$E477        M_nn:1 85 08    STA  genvarB  ; $08
+$E474     M_nnnnY:2 F9 C0 EF SBC  missile_speed_at_indexed_2x2_ypos,y  ; $EFC0,Y
+                                  ; At the lower part of the screen, the missile moves faster, #$02 = 2 pixels per frame
+                                  ; At the mid and upper parts of the screen, the missile moves slower, #$01 = 1 pixel per frame
+                                  ; the #$03 speed seems unused
+$E477        M_nn:1 85 08    STA  genvarB  ; $08  ; the next missile ypos (after decrementing missile speed value)
 $E479      M_impl:0 8A       TXA  ; index to the current missile/torpedo being assessed in loop
 $E47A         M_A:0 0A       ASL
 $E47B         M_A:0 0A       ASL  ; multiply by 4  ; so now p1_missile4 = #$00, p1_missile3 = #$04
@@ -1483,49 +1487,77 @@ $E480         M_A:0 0A       ASL  ; multiply by 8  ; so now p1_missile4 = #$00, 
 $E481        M_nn:1 85 10    STA  offset_to_char_data_addr_of_2x2_missile_chars  ; $10
 $E483     M_nnnnX:2 BD AC EF LDA  missiles_colour_table,x  ; $EFAC,X  ; a choice between yellow or light brown over idx0 to 7
 $E486        M_nn:1 85 2E    STA  curr_missile_colour  ; $2E
-$E488     M_immnn:1 A0 1F    LDY  #$1F  ; dec31  ;
+$E488     M_immnn:1 A0 1F    LDY  #$1F  ; dec31  ; index to char-data for curr missile (4 chars = 32 bytes)
 $E48A     M_immnn:1 A9 00    LDA  #$00
 -loop_to_wipe_array:
 $E48C     M_nnnnY:2 99 85 00 STA  genarrayA,y  ; $0085,Y  ; reset entire genarrayA[32] to zeroes
+                                  ; NOTE: genarrayA aims to house the new 2x2 char representation the current missile
 $E48F      M_impl:0 88       DEY
 $E490        M_rr:1 10 FA    BPL  -loop_to_wipe_array  ; $E48C
-$E492        M_nn:1 A5 08    LDA  genvarB  ; $08  ; y-pos of current torpedo minus some_kooky_table value
+$E492        M_nn:1 A5 08    LDA  genvarB  ; $08  ; the next missile ypos (after decrementing missile speed value)
 $E494         M_A:0 4A       LSR
 $E495         M_A:0 4A       LSR
 $E496         M_A:0 4A       LSR
-$E497         M_A:0 4A       LSR  ; divide by 16
+$E497         M_A:0 4A       LSR  ; divide by 16  ; will be in range dec0 to dec10
 $E498      M_impl:0 A8       TAY
-$E499     M_nnnnY:2 B9 B4 EF LDA  another_kooky_table,y  ; $EFB4,Y  ; has values like #$00, #$40 and #$80 (over index0 to 11)
-$E49C        M_nn:1 85 09    STA  genvarA  ; $09
+$E499     M_nnnnY:2 B9 B4 EF LDA  map_2x2_ypos_to_chardata_offset_for_missile_size,y  ; $EFB4,Y  ; has values like #$00, #$40 and #$80 (over index0 to 11)
+                             ; this appears to be the offset into the missile-char-data to choose between:
+                             ; small(#$00), medium(#$40) or big(#$80) missiles (depending on which 2x2 char ypos missile is at)
+$E49C        M_nn:1 85 09    STA  genvarA  ; $09 ; stores the missile-char-data offset for small/medium/big missiles
 $E49E       M_nnX:1 B5 6D    LDA  torpedo_fire_xpos,x  ; $6D,X  ; x-position of all torpedoes
-$E4A0     M_immnn:1 29 03    AND  #$03
+$E4A0     M_immnn:1 29 03    AND  #$03  ; xpos modulus to range 0-3
+                             ; I'm suspecting missile xpos are in two-pixel (pixel-pair) units too.
+                             ; So the MOD4 may have intended to see at which x-offset within the first char the missile is drawn
 $E4A2         M_A:0 0A       ASL
 $E4A3         M_A:0 0A       ASL
 $E4A4         M_A:0 0A       ASL
-$E4A5         M_A:0 0A       ASL ; multiply by 16
+$E4A5         M_A:0 0A       ASL ; multiply by 16  ; can be either #$00, #$10, #$20 or #$30
 $E4A6        M_nn:1 05 09    ORA  genvarA  ; $09  ; could be value of either #$00 or #$40 or #$80
-$E4A8      M_impl:0 A8       TAY  ; used as index in missile_char_data1 later
-$E4A9        M_nn:1 A5 08    LDA  genvarB  ; $08
+                             ; genvarA holds the missile-char-data offset for small/medium/big missiles
+                             ; the ORA will adjust this offset to point to the correct missile x-offset chardata
+                             ; E.g.:
+                             ; if genvarA = #$00 and...
+                             ;   if A = #$00 then point to small_missile_char_data_x_offset0
+                             ;   if A = #$10 then point to small_missile_char_data_x_offset2
+                             ;   if A = #$20 then point to small_missile_char_data_x_offset4
+                             ;   if A = #$30 then point to small_missile_char_data_x_offset6
+                             ; if genvarA = #$40 and...
+                             ;   if A = #$00 then point to medium_missile_char_data_x_offset0
+                             ;   if A = #$10 then point to medium_missile_char_data_x_offset2
+                             ;   if A = #$20 then point to medium_missile_char_data_x_offset4
+                             ;   if A = #$30 then point to medium_missile_char_data_x_offset6
+                             ; if genvarA = #$80 and...
+                             ;   if A = #$00 then point to big_missile_char_data_x_offset0
+                             ;   if A = #$10 then point to big_missile_char_data_x_offset2
+                             ;   if A = #$20 then point to big_missile_char_data_x_offset4
+                             ;   if A = #$30 then point to big_missile_char_data_x_offset6
+$E4A8      M_impl:0 A8       TAY  ; used as index in small_missile_char_data_x_offset0 later
+$E4A9        M_nn:1 A5 08    LDA  genvarB  ; $08  ; the next missile ypos (after decrementing missile speed value)
 $E4AB     M_immnn:1 29 07    AND  #$07
+                             ; The MOD8 may have intended to see at which y-offset within first char the missile is drawn
+                             ; (I think this is in pixel units, and not in pixel-pair units)
 $E4AD      M_impl:0 AA       TAX
 $E4AE     M_immnn:1 A9 08    LDA  #$08
-$E4B0        M_nn:1 85 0E    STA  var06  ; $0E
--loopback1:
-$E4B2     M_nnnnY:2 B9 EC EE LDA  missile_char_data1,y  ; $EEEC,Y  ; y-range = 0 to 7  ; values of either #$00, #$E0 or #$40
+$E4B0        M_nn:1 85 0E    STA  missile_chardata_row_iterator  ; $0E
+-loop_back_to_next_row:
+                             ; Y = offset to desired missile_char_data (which factors in what x-offset we want to draw at)
+                             ; X = which y-offset we want to start drawing into 2x2 char block of genarrayA)
+$E4B2     M_nnnnY:2 B9 EC EE LDA  small_missile_char_data_x_offset0,y  ; $EEEC,Y  ; y-range = 0 to 7
 $E4B5       M_nnX:1 95 85    STA  genarrayA,x  ; $85,X
-$E4B7     M_nnnnY:2 B9 F4 EE LDA  missile_char_data2,y  ; $EEF4,Y  ; y-range = 0 to 7 (all values in table are #$00)
+$E4B7     M_nnnnY:2 B9 F4 EE LDA  small_missile_char_data_x_offset0+8,y  ; $EEF4,Y  ; y-range = 0 to 7
 $E4BA       M_nnX:1 95 95    STA  genarrayA+16,x  ; $95,X
 $E4BC      M_impl:0 E8       INX
 $E4BD      M_impl:0 C8       INY
-$E4BE        M_nn:1 C6 0E    DEC  var06  ; $0E
-$E4C0        M_rr:1 D0 F0    BNE  -loopback1  ; $E4B2
-$E4C2        M_nn:1 A6 23    LDX  var5  ; $23  ; ought to be an index from 0 to 7
+$E4BE        M_nn:1 C6 0E    DEC  missile_chardata_row_iterator  ; $0E
+$E4C0        M_rr:1 D0 F0    BNE  -loop_back_to_next_row  ; $E4B2
+$E4C2        M_nn:1 A6 23    LDX  var5  ; $23  ; missile iterator ; ought to be an index from 0 to 7
 $E4C4       M_nnX:1 B5 6D    LDA  torpedo_fire_xpos,x  ; $6D,X
-$E4C6        M_nn:1 85 11    STA  var1  ; $11  ; x-pos of current ship?
+$E4C6        M_nn:1 85 11    STA  var1  ; $11  ; x-pos of current torpedo/missile
 $E4C8       M_nnX:1 B5 75    LDA  torpedo_fire_ypos,x  ; $75,X
-$E4CA        M_nn:1 85 12    STA  var2  ; $12  ; y-pos of current ship?
+$E4CA        M_nn:1 85 12    STA  var2  ; $12  ; y-pos of current torpedo/missile
 $E4CC      M_nnnn:2 20 B1 E6 JSR  set_scr_and_clr_ptr_locations_based_on_ship_xy_pos  ; $E6B1
 $E4CF     M_immnn:1 A2 03    LDX  #$03
+; wipe out prior chars of this missile from the screen
 -retry_next_char_of_2x2_char_missile:
 $E4D1     M_nnnnX:2 BC 28 EE LDY  missile_char_offsets,x  ; $EE28,X
 $E4D4      M_InnY:1 B1 02    LDA  (scr_ptr_lo),y  ; ($02),Y  ; read the char at this screen location
@@ -1536,13 +1568,13 @@ $E4DC      M_InnY:1 91 02    STA  (scr_ptr_lo),y  ; ($02),Y  ; draw ' ' space ch
 +less_than_range_of_bullet_chars:
 $E4DE      M_impl:0 CA       DEX
 $E4DF        M_rr:1 10 F0    BPL  -retry_next_char_of_2x2_char_missile  ; $E4D1
+; check if missile reached top of screen (time to make it invisible?)
 $E4E1        M_nn:1 A6 23    LDX  var5  ; $23  (missile iterator)
-$E4E3        M_nn:1 A5 08    LDA  genvarB  ; $08  y-pos of current torpedo minus some_kooky_table value
-                                             ; (value from 'some_kooky_table', can be either #$01, #$02, #$03)
+$E4E3        M_nn:1 A5 08    LDA  genvarB  ; $08  ; the next missile ypos (after decrementing missile speed value)
 $E4E5     M_immnn:1 C9 10    CMP  #$10  ; dec16
-$E4E7        M_rr:1 90 3F    BCC  +branch_near_end  ; $E528  ; branch if less than 16
+$E4E7        M_rr:1 90 3F    BCC  +reset_missile_ypos_to_zero  ; $E528  ; branch if less than 16
 $E4E9       M_nnX:1 B4 7D    LDY  torpedo_fire_state,x  ; $7D,X
-$E4EB        M_rr:1 D0 3B    BNE  +branch_near_end  ; $E528  ; branch if this torpedo is not currently visible on screen
+$E4EB        M_rr:1 D0 3B    BNE  +reset_missile_ypos_to_zero  ; $E528  ; branch if this torpedo is not currently visible on screen
 $E4ED       M_nnX:1 95 75    STA  torpedo_fire_ypos,x  ; $75,X  ; y-pos of all torpedoes
 $E4EF        M_nn:1 85 12    STA  var2  ; $12  ; y-pos of current ship
 $E4F1      M_nnnn:2 20 B1 E6 JSR  set_scr_and_clr_ptr_locations_based_on_ship_xy_pos  ; $E6B1
@@ -1578,7 +1610,7 @@ $E521        M_nn:1 C6 09    DEC  genvarA  ; $09
 $E523      M_impl:0 CA       DEX
 $E524        M_rr:1 10 E6    BPL  -big_loop1  ; $E50C
 $E526        M_rr:1 30 06    BMI  +jump_to_near_end  ; $E52E
-+branch_near_end:
++reset_missile_ypos_to_zero:
 $E528        M_nn:1 A6 23    LDX  var5  ; $23
 $E52A     M_immnn:1 A9 00    LDA  #$00
 $E52C       M_nnX:1 95 75    STA  torpedo_fire_ypos,x  ; $75,X  ; y-pos of all torpedoes
@@ -3110,31 +3142,167 @@ submarine_charset_idx:
 ' choose between submarine_charset1/2/3/4
  :000EEE8 00 28 50 78
 
-missile_char_data1:
- :000EEEC 00 00 40 E0 E0 E0 E0 40
-+--------+
-|        |
-|        |
-| *      |
-|***     |
-|***     |
-|***     |
-|***     |
-| *      |
-+--------+
+' small_missile_char_data_start  = EEEC
+' medium_missile_char_data_start = EF2C 
+' big_missile_char_data_start    = EF6C
+' These are #$40 apart
 
-missile_char_data2:
- :000EEF4 00 00 00 00 00 00 00 00                           | ........
-+--------+
-|        |
-|        |
-|        |
-|        |
-|        |
-|        |
-|        |
-|        |
-+--------+
+small_missile_char_data_x_offset0:
+ :000EEEC 00 00 40 E0 E0 E0 E0 40  00 00 00 00 00 00 00 00 
++--------+--------+
+|        |        |
+|        |        |
+| *      |        |
+|***     |        |
+|***     |        |
+|***     |        |
+|***     |        |
+| *      |        |
++--------+--------+
+
+small_missile_char_data_x_offset2:
+ :000EEFC 00 00 10 38 38 38 38 10
++--------+--------+
+|        |        |
+|        |        |
+|   *    |        |
+|  ***   |        |
+|  ***   |        |
+|  ***   |        |
+|  ***   |        |
+|   *    |        |
++--------+--------+
+
+small_missile_char_data_x_offset4:
+ :000EF0C 00 00 04 0E 0E 0E 0E 04   
++--------+--------+
+|        |        |
+|        |        |
+|     *  |        |
+|    *** |        |
+|    *** |        |
+|    *** |        |
+|    *** |        |
+|     *  |        |
++--------+--------+
+
+small_missile_char_data_x_offset6:
+ :000EF1C 00 00 01 03 03 03 03 01
++--------+--------+
+|        |        |
+|        |        |
+|       *|        |
+|      **|*       |
+|      **|*       |
+|      **|*       |
+|      **|*       |
+|       *|        |
++--------+--------+
+
+medium_missile_char_data_x_offset0:
+ :000EF2C 60 60 F0 F0 F0 F0 F0 60 
++--------+--------+
+| **     |        |
+| **     |        |
+|****    |        |
+|****    |        |
+|****    |        |
+|****    |        |
+|****    |        |
+| **     |        |
++--------+--------+
+
+medium_missile_char_data_x_offset2:
+ :000EF3C 18 18 3C 3C 3C 3C 3C 18
++--------+--------+
+|   **   |        |
+|   **   |        |
+|  ****  |        |
+|  ****  |        |
+|  ****  |        |
+|  ****  |        |
+|  ****  |        |
+|   **   |        |
++--------+--------+
+
+medium_missile_char_data_x_offset4:
+ :000EF4C 06 06 0F 0F 0F 0F 0F 06
++--------+--------+
+|     ** |        |
+|     ** |        |
+|    ****|        |
+|    ****|        |
+|    ****|        |
+|    ****|        |
+|    ****|        |
+|     ** |        |
++--------+--------+
+
+medium_missile_char_data_x_offset6:
+ :000EF5C 01 01 03 03 03 03 03 01
++--------+--------+
+|       *|*       |
+|       *|*       |
+|      **|**      |
+|      **|**      |
+|      **|**      |
+|      **|**      |
+|      **|**      |
+|       *|*       |
++--------+--------+
+
+big_missile_char_data_x_offset0:
+ :000EF6C 30 78 FC FC FC FC FC 78
++--------+--------+
+|  **    |        |
+| ****   |        |
+|******  |        |
+|******  |        |
+|******  |        |
+|******  |        |
+|******  |        |
+| ****   |        |
++--------+--------+
+
+big_missile_char_data_x_offset2:
+ :000EF7C 0C 1E 3F 3F 3F 3F 3F 1E
++--------+--------+
+|    **  |        |
+|   **** |        |
+|  ******|        |
+|  ******|        |
+|  ******|        |
+|  ******|        |
+|  ******|        |
+|   **** |        |
++--------+--------+
+
+big_missile_char_data_x_offset4:
+ :000EF8C 03 07 0F 0F 0F 0F 0F 07
++--------+--------+
+|      **|        |
+|     ***|*       |
+|    ****|**      |
+|    ****|**      |
+|    ****|**      |
+|    ****|**      |
+|    ****|**      |
+|     ***|*       |
++--------+--------+
+
+big_missile_char_data_x_offset6:
+ :000EF9C 00 01 03 03 03 03 03 01
++--------+--------+
+|        |**      |
+|       *|***     |
+|      **|****    |
+|      **|****    |
+|      **|****    |
+|      **|****    |
+|      **|****    |
+|       *|***     |
++--------+--------+
+
 
 missiles_colour_table:
  :000EFAC 07 07 07 07 08 08 08 08                           | ........
@@ -3142,10 +3310,14 @@ missiles_colour_table:
   - player1's 4 missiles will all be yellow
   - player2's 4 missiles will all be light brown
 
-another_kooky_table:
+map_2x2_ypos_to_chardata_offset_for_missile_size:
+' the offset into the missile char data to reference either small (#$00), medium (#$40) or big (#$80) missiles
  :000EFB4 00 00 00 00 00 40 40 40  80 80 80 80
 
-some_kooky_table:
+missile_speed_at_indexed_2x2_ypos:
+' At the lower part of the screen, the missile moves faster, #$02 = 2 pixels per frame
+' At the mid and upper parts of the screen, the missile moves slower, #$01 = 1 pixel per frame
+' the #$03 speed seems unused
  :000EFC0 01 01 01 01 01 01 02 02  02 02 03 03
 
 mission_text1:
