@@ -93,11 +93,11 @@ $16 real_game_mode_flag:  (is it some kind of attract-mode flag?)
 $17 initial_game_time  (in minutes?)
 $18 buff_spr2spr_coll:  buffered value of sprite-to-sprite collision
 $19 buff_spr2back_coll:  buffered value of sprite-to-background collision
-$1B dunno1:
+$1B randomval_lsb:
   - asl in $E897
   - eor in $e89d
   - eor in $e8a0
-$1C dunno2:
+$1C randomval_msb:
   - rol in $e899
 $1D p1_score_lo: the low two-digits of player1 score : set to #$00 in start_game
 $1E p2_score_lo: the low two-digits of player2 score : set to #$00 in start_game
@@ -510,7 +510,7 @@ $E0CF     M_nnnnX:2 9D F8 07 STA  $07F8,X  ; set current explosion frame sprite 
 $E0D2      M_nnnn:2 4C BD E1 JMP  +super_duper_big_jump  ; $E1BD
 +current_ship_not_visible:
   ' we jumped here due to current ship not being visible
-$E0D5      M_nnnn:2 20 93 E8 JSR  random_num_gen_into_A  ; $E893  ; it will return some magic value in A (based on dunno1 and dunno2)
+$E0D5      M_nnnn:2 20 93 E8 JSR  random_num_gen_into_A  ; $E893  ; it will return some magic value in A (based on randomval_lsb and randomval_msb)
 $E0D8     M_immnn:1 C9 03    CMP  #$03  ; make the spawning of a new ship a low-probability occurence (3 in 256 chance, i.e., 1/85)
 $E0DA        M_rr:1 90 03    BCC  +decide_new_ship_details  ; $E0DF  ; if A value < 3 then branch
 $E0DC      M_nnnn:2 4C BD E1 JMP  +super_duper_big_jump  ; $E1BD
@@ -2201,29 +2201,30 @@ $E890      M_nnnn:2 4C 3B E7 JMP  print_two_digits_in_A  ; $E73B
 
 random_num_gen_into_A:
 ---------------------
-  ' perhaps this logic decides if the currently invisible/disabled ship should become visible?
+' NOTE: randomval_lsb is constantly incremented inside the game_loop routine on every frame/iteration
+'       (perhaps to improve the randomness provided by this routine)
 $E893      M_impl:0 8A       TXA  ; ship-index?
 $E894      M_impl:0 48       PHA
 $E895     M_immnn:1 A2 0B    LDX  #$0B  ; dec11  ; loop over 10 times
 -retry:
-$E897        M_nn:1 06 1B    ASL  dunno1  ; $1B
-$E899        M_nn:1 26 1C    ROL  dunno2  ; $1C
-$E89B         M_A:0 2A       ROL
-$E89C         M_A:0 2A       ROL
-$E89D        M_nn:1 45 1B    EOR  dunno1  ; $1B
-$E89F         M_A:0 2A       ROL
-$E8A0        M_nn:1 45 1B    EOR  dunno1  ; $1B
+$E897        M_nn:1 06 1B    ASL  randomval_lsb  ; $1B
+$E899        M_nn:1 26 1C    ROL  randomval_msb  ; $1C  ; treat randomval_lsb+randomval_msb like a 16-bit number we rol to the left (multiply by 2)
+$E89B         M_A:0 2A       ROL  ; rol whatever was left in Areg (usually some index/iterator value, usually ranging 0-7?)
+$E89C         M_A:0 2A       ROL  ; i.e., multiply this 'random-ish' value by 4
+$E89D        M_nn:1 45 1B    EOR  randomval_lsb  ; $1B  ; flip some bits in the lsb of this 16-bit value
+$E89F         M_A:0 2A       ROL  ; multiply this 'random-ish' A value by 2
+$E8A0        M_nn:1 45 1B    EOR  randomval_lsb  ; $1B  ; flip some more bits in the lsb of this 16-bit value
 $E8A2         M_A:0 4A       LSR
-$E8A3         M_A:0 4A       LSR
-$E8A4     M_immnn:1 49 FF    EOR  #$FF
-$E8A6     M_immnn:1 29 01    AND  #$01  ; at this point, a=0 or 1
-$E8A8        M_nn:1 05 1B    ORA  dunno1  ; $1B
-$E8AA        M_nn:1 85 1B    STA  dunno1  ; $1B
+$E8A3         M_A:0 4A       LSR  ; divide 'random-ish' A value by 4
+$E8A4     M_immnn:1 49 FF    EOR  #$FF  ; flip all the bits in 'random-ish' A
+$E8A6     M_immnn:1 29 01    AND  #$01  ; at this point, a=0 or 1  (only care about bit0 of regA)
+$E8A8        M_nn:1 05 1B    ORA  randomval_lsb  ; $1B  ; this could 'potentially' set bit0 of lsb of 16-bit value
+$E8AA        M_nn:1 85 1B    STA  randomval_lsb  ; $1B  ; so maybe it's a way to assure some balance between odd & even numbers?
 $E8AC      M_impl:0 CA       DEX
-$E8AD        M_rr:1 D0 E8    BNE  -retry  ; $E897  ; loop from 11 to 1
+$E8AD        M_rr:1 D0 E8    BNE  -retry  ; $E897  ; loop from 11 to 1  ; repeat this randomizing recipe 10 times
 $E8AF      M_impl:0 68       PLA
-$E8B0      M_impl:0 AA       TAX
-$E8B1        M_nn:1 A5 1B    LDA  dunno1  ; $1B
+$E8B0      M_impl:0 AA       TAX  ; restore prior regX value
+$E8B1        M_nn:1 A5 1B    LDA  randomval_lsb  ; $1B  ; we return regA as our 'random' result
 $E8B3      M_impl:0 60       RTS
 
 
@@ -2615,7 +2616,7 @@ $EB7B      M_nnnn:2 20 59 E7 JSR  timer_loop  ; $E759
 $EB7E        M_nn:1 A5 16    LDA  real_game_mode_flag  ; $16
 $EB80        M_rr:1 D0 0A    BNE  +if_in_real_game_then_skip_exit_attract_check  ; $EB8C
 exit_attract_check:
-$EB82        M_nn:1 E6 1B    INC  dunno1  ; $1B
+$EB82        M_nn:1 E6 1B    INC  randomval_lsb  ; $1B
 $EB84      M_nnnn:2 20 36 E5 JSR  paddle_and_function_key_reading_routine  ; $E536
 $EB87      M_impl:0 A8       TAY
 $EB88     M_immnn:1 C9 01    CMP  #$01
