@@ -72,11 +72,11 @@ $0f offset_to_char_idx_of_2x2_missile_chars: offset to char index of 2x2 missile
     - lda at $e503
 $10 offset_to_char_data_addr_of_2x2_missile_chars:
   - sta at $e481
-$11 var1:  (the x-position of current ship?)
+$11 xpos_local:  (a place to temporarily store x-position of current ship/missile/buoy)
   - sbc at $e035
   - lda at $e081
   - lda at $e8b7
-$12 var2:  (the y-position of current ship?)
+$12 ypos_local:  (a place to temporarily store y-position of current ship/missile/buoy)
   - sta at $E5AE
   - inc at $e641
   - inc at $e643
@@ -105,7 +105,7 @@ $1F p1_score_hi: the high two-digits of player1 score : set to #$00 in start_gam
 $20 p2_score_hi: the high two-digits of player2 score : set to #$00 in start_game
 $21 high_score_lo: the low two-digits of high score
 $22 high_score_hi: the high two-digits of high score
-$23 var5: (possibly a general index var used for different purposes in different places)
+$23 iterator_local: (possibly a general index var used for different purposes in different places)
           (sometimes used as an index var to choose between player1 or 2)
   - ldx at $e09c
   - ldx at $e0b6
@@ -117,11 +117,14 @@ $23 var5: (possibly a general index var used for different purposes in different
   - lda at $e27d  (sets it to #$01)
   - ldx at $e2fe  (later used as index to p1_num_missiles,y) (gives me impression it is a generic index var)
   - lda at $e45f  (set to #$07)
-$24 dunno3:
+$24 buoy_movement_timer:
   - buoy_logic:
     - lda at $e1c8
     - sta at $e1ce  (set to #$0b / dec11)
-$25 dunno4:
+$25 buoy_pair_index:
+  - Can either be:
+  -   0: buoys 0 and 1 will be assessed
+  -   2: buoys 2 and 3 will be assessed
   - handle_missile_firing_and_state:
     - lda at $e308
     - sta at $e30a (bit 1 is toggled)
@@ -226,7 +229,7 @@ $5d-$60 buoys_visibility[4]: (possibly data relating to buoys)
                    - #$00 = invisible
                    - #$01 = visible
                    - #$ff = shot/exploding
-  - lda at $e1d8 (with index of var5)
+  - lda at $e1d8 (with index of iterator_local)
   - sta at $e218 (sets it to #$ff) (if xpos of buoy <12 or >=254)
   - lda at $e224
   - sta at $e253 (sets it to #$00 - on occasions when x-pos > 148)
@@ -234,7 +237,7 @@ $5d-$60 buoys_visibility[4]: (possibly data relating to buoys)
   - set to #$01 in init_game_vars
   - set to #$01 in init_game_vars
 $61-64:  buoys_xpos[4]:  (array of all buoy x-positions)
-  - lda at $e1df (with index of var5)
+  - lda at $e1df (with index of iterator_local)
   - sta at $e320 (set to #$00)
   - [0] set to #$00 in init_game_vars
   - [1] set to #$44 (68) in init_game_vars
@@ -242,7 +245,7 @@ $65-$68:  buoys_ypos[4]:  (array of all buoy y-positions)
           - (have values of either #$60 or #$80)
           - (the absolute sprite x-pos for these is #$92 and #$B2)
           - (that's a difference of #$32)
-  - lda at $e1e3 (with index of var5)
+  - lda at $e1e3 (with index of iterator_local)
   - set to #$60 (96) in init_game_vars
   - set to #$60 (96) in init_game_vars
 $69-$6c: buoys_explode_timer[4]:
@@ -250,8 +253,8 @@ $69-$6c: buoys_explode_timer[4]:
   - its value is divided by 8 to assist as an index to which explosion frame to show (0 - 2)
   - in buoy_logic:
     - sta at $e21c (set to #$18 / dec24) - in response to a buoy being hit by a missile
-    - dec at $e260 (indexed by var5)
-    - lda at $e264 (indexed by var5)
+    - dec at $e260 (indexed by iterator_local)
+    - lda at $e264 (indexed by iterator_local)
 $6d-74 torpedo_fire_xpos[8]:  (x-positions of all torpedoes)
   - read at $e031
   - read at $e200 (with ,y index at 7)
@@ -383,17 +386,17 @@ game_mechanics_iteration:
 ' has logic to spawn new ships when needed
 ' also checks for missile-to-ship collisions
 $E000     M_immnn:1 A9 03    LDA  #$03  ; iterator over all 4 possible ships
-$E002        M_nn:1 85 23    STA  var5  ; $23
+$E002        M_nn:1 85 23    STA  iterator_local  ; $23
 -retry_next_possible_ship:
-$E004        M_nn:1 A6 23    LDX  var5  ; $23  (ship iterator)
+$E004        M_nn:1 A6 23    LDX  iterator_local  ; $23  (ship iterator)
 $E006       M_nnX:1 B5 39    LDA  ships_visibility,x  ; $39,X  ; perhaps visibility of all ships
 $E008        M_rr:1 D0 03    BNE  +current_ship_visible_or_exploding  ; $E00D
 $E00A      M_nnnn:2 4C D5 E0 JMP  +current_ship_not_visible  ; $E0D5  ; if $39,x is zero, then we do this jump
 +current_ship_visible_or_exploding:
 $E00D       M_nnX:1 B5 49    LDA  ships_ypos,x  ; $49,X  ; y-pos of all ships
-$E00F        M_nn:1 85 12    STA  var2  ; $12  ; y-pos of current ship
+$E00F        M_nn:1 85 12    STA  ypos_local  ; $12  ; y-pos of current ship
 $E011       M_nnX:1 B5 45    LDA  ships_xpos,x  ; $45,X  ; x-pos of all ships
-$E013        M_nn:1 85 11    STA  var1  ; $11  ; x-pos of current ship
+$E013        M_nn:1 85 11    STA  xpos_local  ; $11  ; x-pos of current ship
 $E015        M_nn:1 A5 19    LDA  buff_spr2back_coll  ; $19
 $E017     M_nnnnX:2 3D 38 EE AND  or_bitfields,x  ; $EE38,X  ; x = currently assessed ship (from 0 - 3)
 $E01A        M_rr:1 F0 54    BEQ  +no_spr2back_collision_detected  ; $E070  ; if no sprite-to-back collision for this sprite-x, then branch
@@ -408,13 +411,13 @@ $E023     M_immnn:1 A0 07    LDY  #$07
 $E025     M_nnnnY:2 B9 75 00 LDA  torpedo_fire_ypos,y  ; $0075,Y  ; y-position of all torpedoes (4 for player1 and 4 for player2)
 $E028        M_rr:1 F0 15    BEQ  +curr_torpedo_out_of_yrange_of_hit_ship  ; $E03F
 $E02A      M_impl:0 38       SEC
-$E02B        M_nn:1 E5 12    SBC  var2  ; $12  ; y-pos of current ship
+$E02B        M_nn:1 E5 12    SBC  ypos_local  ; $12  ; y-pos of current ship
 $E02D     M_immnn:1 C9 10    CMP  #$10  ; (dec16)
 $E02F        M_rr:1 B0 0E    BCS  +curr_torpedo_out_of_yrange_of_hit_ship  ; $E03F  ; branch if >= 16
 ' yrange was valid, so now check missile is within xrange of hit ship
 $E031     M_nnnnY:2 B9 6D 00 LDA  torpedo_fire_xpos,y  ; $006D,Y  ; x-pos of all torpedoes (y=currently indexed torpedo)
 $E034      M_impl:0 38       SEC
-$E035        M_nn:1 E5 11    SBC  var1  ; $11  ; x-pos of current ship
+$E035        M_nn:1 E5 11    SBC  xpos_local  ; $11  ; x-pos of current ship
 $E037     M_immnn:1 C9 FE    CMP  #$FE
 $E039        M_rr:1 B0 09    BCS  +curr_torpedo_is_within_xrange_of_hit_ship  ; $E044  ; branch if >= 254
 $E03B        M_nn:1 C5 08    CMP  genvarB  ; $08  ; contains a given ship_type_width,y
@@ -457,10 +460,10 @@ $E07A      M_nnnn:2 4C BD E1 JMP  +super_duper_big_jump  ; $E1BD
 ' move the ship along a small increment along the x-axis?
 $E07D       M_nnX:1 B5 41    LDA  ships_move_max_time,x  ; $41,X
 $E07F       M_nnX:1 95 3D    STA  ships_move_tmr,x  ; $3D,X
-$E081        M_nn:1 A5 11    LDA  var1  ; $11  ; x-position of current ship
+$E081        M_nn:1 A5 11    LDA  xpos_local  ; $11  ; x-position of current ship
 $E083      M_impl:0 18       CLC
 $E084       M_nnX:1 75 4D    ADC  ships_mirror_flag,x  ; $4D,X  ; mirror orientation of ships (#$01 normal, #$ff reversed)
-$E086        M_nn:1 85 11    STA  var1  ; $11
+$E086        M_nn:1 85 11    STA  xpos_local  ; $11
 $E088       M_nnX:1 95 45    STA  ships_xpos,x  ; $45,X  ; x-pos of all ships
 $E08A     M_immnn:1 C9 A0    CMP  #$A0  ; dec160
 $E08C        M_rr:1 B0 28    BCS  turn_off_ship  ; $E0B6  ; branch if >= 160
@@ -470,8 +473,8 @@ $E091     M_nnnnY:2 79 0E EE ADC  ship_type_widths,y  ; $EE0E,Y  ; some amount t
 $E094     M_immnn:1 C9 A0    CMP  #$A0  ; dec160
 $E096        M_rr:1 B0 1E    BCS  turn_off_ship  ; $E0B6  ; branch if new x-pos is >= 160  ; ship has gone out of range?
 $E098      M_impl:0 8A       TXA
-$E099      M_nnnn:2 20 B4 E8 JSR  set_current_ship_sprite_position  ; $E8B4  (curr ship x,y vals in var1/$11 and var2/$12)
-$E09C        M_nn:1 A6 23    LDX  var5  ; $23  ; current ship-index
+$E099      M_nnnn:2 20 B4 E8 JSR  set_sprite_position  ; $E8B4  (curr ship x,y vals in xpos_local/$11 and ypos_local/$12)
+$E09C        M_nn:1 A6 23    LDX  iterator_local  ; $23  ; current ship-index
 $E09E       M_nnX:1 B5 4D    LDA  ships_mirror_flag,x  ; $4D,X  ; mirror orientation of ships? (#$01 normal, #$ff reversed?)
 $E0A0     M_immnn:1 29 04    AND  #$04
 $E0A2       M_nnX:1 15 51    ORA  ships_type,x  ; $51,X  ; ship-type of all ships
@@ -488,7 +491,7 @@ $E0B0      M_nnnn:2 20 DD E8 JSR  turn_on_sprite_A  ; $E8DD
 $E0B3      M_nnnn:2 4C BD E1 JMP  +super_duper_big_jump  ; $E1BD
 turn_off_ship:
   ' ship has gone out of range, time to switch it off? 
-$E0B6        M_nn:1 A6 23    LDX  var5  ; $23  ; idx to current ship
+$E0B6        M_nn:1 A6 23    LDX  iterator_local  ; $23  ; idx to current ship
 $E0B8     M_immnn:1 A9 00    LDA  #$00
 $E0BA       M_nnX:1 95 39    STA  ships_visibility,x  ; $39,X
 $E0BC      M_impl:0 8A       TXA
@@ -520,7 +523,7 @@ $E0E5     M_immnn:1 69 18    ADC  #$18  ; A can either be:
                                         ;   #$18 (24) for top-row ypos of new ship,  or...
                                         ;   #$38 (56) for bottom-row ypos of new ship
                                         ; (add #$32 to these to get absolute ypos for ships, either #$4A or #$6A)
-$E0E7        M_nn:1 A6 23    LDX  var5  ; $23  ; curr ship idx
+$E0E7        M_nn:1 A6 23    LDX  iterator_local  ; $23  ; curr ship idx
 $E0E9       M_nnX:1 95 49    STA  ships_ypos,x  ; $49,X  ; y-pos of all ships
 $E0EB        M_nn:1 85 08    STA  genvarB  ; $08  ; let genvarB = y-pos of current ship (newly spawned)
 +decide_new_ship_type:
@@ -634,7 +637,7 @@ $E192      M_nnnn:2 2C A9 FF BIT  $FFA9
   $E193     M_immnn:1 A9 FF    LDA  #$FF  ; current ship = mirrored
 $E195        M_nn:1 85 0A    STA  curr_ship_mirror_state  ; $0A  ; set curr ship to mirrored
 +sufficient_gap_to_spawn_new_ship:
-$E197        M_nn:1 A6 23    LDX  var5  ; $23  ; idx to curr ship
+$E197        M_nn:1 A6 23    LDX  iterator_local  ; $23  ; idx to curr ship
 $E199     M_immnn:1 A9 01    LDA  #$01
 $E19B       M_nnX:1 95 39    STA  ships_visibility,x  ; $39,X  ; ship visibility table, set it to 1/visible
 $E19D       M_nnX:1 95 3D    STA  ships_move_tmr,x  ; $3D,X
@@ -657,7 +660,7 @@ $E1B8      M_nnnn:2 2C A9 00 BIT  $00A9
 $E1BB       M_nnX:1 95 45    STA  ships_xpos,x  ; $45,X  ; x-pos of all ships
 +not_big_enough_gap_yet:
 +super_duper_big_jump:
-$E1BD        M_nn:1 C6 23    DEC  var5  ; $23  ; idx to curr ship
+$E1BD        M_nn:1 C6 23    DEC  iterator_local  ; $23  ; idx to curr ship
 $E1BF        M_rr:1 30 03    BMI  +skip_to_rts  ; $E1C4
 $E1C1      M_nnnn:2 4C 04 E0 JMP  -retry_next_possible_ship  ; $E004
 +skip_to_rts:
@@ -912,25 +915,27 @@ sprite F1
 
 buoy_logic:
 '---------
-$E1C8        M_nn:1 A5 24    LDA  dunno3  ; $24
-$E1CA        M_rr:1 10 04    BPL  +skip1  ; $E1D0
+$E1C8        M_nn:1 A5 24    LDA  buoy_movement_timer  ; $24
+$E1CA        M_rr:1 10 04    BPL  +buoy_timer_not_expired_yet  ; $E1D0
+; reset timer after expiring
 $E1CC     M_immnn:1 A9 0B    LDA  #$0B  ; dec11
-$E1CE        M_nn:1 85 24    STA  dunno3  ; $24
-+skip1:
-$E1D0        M_nn:1 C6 24    DEC  dunno3  ; $24
-$E1D2     M_immnn:1 A9 03    LDA  #$03
-$E1D4        M_nn:1 85 23    STA  var5  ; $23
-$E1D6        M_nn:1 A6 23    LDX  var5  ; $23
+$E1CE        M_nn:1 85 24    STA  buoy_movement_timer  ; $24
++buoy_timer_not_expired_yet:
+$E1D0        M_nn:1 C6 24    DEC  buoy_movement_timer  ; $24
+$E1D2     M_immnn:1 A9 03    LDA  #$03  ; buoy iterator (3 to 0)
+$E1D4        M_nn:1 85 23    STA  iterator_local  ; $23
+-big_retry:
+' loops on a decrementing iterator_local until all the way to zero
+$E1D6        M_nn:1 A6 23    LDX  iterator_local  ; $23
 $E1D8       M_nnX:1 B5 5D    LDA  buoys_visibility,x  ; $5D,X
 $E1DA        M_rr:1 D0 03    BNE  +buoy_is_visible_or_exploading  ; $E1DF  ; branch if non-zero
--big_retry:
-   ' loops on a decrementing var5 until all the way to zero
+' if buoy is invisible, jump to next buoy
 $E1DC      M_nnnn:2 4C 75 E2 JMP  +jmp_to_next_buoy  ; $E275
 +buoy_is_visible_or_exploading:
 $E1DF       M_nnX:1 B5 61    LDA  buoys_xpos,x  ; $61,X
-$E1E1        M_nn:1 85 11    STA  var1  ; $11  (x-position of current buoy)
+$E1E1        M_nn:1 85 11    STA  xpos_local  ; $11  (x-position of current buoy)
 $E1E3       M_nnX:1 B5 65    LDA  buoys_ypos,x   ; $65,X  ; (array of all buoy y-positions)
-$E1E5        M_nn:1 85 12    STA  var2  ; $12  (y-position of the current buoy)
+$E1E5        M_nn:1 85 12    STA  ypos_local  ; $12  (y-position of the current buoy)
 $E1E7      M_impl:0 8A       TXA
 $E1E8     M_immnn:1 09 04    ORA  #$04
 $E1EA      M_impl:0 A8       TAY
@@ -942,12 +947,12 @@ $E1F2     M_immnn:1 A0 07    LDY  #$07
 $E1F4     M_nnnnY:2 B9 75 00 LDA  torpedo_fire_ypos,y  ; $0075,Y  ; y-pos of all torpedoes
 $E1F7        M_rr:1 F0 15    BEQ  +skip_on_zero  ; $E20E
 $E1F9      M_impl:0 38       SEC
-$E1FA        M_nn:1 E5 12    SBC  var2  ; $12  ; (y-position of the current buoy)
+$E1FA        M_nn:1 E5 12    SBC  ypos_local  ; $12  ; (y-position of the current buoy)
 $E1FC     M_immnn:1 C9 15    CMP  #$15  ; dec21
 $E1FE        M_rr:1 B0 0E    BCS  +branch_if_ypos_>=21  ; $E20E  ; branch if >= dec21
 $E200     M_nnnnY:2 B9 6D 00 LDA  torpedo_fire_xpos,y  ; $006D,Y  ; x-pos of all torpedoes
 $E203      M_impl:0 38       SEC
-$E204        M_nn:1 E5 11    SBC  var1  ; $11  ; (x-position of the current buoy)
+$E204        M_nn:1 E5 11    SBC  xpos_local  ; $11  ; (x-position of the current buoy)
 $E206     M_immnn:1 C9 FE    CMP  #$FE  ; dec254
 $E208        M_rr:1 B0 09    BCS  +branch_if_xpos_>=254  ; $E213 ; branch if >= 254
 $E20A     M_immnn:1 C9 0C    CMP  #$0C  ; dec12
@@ -970,17 +975,18 @@ $E221      M_nnnn:2 4C 75 E2 JMP  +jmp_to_next_buoy  ; $E275
 +skip_due_to_no_spr_to_back_collision:
 $E224       M_nnX:1 B5 5D    LDA  buoys_visibility,x  ; $5D,X
 $E226        M_rr:1 30 36    BMI  +buoy_currently_exploding  ; $E25E
-$E228        M_nn:1 A5 24    LDA  $24
+$E228        M_nn:1 A5 24    LDA  buoy_movement_timer  ; $24
 $E22A        M_rr:1 D0 49    BNE  +jmp_to_next_buoy  ; $E275
-$E22C        M_nn:1 E6 11    INC  var1  ; $11  ; x-pos of current ship
-$E22E        M_nn:1 A5 11    LDA  var1  ; $11
+; interesting... buoys only move from left to right
+$E22C        M_nn:1 E6 11    INC  xpos_local  ; $11  ; x-pos of current buoy
+$E22E        M_nn:1 A5 11    LDA  xpos_local  ; $11
 $E230     M_immnn:1 C9 94    CMP  #$94  ; 148
 $E232        M_rr:1 B0 1D    BCS  +skip_if_xpos_>=148  ; $E251
-$E234       M_nnX:1 95 61    STA  buoys_xpos,x  ; $61,X  (array of all ship x-positions)
+$E234       M_nnX:1 95 61    STA  buoys_xpos,x  ; $61,X  (array of all buoy x-positions)
 $E236      M_impl:0 8A       TXA
 $E237     M_immnn:1 09 04    ORA  #$04
-$E239      M_nnnn:2 20 B4 E8 JSR  set_current_ship_sprite_position  ; $E8B4  (curr ship x,y vals in var1/$11 and var2/$12)
-$E23C        M_nn:1 A6 23    LDX  var5  ; $23
+$E239      M_nnnn:2 20 B4 E8 JSR  set_sprite_position  ; $E8B4  (a=sprite no#, x,y vals in xpos_local/$11 and ypos_local/$12)
+$E23C        M_nn:1 A6 23    LDX  iterator_local  ; $23
 $E23E     M_immnn:1 A9 FA    LDA  #$FA  ; sprite fa (afd buoy)
 $E240     M_nnnnX:2 9D FC 07 STA  $07FC,X  ; sprite-pointers for sprites 4-7
 $E243     M_immnn:1 A9 01    LDA  #$01
@@ -998,7 +1004,7 @@ $E256     M_immnn:1 09 04    ORA  #$04
 $E258      M_nnnn:2 20 E8 E8 JSR  turn_off_sprite_A  ; $E8E8
 $E25B      M_nnnn:2 4C 75 E2 JMP  +jmp_to_next_buoy  ; $E275
 +buoy_currently_exploding:
-$E25E        M_nn:1 A6 23    LDX  var5  ; $23  ; current buoy index
+$E25E        M_nn:1 A6 23    LDX  iterator_local  ; $23  ; current buoy index
 $E260       M_nnX:1 D6 69    DEC  buoys_explode_timer,x  ; $69,X
 $E262        M_rr:1 F0 ED    BEQ  -retry_if_zero  ; $E251
 $E264       M_nnX:1 B5 69    LDA  buoys_explode_timer,x  ; $69,X  (range 0-23)
@@ -1013,7 +1019,7 @@ $E270        M_nn:1 E5 08    SBC  genvarB  ; $08
 $E272     M_nnnnX:2 9D FC 07 STA  $07FC,X  ; sprite-pointers for sprites 4-7
                                            ; sprite-pointer can be set to anything between $F6 - $F8
 +jmp_to_next_buoy:
-$E275        M_nn:1 C6 23    DEC  var5  ; $23
+$E275        M_nn:1 C6 23    DEC  iterator_local  ; $23
 $E277        M_rr:1 30 03    BMI  +skip_to_rts  ; $E27C
 $E279      M_nnnn:2 4C D6 E1 JMP  -big_retry  ; $E1D6
 +skip_to_rts:
@@ -1130,11 +1136,11 @@ sprite FA: (buoy)
 
 handle_missile_firing_and_state:
 '------------------------------
-$E27D     M_immnn:1 A9 01    LDA  #$01  ; var5 is set to #$01 to indicate (index to) player2 
+$E27D     M_immnn:1 A9 01    LDA  #$01  ; iterator_local is set to #$01 to indicate (index to) player2 
                                         ; (it is set later at $E357 to #$00 to indicate player1)
-$E27F        M_nn:1 85 23    STA  var5  ; $23
+$E27F        M_nn:1 85 23    STA  iterator_local  ; $23
 -big_retry:
-$E281        M_nn:1 A6 23    LDX  var5  ; $23
+$E281        M_nn:1 A6 23    LDX  iterator_local  ; $23
 $E283       M_nnX:1 B5 2F    LDA  missile_reload_timers,x  ; $2F,X
 $E285        M_rr:1 F0 22    BEQ  +skip_if_zero  ; $E2A9
 $E287       M_nnX:1 D6 2F    DEC  missile_reload_timers,x  ; $2F,X
@@ -1161,7 +1167,7 @@ $E2A6      M_nnnn:2 20 5F E3 JSR  redraw_torpedo_amount_indicator  ; $E35F
 +skip_if_07c2_not_zero:
 +skip_if_not_60:
 +skip_if_zero:
-$E2A9        M_nn:1 A5 23    LDA  var5  ; $23
+$E2A9        M_nn:1 A5 23    LDA  iterator_local  ; $23
 $E2AB        M_nn:1 A4 16    LDY  real_game_mode_flag  ; $16
 $E2AD        M_rr:1 D0 0A    BNE  +skip_if_in_real_game_mode_flag  ; $E2B9
 ' if in attract mode, randomly decide when to fire missiles
@@ -1175,13 +1181,13 @@ $E2B9      M_nnnn:2 20 83 E7 JSR  read_paddle_fire_button  ; $E783
 $E2BC      M_impl:0 AA       TAX
 $E2BD        M_rr:1 D0 09    BNE  +paddle_fires_pressed  ; $E2C8  ; branch if any paddle fires pressed
 +skip_jmp:
-$E2BF        M_nn:1 A6 23    LDX  var5  ; $23  ; player idx (0=player1, 1=player2)
+$E2BF        M_nn:1 A6 23    LDX  iterator_local  ; $23  ; player idx (0=player1, 1=player2)
 $E2C1     M_immnn:1 A9 00    LDA  #$00  ; set flag to record that paddle fire state is presently off
 $E2C3       M_nnX:1 95 33    STA  last_paddle_fire_state,x  ; $33,X
 $E2C5      M_nnnn:2 4C 57 E3 JMP  +big_jmp_to_near_end  ; $E357
 +auto_fire_missile_while_in_attract:
 +paddle_fires_pressed:
-$E2C8        M_nn:1 A6 23    LDX  var5  ; $23
+$E2C8        M_nn:1 A6 23    LDX  iterator_local  ; $23
 $E2CA       M_nnX:1 B5 33    LDA  last_paddle_fire_state,x  ; $33,X
 $E2CC        M_rr:1 F0 03    BEQ  +skip_if_last_paddle_fire_state_is_off  ; $E2D1
 $E2CE      M_nnnn:2 4C 57 E3 JMP  +big_jmp_to_near_end  ; $E357
@@ -1210,49 +1216,61 @@ $E2F3     M_nnnnY:2 99 7D 00 STA  torpedo_fire_state,y  ; $007D,Y
 $E2F6       M_nnX:1 D6 31    DEC  p1_num_missiles,x  ; $31,X
 $E2F8      M_nnnn:2 20 5F E3 JSR  redraw_torpedo_amount_indicator  ; $E35F
 $E2FB      M_nnnn:2 20 53 E9 JSR  play_fire_shoot_sound_on_v2  ; $E953
-$E2FE        M_nn:1 A6 23    LDX  var5  ; $23
+$E2FE        M_nn:1 A6 23    LDX  iterator_local  ; $23
 $E300       M_nnX:1 B5 31    LDA  p1_num_missiles,x  ; $31,X
 $E302        M_rr:1 D0 53    BNE  +big_jmp_to_near_end  ; $E357  ; if player still has missiles, do branch
 $E304     M_immnn:1 A9 B4    LDA  #$B4  ; dec180
 $E306       M_nnX:1 95 2F    STA  missile_reload_timers,x  ; $2F,X
-$E308        M_nn:1 A5 25    LDA  dunno4  ; $25
-$E30A     M_immnn:1 49 02    EOR  #$02  ; toggle bit1
-$E30C        M_nn:1 85 25    STA  dunno4  ; $25
+; buoy respawn logic
+; ------------------
+; we can only get here if we just fired the last missile in our set of 4 (whether it be player 1 or 2)
+$E308        M_nn:1 A5 25    LDA  buoy_pair_index  ; $25
+$E30A     M_immnn:1 49 02    EOR  #$02  ; toggle bit1  ; so below, we can only possibly assess visibility of buoy 0 or 2
+$E30C        M_nn:1 85 25    STA  buoy_pair_index  ; $25
 $E30E      M_impl:0 AA       TAX
+                             ; X = buoy-pair index (either 0 or 2)
 $E30F       M_nnX:1 B5 5D    LDA  buoys_visibility,x  ; $5D,X
-$E311        M_rr:1 F0 07    BEQ  +skip_if_buoys_visibility_is_zero  ; $E31A
+$E311        M_rr:1 F0 07    BEQ  +buoy1_is_invisible  ; $E31A
 $E313       M_nnX:1 B5 5E    LDA  buoys_visibility+1,x  ; $5E,X
-$E315        M_rr:1 F0 13    BEQ  +skip_if_buoys_visibility+1_is_zero  ; $E32A
+$E315        M_rr:1 F0 13    BEQ  +buoy1_visible_and_buoy2_invisible  ; $E32A
+; if both buoys visible, no need to do any respawning
+; ---------------------------------------------------
 $E317      M_nnnn:2 4C 57 E3 JMP  +big_jmp_to_near_end  ; $E357
-+skip_if_buoys_visibility_is_zero:
++buoy1_is_invisible:
 $E31A       M_nnX:1 B5 5E    LDA  buoys_visibility+1,x ; $5E,X
-$E31C        M_rr:1 D0 1C    BNE  +skip_if_buoys_visibility+1_is_not_zero  ; $E33A
+$E31C        M_rr:1 D0 1C    BNE  +buoy1_invisible_and_buoy2_visible  ; $E33A
+; both buoys in the pair are invisible
+'-------------------------------------
 $E31E     M_immnn:1 A9 00    LDA  #$00
-$E320       M_nnX:1 95 61    STA  buoys_xpos,x  ; $61,X
+$E320       M_nnX:1 95 61    STA  buoys_xpos,x  ; $61,X  ; spawn new buoy at xpos=0
 $E322      M_impl:0 18       CLC
-$E323     M_immnn:1 69 44    ADC  #$44  ; dec68
+$E323     M_immnn:1 69 44    ADC  #$44  ; dec68  ; 2nd buoy in pair will be at xpos=68
 $E325       M_nnX:1 95 62    STA  buoys_xpos+1,x  ; $62,X
-$E327      M_nnnn:2 4C 47 E3 JMP  +modest_jmp_near_end  ; $E347
-+skip_if_buoys_visibility+1_is_zero:
-$E32A       M_nnX:1 B5 61    LDA  buoys_xpos,x  ; $61,X
-$E32C     M_immnn:1 C9 4C    CMP  #$4C  ; dec76
-$E32E        M_rr:1 B0 03    BCS  branch_if_arrayC_idx_val_>=76  ; $E333
+$E327      M_nnnn:2 4C 47 E3 JMP  +assure_both_buoys_in_pair_visible_and_on_same_ypos  ; $E347
++buoy1_visible_and_buoy2_invisible:
+'---------------------------------
+$E32A       M_nnX:1 B5 61    LDA  buoys_xpos,x  ; $61,X  ; 1st buoy xpos
+$E32C     M_immnn:1 C9 4C    CMP  #$4C  ; dec76  ; 1st_buoy_xpos >= 76
+$E32E        M_rr:1 B0 03    BCS  +respawn_2nd_buoy_behind_1st  ; $E333
 $E330     M_immnn:1 69 44    ADC  #$44  ; dec68
 $E332      M_nnnn:2 2C E9 44 BIT  $44E9
-  branch_if_arrayC_idx_val_>=76:
+  +respawn_2nd_buoy_behind_1st:
   $E333     M_immnn:1 E9 44    SBC  #$44  ; dec68
 $E335       M_nnX:1 95 62    STA  buoys_xpos+1,x  ; $62,X
-$E337      M_nnnn:2 4C 47 E3 JMP  +modest_jmp_near_end  ; $E347
-+skip_if_buoys_visibility+1_is_not_zero:
-$E33A       M_nnX:1 B5 62    LDA  buoys_xpos+1,x  ; $62,X
+$E337      M_nnnn:2 4C 47 E3 JMP  +assure_both_buoys_in_pair_visible_and_on_same_ypos  ; $E347
++buoy1_invisible_and_buoy2_visible:
+'---------------------------------
+; we're here if 1st buoy in pair is not visible, but 2nd buoy in pair is visible
+$E33A       M_nnX:1 B5 62    LDA  buoys_xpos+1,x  ; $62,X  ; A = xpos of 2nd buoy in pair
 $E33C     M_immnn:1 C9 4C    CMP  #$4C  ; dec76
-$E33E        M_rr:1 B0 03    BCS  branch_if_arrayC+1_idx_val_>=76  ; $E343
-$E340     M_immnn:1 69 44    ADC  #$44
+$E33E        M_rr:1 B0 03    BCS  +respawn_1st_buoy_behind_2nd  ; $E343 ; if A >= 76 then branch to spawn 1st buoy behind 2nd
+$E340     M_immnn:1 69 44    ADC  #$44  ; otherwise spawn 1st buoy (in pair) in front of 2nd by dec68
 $E342      M_nnnn:2 2C E9 44 BIT  $44E9
-  branch_if_arrayC+1_idx_val_>=76:
+  +respawn_1st_buoy_behind_2nd:
   $E343     M_immnn:1 E9 44    SBC  #$44
 $E345       M_nnX:1 95 61    STA  buoys_xpos,x  ; $61,X
-+modest_jmp_near_end:
++assure_both_buoys_in_pair_visible_and_on_same_ypos:
+'--------------------------------------------------
 $E347     M_immnn:1 A9 01    LDA  #$01
 $E349       M_nnX:1 95 5D    STA  buoys_visibility,x  ; $5D,X
 $E34B       M_nnX:1 95 5E    STA  buoys_visibility+1,x  ; $5E,X
@@ -1263,7 +1281,7 @@ $E350     M_nnnnY:2 B9 22 EE LDA  possible_buoy_y_positions,y  ; $EE22,Y
 $E353       M_nnX:1 95 65    STA  buoys_ypos,x  ; $65,X
 $E355       M_nnX:1 95 66    STA  buoys_ypos+1,x  ; $66,X
 +big_jmp_to_near_end:
-$E357        M_nn:1 C6 23    DEC  var5  ; $23  ; decrement player index from player2 to player1
+$E357        M_nn:1 C6 23    DEC  iterator_local  ; $23  ; decrement player index from player2 to player1
 $E359        M_rr:1 30 03    BMI  $E35E
 $E35B      M_nnnn:2 4C 81 E2 JMP  -big_retry  ; $E281
 $E35E      M_impl:0 60       RTS
@@ -1343,9 +1361,9 @@ time_to_load_msg:
 redraw_player_submarines:
 '-----------------------
 $E3CE     M_immnn:1 A9 01    LDA  #$01  ; player index (0=player1, 1=player2)
-$E3D0        M_nn:1 85 23    STA  var5  ; $23
+$E3D0        M_nn:1 85 23    STA  iterator_local  ; $23
 -big_loopback:
-$E3D2        M_nn:1 A6 23    LDX  var5  ; $23
+$E3D2        M_nn:1 A6 23    LDX  iterator_local  ; $23
 $E3D4      M_impl:0 8A       TXA
 $E3D5      M_impl:0 18       CLC
 $E3D6     M_immnn:1 69 15    ADC  #$15  ; dec21  ; this is row containing either:
@@ -1381,11 +1399,11 @@ $E3FD      M_nnnn:2 2C C6 09 BIT  $09C6
 $E400        M_nn:1 A5 09    LDA  genvarA  ; $09
 $E402      M_nnnn:2 4C 0C E4 JMP  +jump_ahead2  ; $E40C
 +skip_if_in_real_game_mode:
-$E405        M_nn:1 A5 23    LDA  var5  ; $23
+$E405        M_nn:1 A5 23    LDA  iterator_local  ; $23
 $E407      M_nnnn:2 20 F0 F0 JSR  read_paddle_position  ; $F0F0
 $E40A        M_nn:1 85 09    STA  genvarA  ; $09
 +jump_ahead2:
-$E40C        M_nn:1 A6 23    LDX  var5  ; $23
+$E40C        M_nn:1 A6 23    LDX  iterator_local  ; $23
 $E40E       M_nnX:1 B5 35    LDA  players_xpos,x  ; $35,X  ; some player1/2 detail (maybe player submarine x-pos x 4)
 $E410         M_A:0 4A       LSR
 $E411         M_A:0 4A       LSR
@@ -1401,7 +1419,7 @@ $E41D        M_nn:1 A5 09    LDA  genvarA  ; $09
 $E41F     M_immnn:1 29 03    AND  #$03
 $E421      M_impl:0 AA       TAX
 $E422     M_nnnnX:2 BC E8 EE LDY  submarine_charset_idx,x  ; $EEE8,X  ; choose between submarine_charset1/2/3/4
-$E425        M_nn:1 A5 23    LDA  var5  ; $23  ; player 1 or 2 index (0=player1, 1=player2)
+$E425        M_nn:1 A5 23    LDA  iterator_local  ; $23  ; player 1 or 2 index (0=player1, 1=player2)
 $E427        M_rr:1 D0 03    BNE  +jump_if_player2  ; $E42C
 $E429     M_immnn:1 A2 00    LDX  #$00  ; relative index for vic-bank0 chars describing current player1 submarine
                                         ; (absolute char idx range 55-59)
@@ -1417,7 +1435,7 @@ $E438      M_impl:0 E8       INX
 $E439      M_impl:0 C8       INY
 $E43A        M_nn:1 C6 08    DEC  genvarB  ; $08
 $E43C        M_rr:1 D0 F4    BNE  -loopy ; $E432
-$E43E        M_nn:1 A6 23    LDX  var5  ; $23
+$E43E        M_nn:1 A6 23    LDX  iterator_local  ; $23
 $E440        M_nn:1 A5 09    LDA  genvarA  ; $09
 $E442       M_nnX:1 95 35    STA  players_xpos,x  ; $35,X  ; some player1/2 detail
 $E444         M_A:0 4A       LSR
@@ -1432,7 +1450,7 @@ $E44F     M_immnn:1 69 01    ADC  #$01
 $E451      M_impl:0 C8       INY
 $E452      M_impl:0 CA       DEX
 $E453        M_rr:1 D0 F7    BNE  -loopy2  ; $E44C
-$E455        M_nn:1 C6 23    DEC  var5  ; $23
+$E455        M_nn:1 C6 23    DEC  iterator_local  ; $23
 $E457        M_rr:1 30 03    BMI  +skip_to_end  ; $E45C
 $E459      M_nnnn:2 4C D2 E3 JMP  -big_loopback  ; $E3D2
 +skip_to_end:
@@ -1450,9 +1468,9 @@ sub_start_chars:
 bullet_redraw_and_ship_assessment:
 '--------------------------------
 $E45F     M_immnn:1 A9 07    LDA  #$07  ; iterator over all possible missiles (7-4 are for player2, 3-0 are for player1)
-$E461        M_nn:1 85 23    STA  var5  ; $23
+$E461        M_nn:1 85 23    STA  iterator_local  ; $23
 -jumbo_loopback:
-$E463        M_nn:1 A6 23    LDX  var5  ; $23  ; missile iterator
+$E463        M_nn:1 A6 23    LDX  iterator_local  ; $23  ; missile iterator
 $E465       M_nnX:1 B5 75    LDA  torpedo_fire_ypos,x  ; $75,X  ; y-position of all torpedoes
 $E467        M_rr:1 D0 03    BNE  +torpedo_ypos_is_nonzero  ; $E46C
 $E469      M_nnnn:2 4C 2E E5 JMP  +jump_to_near_end  ; $E52E
@@ -1550,11 +1568,11 @@ $E4BC      M_impl:0 E8       INX
 $E4BD      M_impl:0 C8       INY
 $E4BE        M_nn:1 C6 0E    DEC  missile_chardata_row_iterator  ; $0E
 $E4C0        M_rr:1 D0 F0    BNE  -loop_back_to_next_row  ; $E4B2
-$E4C2        M_nn:1 A6 23    LDX  var5  ; $23  ; missile iterator ; ought to be an index from 0 to 7
+$E4C2        M_nn:1 A6 23    LDX  iterator_local  ; $23  ; missile iterator ; ought to be an index from 0 to 7
 $E4C4       M_nnX:1 B5 6D    LDA  torpedo_fire_xpos,x  ; $6D,X
-$E4C6        M_nn:1 85 11    STA  var1  ; $11  ; x-pos of current torpedo/missile
+$E4C6        M_nn:1 85 11    STA  xpos_local  ; $11  ; x-pos of current torpedo/missile
 $E4C8       M_nnX:1 B5 75    LDA  torpedo_fire_ypos,x  ; $75,X
-$E4CA        M_nn:1 85 12    STA  var2  ; $12  ; y-pos of current torpedo/missile
+$E4CA        M_nn:1 85 12    STA  ypos_local  ; $12  ; y-pos of current torpedo/missile
 $E4CC      M_nnnn:2 20 B1 E6 JSR  set_scr_and_clr_ptr_locations_based_on_ship_xy_pos  ; $E6B1
 $E4CF     M_immnn:1 A2 03    LDX  #$03
 ; wipe out prior chars of this missile from the screen
@@ -1569,14 +1587,14 @@ $E4DC      M_InnY:1 91 02    STA  (scr_ptr_lo),y  ; ($02),Y  ; draw ' ' space ch
 $E4DE      M_impl:0 CA       DEX
 $E4DF        M_rr:1 10 F0    BPL  -retry_next_char_of_2x2_char_missile  ; $E4D1
 ; check if missile reached top of screen (time to make it invisible?)
-$E4E1        M_nn:1 A6 23    LDX  var5  ; $23  (missile iterator)
+$E4E1        M_nn:1 A6 23    LDX  iterator_local  ; $23  (missile iterator)
 $E4E3        M_nn:1 A5 08    LDA  genvarB  ; $08  ; the next missile ypos (after decrementing missile speed value)
 $E4E5     M_immnn:1 C9 10    CMP  #$10  ; dec16
 $E4E7        M_rr:1 90 3F    BCC  +reset_missile_ypos_to_zero  ; $E528  ; branch if less than 16
 $E4E9       M_nnX:1 B4 7D    LDY  torpedo_fire_state,x  ; $7D,X
 $E4EB        M_rr:1 D0 3B    BNE  +reset_missile_ypos_to_zero  ; $E528  ; branch if this torpedo is not currently visible on screen
 $E4ED       M_nnX:1 95 75    STA  torpedo_fire_ypos,x  ; $75,X  ; y-pos of all torpedoes
-$E4EF        M_nn:1 85 12    STA  var2  ; $12  ; y-pos of current ship
+$E4EF        M_nn:1 85 12    STA  ypos_local  ; $12  ; y-pos of current ship
 $E4F1      M_nnnn:2 20 B1 E6 JSR  set_scr_and_clr_ptr_locations_based_on_ship_xy_pos  ; $E6B1
 $E4F4        M_nn:1 A4 10    LDY  offset_to_char_data_addr_of_2x2_missile_chars  ; $10
 $E4F6     M_immnn:1 A2 00    LDX  #$00
@@ -1611,11 +1629,11 @@ $E523      M_impl:0 CA       DEX
 $E524        M_rr:1 10 E6    BPL  -big_loop1  ; $E50C
 $E526        M_rr:1 30 06    BMI  +jump_to_near_end  ; $E52E
 +reset_missile_ypos_to_zero:
-$E528        M_nn:1 A6 23    LDX  var5  ; $23
+$E528        M_nn:1 A6 23    LDX  iterator_local  ; $23
 $E52A     M_immnn:1 A9 00    LDA  #$00
 $E52C       M_nnX:1 95 75    STA  torpedo_fire_ypos,x  ; $75,X  ; y-pos of all torpedoes
 +jump_to_near_end:
-$E52E        M_nn:1 C6 23    DEC  var5  ; $23
+$E52E        M_nn:1 C6 23    DEC  iterator_local  ; $23
 $E530        M_rr:1 30 03    BMI  +skip_to_end  ; $E535
 $E532      M_nnnn:2 4C 63 E4 JMP  -jumbo_loopback  ; $E463
 +skip_to_end:
@@ -1700,7 +1718,7 @@ $E5A6     M_nnnnX:2 9D DA DB STA  $DBDA,X   ; (row 24 - from col 26 to 33)
 $E5A9      M_impl:0 CA       DEX
 $E5AA        M_rr:1 10 ED    BPL  -loop2  ; $E599
 $E5AC     M_immnn:1 A9 17    LDA  #$17  ; dec23
-$E5AE        M_nn:1 85 14    STA  var2  ; $14  (curr. ship y-pos?)
+$E5AE        M_nn:1 85 14    STA  ypos_local  ; $14  (curr. ship y-pos?)
 $E5B0      M_nnnn:2 20 39 E8 JSR  draw_inline_text  ; $E839
 
  :000E5B3 3A 2F 33 2B 26 32 2B 2C  3A 00 
@@ -1758,8 +1776,8 @@ $E639        M_rr:1 F0 12    BEQ  +skip1 ; $E64D  ; found string null-terminator
 $E63B      M_nnnn:2 4C 6A E6 JMP  +big_jump  ; $E66A
 write_line_routine:
 $E63E      M_nnnn:2 20 EC E7 JSR  draw_text_to_screen  ; $E7EC
-$E641        M_nn:1 E6 14    INC  var2  ; $14
-$E643        M_nn:1 E6 14    INC  var2  ; $14
+$E641        M_nn:1 E6 14    INC  ypos_local  ; $14
+$E643        M_nn:1 E6 14    INC  ypos_local  ; $14
 $E645        M_nn:1 E6 06    INC  ret_ptr_lo  ; $06
 $E647        M_rr:1 D0 EC    BNE  -loop1  ; $E635
 $E649        M_nn:1 E6 07    INC  ret_ptr_hi  ; $07
@@ -1833,11 +1851,11 @@ ship_sprite_colours:
 set_scr_and_clr_ptr_locations_based_on_ship_xy_pos:
 '-------------------------------------------------
 $E6B1      M_impl:0 48       PHA
-$E6B2        M_nn:1 A5 11    LDA  var1  ; $11  ; x-pos of current ship
+$E6B2        M_nn:1 A5 11    LDA  xpos_local  ; $11  ; x-pos of current ship
 $E6B4         M_A:0 4A       LSR
 $E6B5         M_A:0 4A       LSR  ; divide by 4
 $E6B6        M_nn:1 85 13    STA  txt_x_pos  ; $13
-$E6B8        M_nn:1 A5 12    LDA  var2  ; $12  ; y-pos of current ship
+$E6B8        M_nn:1 A5 12    LDA  ypos_local  ; $12  ; y-pos of current ship
 $E6BA         M_A:0 4A       LSR
 $E6BB         M_A:0 4A       LSR
 $E6BC         M_A:0 4A       LSR  ; divide by 8
@@ -1905,14 +1923,14 @@ $E70B      M_nnnn:2 20 C0 E6 JSR  adjust_scr_and_clr_ptr_locations  ; $E6C0
 
 print_player1_score:
 $E70E     M_immnn:1 A0 02    LDY  #$02  ; the x-location to start drawing digits from
-$E710        M_nn:1 A5 1D    LDA  p1_score_lo  ; var5  ; $1D
-$E712        M_nn:1 A6 1F    LDX  p1_score_hi  ; var7  ; $1F
+$E710        M_nn:1 A5 1D    LDA  p1_score_lo  ; $1D
+$E712        M_nn:1 A6 1F    LDX  p1_score_hi  ; $1F
 $E714      M_nnnn:2 20 26 E7 JSR  print_two_digits_in_X_and_two_digits_in_A_and_two_trailing_zeroes  ; $E726
 
 print_high_score:
 $E717     M_immnn:1 A0 10    LDY  #$10
-$E719        M_nn:1 A5 21    LDA  high_score_lo  ; var8-1  ; $21
-$E71B        M_nn:1 A6 22    LDX  high_score_hi  ; var8-2  ; $22
+$E719        M_nn:1 A5 21    LDA  high_score_lo  ; $21
+$E71B        M_nn:1 A6 22    LDX  high_score_hi  ; $22
 $E71D      M_nnnn:2 20 26 E7 JSR  print_two_digits_in_X_and_two_digits_in_A_and_two_trailing_zeroes  ; $E726
 
 print_player2_score:
@@ -2209,15 +2227,17 @@ $E8B1        M_nn:1 A5 1B    LDA  dunno1  ; $1B
 $E8B3      M_impl:0 60       RTS
 
 
-set_current_ship_sprite_position:
---------------------------------
-' (ship/buoy index should be placed in A)
-' curr ship xpos in var1, curr shi ypos in var2)
-' NOTE: Could be a buoy too
+set_sprite_position:
+-------------------
+' A = ship/buoy sprite index
+'   - ships are from sprite index 0-3
+'   - buoys are from sprite index 4-7
+' xpos_local = curr ship/buoy xpos
+' ypos_local = curr ship/buoy ypos
 $E8B4      M_impl:0 AA       TAX
 $E8B5         M_A:0 0A       ASL  ; multiply by 2
 $E8B6      M_impl:0 A8       TAY
-$E8B7        M_nn:1 A5 11    LDA  var1  ; $11
+$E8B7        M_nn:1 A5 11    LDA  xpos_local  ; $11
 $E8B9      M_impl:0 18       CLC
 $E8BA     M_immnn:1 69 0C    ADC  #$0C  ; add 12
 $E8BC         M_A:0 0A       ASL
@@ -2231,7 +2251,7 @@ $E8CB     M_nnnnX:2 BD 38 EE LDA  or_bitfields  ; $EE38,X  ; turn on sprite xpos
 $E8CE      M_nnnn:2 0D 10 D0 ORA  $D010
 +skip2:
 $E8D1      M_nnnn:2 8D 10 D0 STA  $D010  ; set sprite xpos msb to desired value (either on/off)
-$E8D4        M_nn:1 A5 12    LDA  var2  ; $12
+$E8D4        M_nn:1 A5 12    LDA  ypos_local  ; $12
 $E8D6      M_impl:0 18       CLC
 $E8D7     M_immnn:1 69 32    ADC  #$32  ; dec50  ; adjust ship y-pos to absolute sprite coordinates
 $E8D9     M_nnnnY:2 99 01 D0 STA  $D001,Y  ; set sprite ypos
@@ -2419,9 +2439,9 @@ $E9D0        M_nn:1 85 28    STA  minutes_left  ; $28
 $E9D2        M_nn:1 85 33    STA  last_paddle_fire_state  ; $33
 $E9D4        M_nn:1 85 34    STA  last_paddle_fire_state+1  ; $34
 $E9D6     M_immnn:1 A9 00    LDA  #$00
-$E9D8        M_nn:1 85 1D    STA  p1_score_lo  ; var5  ; $1D
+$E9D8        M_nn:1 85 1D    STA  p1_score_lo  ; $1D
 $E9DA        M_nn:1 85 1E    STA  p2_score_lo  ; $1E
-$E9DC        M_nn:1 85 1F    STA  p1_score_hi  ; var7  ; $1F
+$E9DC        M_nn:1 85 1F    STA  p1_score_hi  ; $1F
 $E9DE        M_nn:1 85 20    STA  p2_score_hi  ; $20
 $E9E0      M_nnnn:2 20 7D E5 JSR  prepare_game_screen ; $E57D
 $E9E3      M_nnnn:2 20 30 E9 JSR  init_sid  ; $E930
