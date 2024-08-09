@@ -510,11 +510,13 @@ $E0CF     M_nnnnX:2 9D F8 07 STA  $07F8,X  ; set current explosion frame sprite 
 $E0D2      M_nnnn:2 4C BD E1 JMP  +super_duper_big_jump  ; $E1BD
 +current_ship_not_visible:
   ' we jumped here due to current ship not being visible
+; randomly decide if we should spawn a new ship now
 $E0D5      M_nnnn:2 20 93 E8 JSR  random_num_gen_into_A  ; $E893  ; it will return some magic value in A (based on randomval_lsb and randomval_msb)
 $E0D8     M_immnn:1 C9 03    CMP  #$03  ; make the spawning of a new ship a low-probability occurence (3 in 256 chance, i.e., 1/85)
 $E0DA        M_rr:1 90 03    BCC  +decide_new_ship_details  ; $E0DF  ; if A value < 3 then branch
 $E0DC      M_nnnn:2 4C BD E1 JMP  +super_duper_big_jump  ; $E1BD
 +decide_new_ship_details:
+; randomly decide if new ship should be on top or bottom row
 $E0DF      M_nnnn:2 20 93 E8 JSR  random_num_gen_into_A  ; $E893  ; random_num_gen_into_A returns another magic value in A
 $E0E2     M_immnn:1 29 20    AND  #$20  ; this might set bit 5 or result in zero
                                         ; randomly decide if the new ship should be on top-row or bottom-row (dec0 or dec32)
@@ -557,7 +559,7 @@ $E114      M_impl:0 C8       INY
 $E115      M_impl:0 CA       DEX
 $E116        M_rr:1 10 EE    BPL  -retry2  ; $E106
 $E118      M_impl:0 98       TYA  ; y = the number of existing ships that are on the same ypos as newly spawned ship
-$E119        M_rr:1 F0 6F    BEQ  +big_skip1  ; $E18A  ; branch if no other existing ships are on the same ypos as newly spawned ship
+$E119        M_rr:1 F0 6F    BEQ  +no_other_ships_on_row  ; $E18A  ; branch if no other existing ships are on the same ypos as newly spawned ship
 $E11B        M_nn:1 85 08    STA  genvarB  ; $08  ; the number of existing ships that are on the same ypos as newly spawned ship
 $E11D        M_nn:1 C6 08    DEC  genvarB  ; $08
 $E11F        M_nn:1 A6 85    LDX  genarrayA  ; $85  ; the first existing ship-idx on same y-pos as newly spawned ship
@@ -627,13 +629,16 @@ $E181     M_nnnnX:2 BD 13 EE LDA  map_gap_from_existing_ship_to_new_ship,x  ; $E
 $E184        M_nn:1 C5 08    CMP  genvarB  ; $08  ; compare with x-width between spawn-edge and closest existing ship
 $E186        M_rr:1 B0 35    BCS  +not_big_enough_gap_yet  ; $E1BD  ; branch if required_gap >= x-width spawn-edge to closest ship
 $E188        M_rr:1 90 0D    BCC  +sufficient_gap_to_spawn_new_ship  ; $E197
-+big_skip1:
++no_other_ships_on_row:
+'---------------------
+' decide whether ship should move left-to-right (normal) or right-to-left (mirrored)
 $E18A      M_nnnn:2 20 93 E8 JSR  random_num_gen_into_A  ; $E893  ; put magic number in A
 $E18D      M_impl:0 A8       TAY
-$E18E        M_rr:1 30 03    BMI  +skip_to_lda_ff  ; $E193  ; if neg-bit is on, then branch
+$E18E        M_rr:1 30 03    BMI  +skip_to_set_ship_mirrored  ; $E193  ; if neg-bit is on (i.e., range=128to255), then branch
+                                  ; This is giving a 50/50 chance of the ship moving from left-to-right (normal) or right-to-left (mirrored)
 $E190     M_immnn:1 A9 01    LDA  #$01  ; current ship = normal
 $E192      M_nnnn:2 2C A9 FF BIT  $FFA9
-  +skip_to_lda_ff:
+  +skip_to_set_ship_mirrored:
   $E193     M_immnn:1 A9 FF    LDA  #$FF  ; current ship = mirrored
 $E195        M_nn:1 85 0A    STA  curr_ship_mirror_state  ; $0A  ; set curr ship to mirrored
 +sufficient_gap_to_spawn_new_ship:
@@ -1382,10 +1387,10 @@ $E3E9       M_nnX:1 D5 37    CMP  attract_mode_player_xpos_waypoint,x  ; $37,X
 $E3EB        M_rr:1 D0 0C    BNE  +still_travelling_to_xpos_waypoint  ; $E3F9
 ' if we get here, the attract mode paddle movement has reached the current waypoint,
 ' so it's time to pick a new waypoint to automatically travel towards
--retry_if_>=147:
+-retry_if_randnum_greater_or_equal_147:
 $E3ED      M_nnnn:2 20 93 E8 JSR  random_num_gen_into_A  ; $E893
 $E3F0     M_immnn:1 C9 93    CMP  #$93  ; dec147
-$E3F2        M_rr:1 B0 F9    BCS  -retry_if_>=147  ; $E3ED ; branch if >= 147
+$E3F2        M_rr:1 B0 F9    BCS  -retry_if_randnum_greater_or_equal_147  ; $E3ED ; branch if >= 147
 $E3F4       M_nnX:1 95 37    STA  attract_mode_player_xpos_waypoint,x  ; $37,X
 $E3F6      M_nnnn:2 4C 00 E4 JMP  +jump_ahead  ; $E400
 +still_travelling_to_xpos_waypoint:
