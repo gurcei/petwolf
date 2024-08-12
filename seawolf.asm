@@ -14,38 +14,38 @@ ret_ptr_hi = $07  // (high-byte) address to return to after call to draw_inline_
 genvarB = $08    // usage varies
 genvarA = $09  // usage varies
 curr_ship_mirror_state = $0a 
-/*
-  - can either be:
-    - #$01 = normal (ship faces to the right, will travel left to right)
-    - #$ff = mirrored (ship faces to the left, will travel right to left)
-*/
+//
+//- can either be:
+//  - #$01 = normal (ship faces to the right, will travel left to right)
+//  - #$ff = mirrored (ship faces to the left, will travel right to left)
+//
 missile_chardata_row_iterator = $0e
 // iterator to write out the 8 bytes of small_missile_char_data_x_offset0/2 into genarrayA at a desired y-offset relating to missile position
-/*
-  - in bullet_redraw_and_ship_assessment:
-    - sta at $e4b0  ; (set it to #$08) 
-    - dec at #e4be (index for loop_back_to_next_row loop)
-*/
+//
+//- in bullet_redraw_and_ship_assessment:
+//  - sta at $e4b0  ; (set it to #$08) 
+//  - dec at #e4be (index for loop_back_to_next_row loop)
+//
 offset_to_char_idx_of_2x2_missile_chars = $0f  // offset to char index of 2x2 missile chars
-/*
-  - bullet_redraw_and_ship_assessment:
-    - sta at $e47c (multiply by 4  ; so now ship0 = 0, ship1 = 4, ship2 = 8, ... ship7 = 28)
-      - reg A will equal one of the following, depending on which missile is referenced:
-        ; p1_missile4 = #$00, p1_missile3 = #$04
-        ; p1_missile2 = #$08, p1_missile1 = #$0c
-        ; p2_missile4 = #$10, p2_missile3 = #$14
-        ; p2_missile2 = #$18, p2_missile1 = #$1c
-*/
+//
+//- bullet_redraw_and_ship_assessment:
+//  - sta at $e47c (multiply by 4  ; so now ship0 = 0, ship1 = 4, ship2 = 8, ... ship7 = 28)
+//    - reg A will equal one of the following, depending on which missile is referenced:
+//      ; p1_missile4 = #$00, p1_missile3 = #$04
+//      ; p1_missile2 = #$08, p1_missile1 = #$0c
+//      ; p2_missile4 = #$10, p2_missile3 = #$14
+//      ; p2_missile2 = #$18, p2_missile1 = #$1c
+//
 offset_to_char_data_addr_of_2x2_missile_chars = $10 
 xpos_local = $11  // (a place to temporarily store x-position of current ship/missile/buoy)
 ypos_local = $12  // (a place to temporarily store y-position of current ship/missile/buoy)
 txt_x_pos = $13  // the x-position to draw text from  :  set to #$12 (18) in print_remaining_game_time
 txt_y_pos = $14  // the y-position (row) to draw text from  :  set to #$18 (24) in print_remaining_game_time
 real_game_mode_flag = $16  // (is it some kind of attract-mode flag?)
-/*
-  - if set to #$FF, this means user will control the paddles for real gameplay
-  - if set to #$00, attract mode is on. This means that computer will control both paddles automatically for attract mode
-*/
+//
+//- if set to #$FF, this means user will control the paddles for real gameplay
+//- if set to #$00, attract mode is on. This means that computer will control both paddles automatically for attract mode
+//
 initial_game_time   = $17 // (in minutes?)
 buff_spr2spr_coll = $18  // buffered value of sprite-to-sprite collision
 buff_spr2back_coll = $19  // buffered value of sprite-to-background collision
@@ -60,66 +60,66 @@ high_score_hi = $22  //the high two-digits of high score
 iterator_local = $23  //(possibly a general index var used for different purposes in different places)
 buoy_movement_timer = $24 
 buoy_pair_index = $25 
-/*
-  - Can either be:
-  -   0: buoys 0 and 1 will be assessed
-  -   2: buoys 2 and 3 will be assessed
-*/
+//
+//- Can either be:
+//-   0: buoys 0 and 1 will be assessed
+//-   2: buoys 2 and 3 will be assessed
+//
 secs_in_minute_left = $26  // maybe a seconds in the minute countdown
 decimal_secs_in_minutes_left = $27 
 minutes_left = $28  // (in minutes?) (in decimal mode)
 idx_to_v1_ptboat_beep_beep_freq_array = $2a 
-/*
-  - This is an index to an array describing on which frames will there be a beep sound made for the p.t. boat
-    - The array is v1_ptboat_beep_beep_freq_array
-    - Some entries in the array are #$0000 (silence), while others are the beep frequency, #$4EE8
-*/
+//
+//- This is an index to an array describing on which frames will there be a beep sound made for the p.t. boat
+//  - The array is v1_ptboat_beep_beep_freq_array
+//  - Some entries in the array are #$0000 (silence), while others are the beep frequency, #$4EE8
+//
 whatis3 = $2b 
   // - sta at $e955 (set to #$03)
 whatis4 = $2c 
   // - lda at $e97f
 whatis5 = $2d 
-/*
-  - lda at $e967
-  - dec at $e96b (only if whatis5 is not yet zero)
-  - sta at $e970 (if it was previousy zero, it will be now set to #$03)
-*/
+//
+//- lda at $e967
+//- dec at $e96b (only if whatis5 is not yet zero)
+//- sta at $e970 (if it was previousy zero, it will be now set to #$03)
+//
 curr_missile_colour = $2e 
 missile_reload_timers = $2f  // to $2f-$30 [2]: countdown-to-zero timers for each player, to decide when missiles for player are reloaded
-/*
-    - timers start at #$B4 (180) - equates to "TIME TO LOAD: 3 SECONDS."
-    - when timer reaches #$78 (120) -  msg is "TIME TO LOAD: 2 SECONDS."
-    - when timer reaches #$3C (60)  -  msg is "TIME TO LOAD: 1 SECONDS."
-*/
+//
+//  - timers start at #$B4 (180) - equates to "TIME TO LOAD: 3 SECONDS."
+//  - when timer reaches #$78 (120) -  msg is "TIME TO LOAD: 2 SECONDS."
+//  - when timer reaches #$3C (60)  -  msg is "TIME TO LOAD: 1 SECONDS."
+//
 //  - sta at $e306 (set to #$B4/dec180) it sets only if no# missiles left after shot is zero
 p1_num_missiles = $31 
 p2_num_missiles = $32  //set to #$04 in init_game_vars
 last_paddle_fire_state = $33  // $33-$34 [2]:  
-/*
-  - used to assure one-shot logic of the fire button (not rapid fire)
-  - sta at $e2c3  (set to #$00)  - paddle fire button is off
-  - sta at $e2d3  (set to #$ff)  - paddle fire button is on
-*/
+//
+//- used to assure one-shot logic of the fire button (not rapid fire)
+//- sta at $e2c3  (set to #$00)  - paddle fire button is off
+//- sta at $e2d3  (set to #$ff)  - paddle fire button is on
+//
 players_xpos = $35  // $35-36 [2]:
-  - [0] = player1 x-pos in pixel units
-  - [1] = player2 x-pos in pixel units
-/*
-                   - submarine chars can only be drawn on columns 0 to 39
-                   - but I think the value stored here is x4 (so from 0 to 159)
-                     (as it is divided by 4 later in $e410)
-  - sta at $e442 (it is later divided by 4 and used as an x-pos to draw the player's submarine)
-*/
+//  - [0] = player1 x-pos in pixel units
+//  - [1] = player2 x-pos in pixel units
+//
+//                 - submarine chars can only be drawn on columns 0 to 39
+//                 - but I think the value stored here is x4 (so from 0 to 159)
+//                   (as it is divided by 4 later in $e410)
+//- sta at $e442 (it is later divided by 4 and used as an x-pos to draw the player's submarine)
+//
 attract_mode_player_xpos_waypoint = $37  // $37-38 [2]: for player1 and 2
 ships_visibility = $39  // $39-$3c [4]: visibility of ships
-/*
-                   - #$00 = invisible
-                   - #$01 = visible
-                   - #$ff = shot/exploding
-                   (the negative-flag seems critical, and causes 'ship_is_currently_exploding')
-*/
+//
+//                 - #$00 = invisible
+//                 - #$01 = visible
+//                 - #$ff = shot/exploding
+//                 (the negative-flag seems critical, and causes 'ship_is_currently_exploding')
+//
 ships_move_tmr = $3d  // $3d-40 [4]:  count-down timer of when to move ships along (I guess it counts down from larger amounts for slower ships?)
 ships_move_max_time = $41  // $41-44 [4]: keeps a record of the max-count of frames the ship at this index needs to wait before moving
-  - lda at $e07d
+//- lda at $e07d
 ships_xpos = $45  // $45-48 [4]: x-pos of all ships
 ships_ypos = $49  // $49-4c [4]: y-pos of all ships
 ships_mirror_flag = $4d  // $4d-50 [4]:  ; mirror orientation of all ships (01 = normal, FF = reversed?)
@@ -130,805 +130,812 @@ ships_explosion_tmr = $55  // $55-5c [8]:
 // (is divided by 8 to decide which explosion frame to show - F9, F5 or F1)
 //  - sta at $e053  (sets it to max timer value of #$18 / 24)
 buoys_visibility = $5d  // $5d-$60 [4]:
-/*
-                   - #$00 = invisible
-                   - #$01 = visible
-                   - #$ff = shot/exploding
-  - sta at $e218 (sets it to #$ff) (if xpos of buoy <12 or >=254)
-  - lda at $e224
-  - sta at $e253 (sets it to #$00 - on occasions when x-pos > 148)
-  - sta at $e349 (set to #$01)
-*/
+//
+//                 - #$00 = invisible
+//                 - #$01 = visible
+//                 - #$ff = shot/exploding
+//- sta at $e218 (sets it to #$ff) (if xpos of buoy <12 or >=254)
+//- lda at $e224
+//- sta at $e253 (sets it to #$00 - on occasions when x-pos > 148)
+//- sta at $e349 (set to #$01)
+//
 buoys_xpos = $61  // $61-64:  [4]:  (array of all buoy x-positions)
 buoys_ypos = $65  // $65-68:  [4]:  (array of all buoy y-positions)
-/*
-          - (have values of either #$60 or #$80)
-          - (the absolute sprite x-pos for these is #$92 and #$B2)
-          - (that's a difference of #$32)
-*/
+//
+//        - (have values of either #$60 or #$80)
+//        - (the absolute sprite x-pos for these is #$92 and #$B2)
+//        - (that's a difference of #$32)
+//
 buoys_explode_timer = $69  // $69-6c: [4]:
-/*
-  - upon a buoy exploding, it is set to 24, and decremented every frame
-  - its value is divided by 8 to assist as an index to which explosion frame to show (0 - 2)
-  - in buoy_logic:
-    - sta at $e21c (set to #$18 / dec24) - in response to a buoy being hit by a missile
-*/
+//
+//- upon a buoy exploding, it is set to 24, and decremented every frame
+//- its value is divided by 8 to assist as an index to which explosion frame to show (0 - 2)
+//- in buoy_logic:
+//  - sta at $e21c (set to #$18 / dec24) - in response to a buoy being hit by a missile
+//
 torpedo_fire_xpos = $6d  // $6d-74 [8]:  (x-positions of all torpedoes)
 torpedo_fire_ypos = $75  // $75-7c [8]:  (y-positions of all torpedoes)
-/*
-  - the missile-fire starts at ypos dec160, decrements until it reaches less than dec16
-*/
+//
+//- the missile-fire starts at ypos dec160, decrements until it reaches less than dec16
+//
 //  - sta at $e52c (sets it to #$00 / dec0) (this occurs when missile-fire is no longer visible on screen)
 // (if the ypos of the missile is less than #$10 / dec16, it will become invisible)
 torpedo_fire_state = $7d  // $7d-84 [8]: 
-/*
-  - #$00 = fired (is currently active on screen)
-  - #$ff = not fired yet (no longer visible on screen)
-  (index is the missile-index that hit the ship)
-  - sta at $e046 (sets it to #$ff upon a missile hitting a ship)
-  - sta at $e215 (sets it to #$ff upon a missile hitting a buoy)
-  - sta at $e2f3 (sets it to #$00 upon a missile being fired by a player)
-*/
+//
+//- #$00 = fired (is currently active on screen)
+//- #$ff = not fired yet (no longer visible on screen)
+//(index is the missile-index that hit the ship)
+//- sta at $e046 (sets it to #$ff upon a missile hitting a ship)
+//- sta at $e215 (sets it to #$ff upon a missile hitting a buoy)
+//- sta at $e2f3 (sets it to #$00 upon a missile being fired by a player)
+//
 genarrayA = $85  // $85-A4 [32]:
-/*
-  - multi-purpose array
-  - PURPOSE1: within 'game_mechanics_iteration:'
-    - is used to store a list of existing ship indexes that are on the same ypos as the newly spawned ship
-                    (these are sorted on their xpos, depending on the mirror/direction the ships are going)
+//
+//- multi-purpose array
+//- PURPOSE1: within 'ship_logic:'
+//  - is used to store a list of existing ship indexes that are on the same ypos as the newly spawned ship
+//                  (these are sorted on their xpos, depending on the mirror/direction the ships are going)
 
-  - PURPOSE2: within 'bullet_redraw_and_ship_assessment:'
-    - prepares the bullet chars needed for each player's missile custom char-based soft-sprites
-      - which is then copied down to vic-bank0 at $0300 - $03ff
-      - I.e., vicbank0_missile_chars_for_player1/2
-*/
+//- PURPOSE2: within 'bullet_redraw_and_ship_assessment:'
+//  - prepares the bullet chars needed for each player's missile custom char-based soft-sprites
+//    - which is then copied down to vic-bank0 at $0300 - $03ff
+//    - I.e., vicbank0_missile_chars_for_player1/2
+//
 filtered_player_xpos = $fe  // $fe-ff [2]:
-/*
-  - This stores the smoothed/filtered x-pos of the player's sub in 0-148 range (2-pixel units / pixel-pairs)
-  - This value is calculated within 'read_paddle_position'
-  - Later at $E442, it is copied across to 'players_xpos'
-  - adc at $F109
-  - sta at $F11F
-*/
-
-
+//
+//- This stores the smoothed/filtered x-pos of the player's sub in 0-148 range (2-pixel units / pixel-pairs)
+//- This value is calculated within 'read_paddle_position'
+//- Later at $E442, it is copied across to 'players_xpos'
+//- adc at $F109
+//- sta at $F11F
+//
 vicbank0_sub_chars_for_player1 = $02a8  // $02a8-02cf [5][8]:
-/*
-  - The custom char-based soft-sprite used for player1's submarine, whose contents are copied from
-    from submarine_charset1/2/3/4 ($ee48), depending on which 2-pixel location the sub is at 
- 
-char idx $55-59 address: $02A80-02
-+--------+--------+--------+--------+--------+
-|        |        | **     |        |        |
-|        |       *|*****   |        |        |
-|        |       *|*****   |        |        |
-|    ****|********|********|********|        |
-|  ******|********|********|********|**      |
-|  ******|********|********|********|**      |
-|    ****|********|********|********|        |
-|        |        |        |        |        |
-+--------+--------+--------+--------+--------+
-*/
+//
+//- The custom char-based soft-sprite used for player1's submarine, whose contents are copied from
+//  from submarine_charset1/2/3/4 ($ee48), depending on which 2-pixel location the sub is at 
+// 
+//char idx $55-59 address: $02A80-02
+//+--------+--------+--------+--------+--------+
+//|        |        | **     |        |        |
+//|        |       *|*****   |        |        |
+//|        |       *|*****   |        |        |
+//|    ****|********|********|********|        |
+//|  ******|********|********|********|**      |
+//|  ******|********|********|********|**      |
+//|    ****|********|********|********|        |
+//|        |        |        |        |        |
+//+--------+--------+--------+--------+--------+
 
 vicbank0_sub_chars_for_player2 = $02d0  // $02d0-02ff [5][8]:
-/*
-  - The custom char-based soft-sprite used for player2's submarine, whose contents are copied from
-    from submarine_charset1/2/3/4 ($ee48), depending on which 2-pixel location the sub is at 
-+--------+--------+--------+--------+--------+
-|        |        |     ** |        |        |
-|        |        |   *****|*       |        |
-|        |        |   *****|*       |        |
-|        |********|********|********|****    |
-|      **|********|********|********|******  |
-|      **|********|********|********|******  |
-|        |********|********|********|****    |
-|        |        |        |        |        |
-+--------+--------+--------+--------+--------+
-*/
+//
+//- The custom char-based soft-sprite used for player2's submarine, whose contents are copied from
+//  from submarine_charset1/2/3/4 ($ee48), depending on which 2-pixel location the sub is at 
+//+--------+--------+--------+--------+--------+
+//|        |        |     ** |        |        |
+//|        |        |   *****|*       |        |
+//|        |        |   *****|*       |        |
+//|        |********|********|********|****    |
+//|      **|********|********|********|******  |
+//|      **|********|********|********|******  |
+//|        |********|********|********|****    |
+//|        |        |        |        |        |
+//+--------+--------+--------+--------+--------+
 
 vicbank0_missile_chars_for_player1 = $0300  // $0300-037F [4][4][8]:
-/*
-([4 missiles][4 chars per missile][8 bytes per char])
-  - sta at $e4fa  (seems to copy across a chunk of genarrayA?)
-- E.g. if player1 has fired all 4 missiles, it may look like this:
+//
+//([4 missiles][4 chars per missile][8 bytes per char])
+//  - sta at $e4fa  (seems to copy across a chunk of genarrayA?)
+//- E.g. if player1 has fired all 4 missiles, it may look like this:
 
- MISSILE 4           MISSILE 3           MISSILE 2           MISSILE 1
-+--------+--------+ +--------+--------+ +--------+--------+ +--------+--------+
-|60   ** |62      | |64      |66      | |68      |6a      | |6c      |6e      |
-|     ** |        | |        |        | |        |        | |        |        |
-|    ****|        | | *      |        | |       *|        | |       *|        |
-|    ****|        | |***     |        | |      **|*       | |      **|*       |
-|    ****|        | |***     |        | |      **|*       | |      **|*       |
-|    ****|        | |***     |        | |      **|*       | |      **|*       |
-|    ****|        | |***     |        | |      **|*       | |      **|*       |
-|     ** |        | | *      |        | |       *|        | |       *|        |
-+--------+--------+ +--------+--------+ +--------+--------+ +--------+--------+
-|61      |63      | |65      |67      | |69      |6b      | |6d      |6f      |
-|        |        | |        |        | |        |        | |        |        |
-|        |        | |        |        | |        |        | |        |        |
-|        |        | |        |        | |        |        | |        |        |
-|        |        | |        |        | |        |        | |        |        |
-|        |        | |        |        | |        |        | |        |        |
-|        |        | |        |        | |        |        | |        |        |
-|        |        | |        |        | |        |        | |        |        |
-+--------+--------+ +--------+--------+ +--------+--------+ +--------+--------+
-*/
+// MISSILE 4           MISSILE 3           MISSILE 2           MISSILE 1
+//+--------+--------+ +--------+--------+ +--------+--------+ +--------+--------+
+//|60   ** |62      | |64      |66      | |68      |6a      | |6c      |6e      |
+//|     ** |        | |        |        | |        |        | |        |        |
+//|    ****|        | | *      |        | |       *|        | |       *|        |
+//|    ****|        | |***     |        | |      **|*       | |      **|*       |
+//|    ****|        | |***     |        | |      **|*       | |      **|*       |
+//|    ****|        | |***     |        | |      **|*       | |      **|*       |
+//|    ****|        | |***     |        | |      **|*       | |      **|*       |
+//|     ** |        | | *      |        | |       *|        | |       *|        |
+//+--------+--------+ +--------+--------+ +--------+--------+ +--------+--------+
+//|61      |63      | |65      |67      | |69      |6b      | |6d      |6f      |
+//|        |        | |        |        | |        |        | |        |        |
+//|        |        | |        |        | |        |        | |        |        |
+//|        |        | |        |        | |        |        | |        |        |
+//|        |        | |        |        | |        |        | |        |        |
+//|        |        | |        |        | |        |        | |        |        |
+//|        |        | |        |        | |        |        | |        |        |
+//|        |        | |        |        | |        |        | |        |        |
+//+--------+--------+ +--------+--------+ +--------+--------+ +--------+--------+
 
 vicbank0_missile_chars_for_player2 = $0380  // $0380-03ff [4][4][8]:
-/*
-([4 missiles][4 chars per missile][8 bytes per char])
-- E.g. if player2 has fired all 4 missiles, it may look like this:
- MISSILE 4           MISSILE 3           MISSILE 2           MISSILE 1
-+--------+--------+ +--------+--------+ +--------+--------+ +--------+--------+
-|70      |72      | |74      |76      | |78      |7a      | |7c      |7e      |
-|        |        | |        |        | |        |        | |        |        |
-|        |        | |   *    |        | | *      |        | |   *    |        |
-|        |        | |  ***   |        | |***     |        | |  ***   |        |
-|        |        | |  ***   |        | |***     |        | |  ***   |        |
-|        |        | |  ***   |        | |***     |        | |  ***   |        |
-|        |        | |  ***   |        | |***     |        | |  ***   |        |
-|   **   |        | |   *    |        | | *      |        | |   *    |        |
-+--------+--------+ +--------+--------+ +--------+--------+ +--------+--------+
-|71 **   |73      | |75      |77      | |79      |7b      | |7d      |7f      |
-|  ****  |        | |        |        | |        |        | |        |        |
-|  ****  |        | |        |        | |        |        | |        |        |
-|  ****  |        | |        |        | |        |        | |        |        |
-|  ****  |        | |        |        | |        |        | |        |        |
-|  ****  |        | |        |        | |        |        | |        |        |
-|   **   |        | |        |        | |        |        | |        |        |
-|        |        | |        |        | |        |        | |        |        |
-+--------+--------+ +--------+--------+ +--------+--------+ +--------+--------+
-*/
+//
+//([4 missiles][4 chars per missile][8 bytes per char])
+//- E.g. if player2 has fired all 4 missiles, it may look like this:
+ //MISSILE 4           MISSILE 3           MISSILE 2           MISSILE 1
+//+--------+--------+ +--------+--------+ +--------+--------+ +--------+--------+
+//|70      |72      | |74      |76      | |78      |7a      | |7c      |7e      |
+//|        |        | |        |        | |        |        | |        |        |
+//|        |        | |   *    |        | | *      |        | |   *    |        |
+//|        |        | |  ***   |        | |***     |        | |  ***   |        |
+//|        |        | |  ***   |        | |***     |        | |  ***   |        |
+//|        |        | |  ***   |        | |***     |        | |  ***   |        |
+//|        |        | |  ***   |        | |***     |        | |  ***   |        |
+//|   **   |        | |   *    |        | | *      |        | |   *    |        |
+//+--------+--------+ +--------+--------+ +--------+--------+ +--------+--------+
+//|71 **   |73      | |75      |77      | |79      |7b      | |7d      |7f      |
+//|  ****  |        | |        |        | |        |        | |        |        |
+//|  ****  |        | |        |        | |        |        | |        |        |
+//|  ****  |        | |        |        | |        |        | |        |        |
+//|  ****  |        | |        |        | |        |        | |        |        |
+//|  ****  |        | |        |        | |        |        | |        |        |
+//|   **   |        | |        |        | |        |        | |        |        |
+//|        |        | |        |        | |        |        | |        |        |
+//+--------+--------+ +--------+--------+ +--------+--------+ +--------+--------+
 
 //--------------------------------
 
-game_mechanics_iteration:
-------------------------
+// * = $0801
+
+// TODO: BASIC Stub here
+
+// TODO2: Add assembly routine to:
+//  - switch off kernal rom
+//  - copy chunk of code below to $E000
+
+//--------------------------------
+
+* = $E000
+
+ship_logic:
+//--------
 // has logic to spawn new ships when needed
 // also checks for missile-to-ship collisions
-$E000               A9 03    LDA  #$03  ; iterator over all 4 possible ships
-$E002               85 23    STA  iterator_local  ; $23
--retry_next_possible_ship:
-$E004               A6 23    LDX  iterator_local  ; $23  (ship iterator)
-$E006               B5 39    LDA  ships_visibility,x  ; $39,X  ; perhaps visibility of all ships
-$E008               D0 03    BNE  +current_ship_visible_or_exploding  ; $E00D
-$E00A               4C D5 E0 JMP  +current_ship_not_visible  ; $E0D5  ; if $39,x is zero, then we do this jump
-+current_ship_visible_or_exploding:
-$E00D               B5 49    LDA  ships_ypos,x  ; $49,X  ; y-pos of all ships
-$E00F               85 12    STA  ypos_local  ; $12  ; y-pos of current ship
-$E011               B5 45    LDA  ships_xpos,x  ; $45,X  ; x-pos of all ships
-$E013               85 11    STA  xpos_local  ; $11  ; x-pos of current ship
-$E015               A5 19    LDA  buff_spr2back_coll  ; $19
-$E017               3D 38 EE AND  or_bitfields,x  ; $EE38,X  ; x = currently assessed ship (from 0 - 3)
-$E01A               F0 54    BEQ  +no_spr2back_collision_detected  ; $E070  ; if no sprite-to-back collision for this sprite-x, then branch
+    LDA  #$03  ; iterator over all 4 possible ships
+    STA  iterator_local  ; $23
+retry_next_possible_ship:
+    LDX  iterator_local  ; $23  (ship iterator)
+    LDA  ships_visibility,x  ; $39,X  ; perhaps visibility of all ships
+    BNE  current_ship_visible_or_exploding  ; $E00D
+    JMP  current_ship_not_visible  ; $E0D5  ; if $39,x is zero, then we do this jump
+current_ship_visible_or_exploding:
+    LDA  ships_ypos,x  ; $49,X  ; y-pos of all ships
+    STA  ypos_local  ; $12  ; y-pos of current ship
+    LDA  ships_xpos,x  ; $45,X  ; x-pos of all ships
+    STA  xpos_local  ; $11  ; x-pos of current ship
+    LDA  buff_spr2back_coll  ; $19
+    AND  or_bitfields,x  ; $EE38,X  ; x = currently assessed ship (from 0 - 3)
+    BEQ  no_spr2back_collision_detected  ; $E070  ; if no sprite-to-back collision for this sprite-x, then branch
 ; if we're here, then there was a ship to missile-fire collision
-$E01C               B4 51    LDY  ships_type,x  ; $51,X  ship-type of all ships (idx 0-3) #$00=freighter, #$01=cruiser, #$02=p.t. boat
-$E01E               B9 0E EE LDA  ship_type_widths,y  ; $EE0E,Y
-$E021               85 08    STA  genvarB  ; $08
+    LDY  ships_type,x  ; $51,X  ship-type of all ships (idx 0-3) #$00=freighter, #$01=cruiser, #$02=p.t. boat
+    LDA  ship_type_widths,y  ; $EE0E,Y
+    STA  genvarB  ; $08
 // now figure out which of the 8 potential missiles hit this ship
-$E023               A0 07    LDY  #$07
--retry_next_missile:
+    LDY  #$07
+retry_next_missile:
 // assess if this missile is in a valid yrange to have hit this ship
-$E025               B9 75 00 LDA  torpedo_fire_ypos,y  ; $0075,Y  ; y-position of all torpedoes (4 for player1 and 4 for player2)
-$E028               F0 15    BEQ  +curr_torpedo_out_of_yrange_of_hit_ship  ; $E03F
-$E02A               38       SEC
-$E02B               E5 12    SBC  ypos_local  ; $12  ; y-pos of current ship
-$E02D               C9 10    CMP  #$10  ; (dec16)
-$E02F               B0 0E    BCS  +curr_torpedo_out_of_yrange_of_hit_ship  ; $E03F  ; branch if >= 16
+    LDA  torpedo_fire_ypos,y  ; $0075,Y  ; y-position of all torpedoes (4 for player1 and 4 for player2)
+    BEQ  curr_torpedo_out_of_yrange_of_hit_ship  ; $E03F
+    SEC
+    SBC  ypos_local  ; $12  ; y-pos of current ship
+    CMP  #$10  ; (dec16)
+    BCS  curr_torpedo_out_of_yrange_of_hit_ship  ; $E03F  ; branch if >= 16
 // yrange was valid, so now check missile is within xrange of hit ship
-$E031               B9 6D 00 LDA  torpedo_fire_xpos,y  ; $006D,Y  ; x-pos of all torpedoes (y=currently indexed torpedo)
-$E034               38       SEC
-$E035               E5 11    SBC  xpos_local  ; $11  ; x-pos of current ship
-$E037               C9 FE    CMP  #$FE
-$E039               B0 09    BCS  +curr_torpedo_is_within_xrange_of_hit_ship  ; $E044  ; branch if >= 254
-$E03B               C5 08    CMP  genvarB  ; $08  ; contains a given ship_type_width,y
-$E03D               90 05    BCC  +curr_torpedo_is_within_xrange_of_hit_ship  ; $E044
-+curr_torpedo_out_of_yrange_of_hit_ship:
-$E03F               88       DEY
-$E040               10 E3    BPL  -retry_next_missile  ; $E025
-$E042               D0 2C    BNE  +no_spr2back_collision_detected  ; $E070
-+curr_torpedo_is_within_xrange_of_hit_ship:
-$E044               A9 FF    LDA  #$FF  ; #$ff = this torpedo is no longer visible
-$E046               99 7D 00 STA  torpedo_fire_state,y  ; $007D,Y  (y=missile index that hit ship)
-$E049               B5 39    LDA  ships_visibility,x  ; $39,X
-$E04B               30 23    BMI  +no_spr2back_collision_detected  ; $E070
-$E04D               A9 FF    LDA  #$FF
-$E04F               95 39    STA  ships_visibility,x  ; $39,X
-$E051               A9 18    LDA  #$18  ; dec24
-$E053               95 55    STA  ships_explosion_tmr,x  ; $55,X
-$E055               B9 AC EF LDA  missiles_colour_table,y  ; $EFAC,Y  ; seems to choose either yellow or orange?
-$E058               9D 27 D0 STA  $D027,X  ; $d027-$d02e = sprite 0-7 colours
-$E05B               B5 51    LDA  ships_type,x  ; $51,X   ship-type of all ships (idx 0-3) #$00=freighter, #$01=cruiser, #$02=p.t. boat
-$E05D               AA       TAX
-$E05E               BD 1F EE LDA  ship_scores,x  ; $EE1F,X
-$E061               48       PHA
-$E062               98       TYA
-$E063               4A       LSR
-$E064               4A       LSR
-$E065               AA       TAX
-$E066               68       PLA  ; A = score of ship that was hit (in units of 100's - i.e. skipping trailing two digits)
-$E067               20 E0 E6 JSR  add_points_to_score_then_update_high_score_and_reprint  ; $E6E0
-$E06A               20 5D E9 JSR  trigger_voice3_sound  ; $E95D  ; (probably explosion sound?)
-$E06D               4C BD E1 JMP  +super_duper_big_jump  ; $E1BD
-+no_spr2back_collision_detected:
-$E070               B5 39    LDA  ships_visibility,x  ; $39,X
-$E072               30 4E    BMI  +ship_is_currently_exploding  ; $E0C2  ; is the ship currently exploding?
-$E074               B5 3D    LDA  ships_move_tmr,x  ; $3D,X
-$E076               F0 05    BEQ  +time_to_move_curr_ship_along  ; $E07D
-$E078               D6 3D    DEC  ships_move_tmr,x  ; $3D,X
-$E07A               4C BD E1 JMP  +super_duper_big_jump  ; $E1BD
-+time_to_move_curr_ship_along:
+    LDA  torpedo_fire_xpos,y  ; $006D,Y  ; x-pos of all torpedoes (y=currently indexed torpedo)
+    SEC
+    SBC  xpos_local  ; $11  ; x-pos of current ship
+    CMP  #$FE
+    BCS  curr_torpedo_is_within_xrange_of_hit_ship  ; $E044  ; branch if >= 254
+    CMP  genvarB  ; $08  ; contains a given ship_type_width,y
+    BCC  curr_torpedo_is_within_xrange_of_hit_ship  ; $E044
+curr_torpedo_out_of_yrange_of_hit_ship:
+    DEY
+    BPL  retry_next_missile  ; $E025
+    BNE  no_spr2back_collision_detected  ; $E070
+curr_torpedo_is_within_xrange_of_hit_ship:
+    LDA  #$FF  ; #$ff = this torpedo is no longer visible
+    STA  torpedo_fire_state,y  ; $007D,Y  (y=missile index that hit ship)
+    LDA  ships_visibility,x  ; $39,X
+    BMI  no_spr2back_collision_detected  ; $E070
+    LDA  #$FF
+    STA  ships_visibility,x  ; $39,X
+    LDA  #$18  ; dec24
+    STA  ships_explosion_tmr,x  ; $55,X
+    LDA  missiles_colour_table,y  ; $EFAC,Y  ; seems to choose either yellow or orange?
+    STA  $D027,X  ; $d027-$d02e = sprite 0-7 colours
+    LDA  ships_type,x  ; $51,X   ship-type of all ships (idx 0-3) #$00=freighter, #$01=cruiser, #$02=p.t. boat
+    TAX
+    LDA  ship_scores,x  ; $EE1F,X
+    PHA
+    TYA
+    LSR
+    LSR
+    TAX
+    PLA  ; A = score of ship that was hit (in units of 100's - i.e. skipping trailing two digits)
+    JSR  add_points_to_score_then_update_high_score_and_reprint  ; $E6E0
+    JSR  trigger_voice3_sound  ; $E95D  ; (probably explosion sound?)
+    JMP  super_duper_big_jump  ; $E1BD
+no_spr2back_collision_detected:
+    LDA  ships_visibility,x  ; $39,X
+    BMI  ship_is_currently_exploding  ; $E0C2  ; is the ship currently exploding?
+    LDA  ships_move_tmr,x  ; $3D,X
+    BEQ  time_to_move_curr_ship_along  ; $E07D
+    DEC  ships_move_tmr,x  ; $3D,X
+    JMP  super_duper_big_jump  ; $E1BD
+time_to_move_curr_ship_along:
 // move the ship along a small increment along the x-axis?
-$E07D               B5 41    LDA  ships_move_max_time,x  ; $41,X
-$E07F               95 3D    STA  ships_move_tmr,x  ; $3D,X
-$E081               A5 11    LDA  xpos_local  ; $11  ; x-position of current ship
-$E083               18       CLC
-$E084               75 4D    ADC  ships_mirror_flag,x  ; $4D,X  ; mirror orientation of ships (#$01 normal, #$ff reversed)
-$E086               85 11    STA  xpos_local  ; $11
-$E088               95 45    STA  ships_xpos,x  ; $45,X  ; x-pos of all ships
-$E08A               C9 A0    CMP  #$A0  ; dec160
-$E08C               B0 28    BCS  turn_off_ship  ; $E0B6  ; branch if >= 160
-$E08E               B4 51    LDY  ships_type,x  ; $51,X  ; ship-type of all ships
-$E090               18       CLC
-$E091               79 0E EE ADC  ship_type_widths,y  ; $EE0E,Y  ; some amount to add to x-pos, depending on ship-type
-$E094               C9 A0    CMP  #$A0  ; dec160
-$E096               B0 1E    BCS  turn_off_ship  ; $E0B6  ; branch if new x-pos is >= 160  ; ship has gone out of range?
-$E098               8A       TXA
-$E099               20 B4 E8 JSR  set_sprite_position  ; $E8B4  (curr ship x,y vals in xpos_local/$11 and ypos_local/$12)
-$E09C               A6 23    LDX  iterator_local  ; $23  ; current ship-index
-$E09E               B5 4D    LDA  ships_mirror_flag,x  ; $4D,X  ; mirror orientation of ships? (#$01 normal, #$ff reversed?)
-$E0A0               29 04    AND  #$04
-$E0A2               15 51    ORA  ships_type,x  ; $51,X  ; ship-type of all ships
-$E0A4               18       CLC
-$E0A5               69 EE    ADC  #$EE  ; sprite ee is sprite-pointer to the 1st boat (ee=freighter), ef=cruiser, f0=pt-boat
+    LDA  ships_move_max_time,x  ; $41,X
+    STA  ships_move_tmr,x  ; $3D,X
+    LDA  xpos_local  ; $11  ; x-position of current ship
+    CLC
+    ADC  ships_mirror_flag,x  ; $4D,X  ; mirror orientation of ships (#$01 normal, #$ff reversed)
+    STA  xpos_local  ; $11
+    STA  ships_xpos,x  ; $45,X  ; x-pos of all ships
+    CMP  #$A0  ; dec160
+    BCS  turn_off_ship  ; $E0B6  ; branch if >= 160
+    LDY  ships_type,x  ; $51,X  ; ship-type of all ships
+    CLC
+    ADC  ship_type_widths,y  ; $EE0E,Y  ; some amount to add to x-pos, depending on ship-type
+    CMP  #$A0  ; dec160
+    BCS  turn_off_ship  ; $E0B6  ; branch if new x-pos is >= 160  ; ship has gone out of range?
+    TXA
+    JSR  set_sprite_position  ; $E8B4  (curr ship x,y vals in xpos_local/$11 and ypos_local/$12)
+    LDX  iterator_local  ; $23  ; current ship-index
+    LDA  ships_mirror_flag,x  ; $4D,X  ; mirror orientation of ships? (#$01 normal, #$ff reversed?)
+    AND  #$04
+    ORA  ships_type,x  ; $51,X  ; ship-type of all ships
+    CLC
+    ADC  #$EE  ; sprite ee is sprite-pointer to the 1st boat (ee=freighter), ef=cruiser, f0=pt-boat
                                         ; if ships reversed, then f2=freighter, f3=cruiser, f4 = pt-boat
-$E0A7               9D F8 07 STA  $07F8,X  ; $07f8 to $07ff = sprite pointers
-$E0AA               20 25 F1 JSR  set_sprite_colour  ; $F125
-$E0AD               EA       EOM
-$E0AE               EA       EOM
-$E0AF               8A       TXA
-$E0B0               20 DD E8 JSR  turn_on_sprite_A  ; $E8DD
--skip_back:
-$E0B3               4C BD E1 JMP  +super_duper_big_jump  ; $E1BD
+    STA  $07F8,X  ; $07f8 to $07ff = sprite pointers
+    JSR  set_sprite_colour  ; $F125
+    NOP
+    NOP
+    TXA
+    JSR  turn_on_sprite_A  ; $E8DD
+skip_back:
+    JMP  super_duper_big_jump  ; $E1BD
 turn_off_ship:
-  ' ship has gone out of range, time to switch it off? 
-$E0B6               A6 23    LDX  iterator_local  ; $23  ; idx to current ship
-$E0B8               A9 00    LDA  #$00
-$E0BA               95 39    STA  ships_visibility,x  ; $39,X
-$E0BC               8A       TXA
-$E0BD               20 E8 E8 JSR  turn_off_sprite_A  ; $E8E8
-$E0C0               F0 F1    BEQ  -skip_back  ; $E0B3  ; branch if all sprites are off?
-+ship_is_currently_exploding:
-$E0C2               D6 55    DEC  ships_explosion_tmr,x  ; $55,X
-$E0C4               F0 F0    BEQ  turn_off_ship  ; $E0B6
-$E0C6               B5 55    LDA  ships_explosion_tmr,x  ; $55,X
-$E0C8               4A       LSR
-$E0C9               4A       LSR
-$E0CA               4A       LSR  ; divide a by 8
-$E0CB               A8       TAY
-$E0CC               B9 C5 E1 LDA  explosion_sprite_pointers,y  ; $E1C5,Y
-$E0CF               9D F8 07 STA  $07F8,X  ; set current explosion frame sprite for this ship
-$E0D2               4C BD E1 JMP  +super_duper_big_jump  ; $E1BD
-+current_ship_not_visible:
-  ' we jumped here due to current ship not being visible
+  // ship has gone out of range, time to switch it off? 
+    LDX  iterator_local  ; $23  ; idx to current ship
+    LDA  #$00
+    STA  ships_visibility,x  ; $39,X
+    TXA
+    JSR  turn_off_sprite_A  ; $E8E8
+    BEQ  skip_back  ; $E0B3  ; branch if all sprites are off?
+ship_is_currently_exploding:
+    DEC  ships_explosion_tmr,x  ; $55,X
+    BEQ  turn_off_ship  ; $E0B6
+    LDA  ships_explosion_tmr,x  ; $55,X
+    LSR
+    LSR
+    LSR  ; divide a by 8
+    TAY
+    LDA  explosion_sprite_pointers,y  ; $E1C5,Y
+    STA  $07F8,X  ; set current explosion frame sprite for this ship
+    JMP  super_duper_big_jump  ; $E1BD
+current_ship_not_visible:
+  // we jumped here due to current ship not being visible
 ; randomly decide if we should spawn a new ship now
-$E0D5               20 93 E8 JSR  random_num_gen_into_A  ; $E893  ; it will return some magic value in A (based on randomval_lsb and randomval_msb)
-$E0D8               C9 03    CMP  #$03  ; make the spawning of a new ship a low-probability occurence (3 in 256 chance, i.e., 1/85)
-$E0DA               90 03    BCC  +decide_new_ship_details  ; $E0DF  ; if A value < 3 then branch
-$E0DC               4C BD E1 JMP  +super_duper_big_jump  ; $E1BD
-+decide_new_ship_details:
+    JSR  random_num_gen_into_A  ; $E893  ; it will return some magic value in A (based on randomval_lsb and randomval_msb)
+    CMP  #$03  ; make the spawning of a new ship a low-probability occurence (3 in 256 chance, i.e., 1/85)
+    BCC  decide_new_ship_details  ; $E0DF  ; if A value < 3 then branch
+    JMP  super_duper_big_jump  ; $E1BD
+decide_new_ship_details:
 ; randomly decide if new ship should be on top or bottom row
-$E0DF               20 93 E8 JSR  random_num_gen_into_A  ; $E893  ; random_num_gen_into_A returns another magic value in A
-$E0E2               29 20    AND  #$20  ; this might set bit 5 or result in zero
-                                        ; randomly decide if the new ship should be on top-row or bottom-row (dec0 or dec32)
-$E0E4               18       CLC
-$E0E5               69 18    ADC  #$18  ; A can either be:
-                                        ;   #$18 (24) for top-row ypos of new ship,  or...
-                                        ;   #$38 (56) for bottom-row ypos of new ship
-                                        ; (add #$32 to these to get absolute ypos for ships, either #$4A or #$6A)
-$E0E7               A6 23    LDX  iterator_local  ; $23  ; curr ship idx
-$E0E9               95 49    STA  ships_ypos,x  ; $49,X  ; y-pos of all ships
-$E0EB               85 08    STA  genvarB  ; $08  ; let genvarB = y-pos of current ship (newly spawned)
-+decide_new_ship_type:
-$E0ED               20 93 E8 JSR  random_num_gen_into_A ; $E893  ; get some other magic value in A
-$E0F0               C9 50    CMP  #$50  ; dec80
-$E0F2               90 0A    BCC  +skip_to_lda_2  ; $E0FE  ; branch if A<80  ; if under 80, let it be a pt boat
-$E0F4               C9 A0    CMP  #$A0  ; dec160
-$E0F6               90 03    BCC  +skip_to_lda_1  ; $E0FB  ; branch if A<160  ; else if under 160, let it be a cruiser
-$E0F8               A9 00    LDA  #$00                     ; else it's a freighter (highest probability)
-$E0FA               2C A9 01 BIT  $01A9
-  +skip_to_lda_1:
-  $E0FB               A9 01    LDA  #$01
-$E0FD               2C A9 02 BIT  $02A9
-  +skip_to_lda_2:
-  $E0FE               A9 02    LDA  #$02
-$E100               85 09    STA  genvarA  ; $09  ; new ship-type of newly spawned ship
+    JSR  random_num_gen_into_A  ; $E893  ; random_num_gen_into_A returns another magic value in A
+    AND  #$20  ; this might set bit 5 or result in zero
+               ; randomly decide if the new ship should be on top-row or bottom-row (dec0 or dec32)
+    CLC
+    ADC  #$18  ; A can either be:
+               ;   #$18 (24) for top-row ypos of new ship,  or...
+               ;   #$38 (56) for bottom-row ypos of new ship
+               ; (add #$32 to these to get absolute ypos for ships, either #$4A or #$6A)
+    LDX  iterator_local  ; $23  ; curr ship idx
+    STA  ships_ypos,x  ; $49,X  ; y-pos of all ships
+    STA  genvarB  ; $08  ; let genvarB = y-pos of current ship (newly spawned)
+//+decide_new_ship_type:
+    JSR  random_num_gen_into_A ; $E893  ; get some other magic value in A
+    CMP  #$50  ; dec80
+    BCC  skip_to_lda_2  ; $E0FE  ; branch if A<80  ; if under 80, let it be a pt boat
+    CMP  #$A0  ; dec160
+    BCC  skip_to_lda_1  ; $E0FB  ; branch if A<160  ; else if under 160, let it be a cruiser
+    LDA  #$00                     ; else it's a freighter (highest probability)
+    BIT  $01A9
+skip_to_lda_1:
+      LDA  #$01
+    BIT  $02A9
+skip_to_lda_2:
+      LDA  #$02
+    STA  genvarA  ; $09  ; new ship-type of newly spawned ship
 some_comparison_of_this_new_ship_against_existing_ships:
-  ' perhaps to see if they clash?
-$E102               A0 00    LDY  #$00
-$E104               A2 03    LDX  #$03
--retry2:
-$E106               B5 39    LDA  ships_visibility,x  ; $39,X  ; is ship at this index visible yet?
-$E108               F0 0B    BEQ  +skip2  ; $E115    ; branch if not visible?
-$E10A               B5 49    LDA  ships_ypos,x  ; $49,X  ; y-pos of all ships
-$E10C               C5 08    CMP  genvarB  ; $08  ; y-pos of current ship?
-$E10E               D0 05    BNE  +skip2  ; $E115  ; if new ship has different y-pos to existing ships, then branch
-$E110               8A       TXA
-$E111               99 85 00 STA  genarrayA,y  ; $0085,Y
-$E114               C8       INY
-+skip2:
-$E115               CA       DEX
-$E116               10 EE    BPL  -retry2  ; $E106
-$E118               98       TYA  ; y = the number of existing ships that are on the same ypos as newly spawned ship
-$E119               F0 6F    BEQ  +no_other_ships_on_row  ; $E18A  ; branch if no other existing ships are on the same ypos as newly spawned ship
-$E11B               85 08    STA  genvarB  ; $08  ; the number of existing ships that are on the same ypos as newly spawned ship
-$E11D               C6 08    DEC  genvarB  ; $08
-$E11F               A6 85    LDX  genarrayA  ; $85  ; the first existing ship-idx on same y-pos as newly spawned ship
-$E121               B5 4D    LDA  ships_mirror_flag,x  ; $4D,X  ; mirror orientation of all ships? (01=normal, ff=reversed)
-$E123               85 0A    STA  curr_ship_mirror_state  ; $0A  ; the mirror orientation of the first existing ship on same ypos as newly spawned ship
-$E125               30 29    BMI  +skip3  ; $E150  ; if mirror orientation = $ff (mirrored), then branch
-$E127               C0 01    CPY  #$01
-$E129               F0 1E    BEQ  +skip4  ; $E149  ; if no# of existing ships on same ypos as new ship is only one, then branch
--jmp_retry:
-$E12B               A0 00    LDY  #$00    ; if we're here, then there are multiple existing ships on same ypos as new ship
--retry3:
+  // perhaps to see if they clash?
+    LDY  #$00
+    LDX  #$03
+ship_compare_retry:
+    LDA  ships_visibility,x  ; $39,X  ; is ship at this index visible yet?
+    BEQ  ship_compare_skip  ; $E115    ; branch if not visible?
+    LDA  ships_ypos,x  ; $49,X  ; y-pos of all ships
+    CMP  genvarB  ; $08  ; y-pos of current ship?
+    BNE  ship_compare_skip  ; $E115  ; if new ship has different y-pos to existing ships, then branch
+    TXA
+    STA  genarrayA,y  ; $0085,Y
+    INY
+ship_compare_skip:
+    DEX
+    BPL  ship_compare_retry  ; $E106
+    TYA  ; y = the number of existing ships that are on the same ypos as newly spawned ship
+    BEQ  no_other_ships_on_row  ; $E18A  ; branch if no other existing ships are on the same ypos as newly spawned ship
+    STA  genvarB  ; $08  ; the number of existing ships that are on the same ypos as newly spawned ship
+    DEC  genvarB  ; $08
+    LDX  genarrayA  ; $85  ; the first existing ship-idx on same y-pos as newly spawned ship
+    LDA  ships_mirror_flag,x  ; $4D,X  ; mirror orientation of all ships? (01=normal, ff=reversed)
+    STA  curr_ship_mirror_state  ; $0A  ; the mirror orientation of the first existing ship on same ypos as newly spawned ship
+    BMI  ship_goes_right_to_left  ; $E150  ; if mirror orientation = $ff (mirrored), then branch
+    CPY  #$01
+    BEQ  get_xpos_of_closest_existing_ship_on_left  ; $E149  ; if no# of existing ships on same ypos as new ship is only one, then branch
+restart_sort_algo_after_swapping_ship_pair:
+    LDY  #$00    ; if we're here, then there are multiple existing ships on same ypos as new ship
+loop_for_current_ship_sort:
 // some kind of sorting logic?
-$E12D               B6 85    LDX  genarrayA,y  ; $85,Y  ; idx of existing ships on same ypos as new ship
-$E12F               B5 45    LDA  ships_xpos,x  ; $45,X  ; x-pos of all ships (x = index of an existing ship from the genarrayA list)
-$E131               B6 86    LDX  genarrayA+1,y  ; $86,Y  ; idx of existing ship after this prior one
-$E133               D5 45    CMP  ships_xpos,x  ; $45,X  ; compare 1st ship's xpos with 2nd ships xpos
-$E135               90 0D    BCC  +no_need_to_swap_pair  ; $E144  ; if 1st existing ship's xpos is less than 2nd existing ship's xpos, then branch
-$E137               F0 0B    BEQ  +no_need_to_swap_pair ; $E144   ; or if their xpos are equal, branch too
+    LDX  genarrayA,y  ; $85,Y  ; idx of existing ships on same ypos as new ship
+    LDA  ships_xpos,x  ; $45,X  ; x-pos of all ships (x = index of an existing ship from the genarrayA list)
+    LDX  genarrayA+1,y  ; $86,Y  ; idx of existing ship after this prior one
+    CMP  ships_xpos,x  ; $45,X  ; compare 1st ship's xpos with 2nd ships xpos
+    BCC  no_need_to_swap_pair  ; $E144  ; if 1st existing ship's xpos is less than 2nd existing ship's xpos, then branch
+    BEQ  no_need_to_swap_pair ; $E144   ; or if their xpos are equal, branch too
 // need to swap pair to sort them in order
-$E139               B9 85 00 LDA  genarrayA,y  ; $0085,Y  ; a = xpos of 1st existing ship
-$E13C               96 85    STX  genarrayA,y  ; $85,Y     ; let the 1st ship xpos now equal the 2nd ship xpos
-$E13E               99 86 00 STA  genarrayA+1,y  ; $0086,Y  ; let the 2nd ship xpos now equal the 1st ship xpos (i.e. swap them)
-$E141               4C 2B E1 JMP  -jmp_retry  ; $E12B
-+no_need_to_swap_pair:
-$E144               C8       INY
-$E145               C4 08    CPY  genvarB  ; $08  ; the number of existing ships that are on the same ypos as newly spawned ship minus one
-$E147               90 E4    BCC  -retry3  ; $E12D  ; if incremented y < no# of existing ships on same ypos minus one, then branch
-+skip4:
-$E149               A6 85    LDX  genarrayA  ; $85  ; 1st of existing (and sorted ships) that is closest to the left screen edge
-$E14B               B5 45    LDA  ships_xpos,x  ; $45,X  ; x-pos of all ships
-$E14D               4C 77 E1 JMP  +another_skip  ; $E177
-+skip3:
+    LDA  genarrayA,y  ; $0085,Y  ; a = xpos of 1st existing ship
+    STX  genarrayA,y  ; $85,Y     ; let the 1st ship xpos now equal the 2nd ship xpos
+    STA  genarrayA+1,y  ; $0086,Y  ; let the 2nd ship xpos now equal the 1st ship xpos (i.e. swap them)
+    JMP  restart_sort_algo_after_swapping_ship_pair  ; $E12B
+no_need_to_swap_pair:
+    INY
+    CPY  genvarB  ; $08  ; the number of existing ships that are on the same ypos as newly spawned ship minus one
+    BCC  loop_for_current_ship_sort  ; $E12D  ; if incremented y < no# of existing ships on same ypos minus one, then branch
+get_xpos_of_closest_existing_ship_on_left:
+    LDX  genarrayA  ; $85  ; 1st of existing (and sorted ships) that is closest to the left screen edge
+    LDA  ships_xpos,x  ; $45,X  ; x-pos of all ships
+    JMP  compare_xpos_of_closest_ship_to_new  ; $E177
+ship_goes_right_to_left:
 // mirrored orientation (ships on this row are currently moving right to left)
-$E150               C0 01    CPY  #$01  ; the number of existing ships that are on the same ypos as newly spawned ship
-$E152               F0 1C    BEQ  +skip6  ; $E170  ; if there's only one existing ship on this row, then branch (no need to sort?)
--jmp_back_a_little:
+    CPY  #$01  ; the number of existing ships that are on the same ypos as newly spawned ship
+    BEQ  get_xpos_of_closest_existing_ship_on_right  ; $E170  ; if there's only one existing ship on this row, then branch (no need to sort?)
+restart_sort_mirrored_algo_after_swapping_ship_pair:
 // sorting logic for mirrored case
-$E154               A0 00    LDY  #$00
--retry4:
-$E156               B6 85    LDX  genarrayA,y  ; $85,Y  ; idx of existing ships on same ypos as new ship
-$E158               B5 45    LDA  ships_xpos,x  ; $45,X  ; get xpos of 1st existing ship
-$E15A               B6 86    LDX  genarrayA+1,y  ; $86,Y  ; get idx of 2nd existing ship
-$E15C               D5 45    CMP  ships_xpos,x  ; $45,X ; compare 1st ship's xpos with 2nd ship's xpos
-$E15E               B0 0B    BCS  +skip7  ; $E16B  ; if 1st ship's xpos is >= 2nd ship's xpos, then branch (no need to swap for sort)
-$E160               B9 85 00 LDA  genarrayA,y  ; $0085,Y  ; a = xpos of 1st ship
-$E163               96 85    STX  genarrayA,y  ; $85,Y    ; let 1st ship xpos now equal 2nd ship xpos
-$E165               99 86 00 STA  genarrayA+1,y  ; $0086,Y  ; let 2nd ship xpos now equal 1st ship xpos (i.e. swap them)
-$E168               4C 54 E1 JMP  -jmp_back_a_little  ; $E154
-+skip7:
-$E16B               C8       INY
-$E16C               C4 08    CPY  genvarB  ; $08  ; the number of existing ships on same ypos as new ship minus one
-$E16E               90 E6    BCC  -retry4  ; $E156  ; if incrementeed y < no# existing ships on same ypos minus one, then branch
-+skip6:
-$E170               A6 85    LDX  genarrayA  ; $85  ; 1st of existing (and sorted ships) that is closest to the right screen edge
-$E172               A9 88    LDA  #$88  ; dec136 (the right-most edge's xpos)
-$E174               38       SEC
-$E175               F5 45    SBC  ships_xpos,x  ; $45,X  ; A = right_edge_xpos - 1st_existing_sorted_ships_xpos
-+another_skip:
+    LDY  #$00
+loop_for_mirrored_current_ship_sort:
+    LDX  genarrayA,y  ; $85,Y  ; idx of existing ships on same ypos as new ship
+    LDA  ships_xpos,x  ; $45,X  ; get xpos of 1st existing ship
+    LDX  genarrayA+1,y  ; $86,Y  ; get idx of 2nd existing ship
+    CMP  ships_xpos,x  ; $45,X ; compare 1st ship's xpos with 2nd ship's xpos
+    BCS  mirrored_no_need_to_swap_pair  ; $E16B  ; if 1st ship's xpos is >= 2nd ship's xpos, then branch (no need to swap for sort)
+    LDA  genarrayA,y  ; $0085,Y  ; a = xpos of 1st ship
+    STX  genarrayA,y  ; $85,Y    ; let 1st ship xpos now equal 2nd ship xpos
+    STA  genarrayA+1,y  ; $0086,Y  ; let 2nd ship xpos now equal 1st ship xpos (i.e. swap them)
+    JMP  restart_sort_mirrored_algo_after_swapping_ship_pair  ; $E154
+mirrored_no_need_to_swap_pair:
+    INY
+    CPY  genvarB  ; $08  ; the number of existing ships on same ypos as new ship minus one
+    BCC  loop_for_mirrored_current_ship_sort  ; $E156  ; if incrementeed y < no# existing ships on same ypos minus one, then branch
+get_xpos_of_closest_existing_ship_on_right:
+    LDX  genarrayA  ; $85  ; 1st of existing (and sorted ships) that is closest to the right screen edge
+    LDA  #$88  ; dec136 (the right-most edge's xpos)
+    SEC
+    SBC  ships_xpos,x  ; $45,X  ; A = right_edge_xpos - 1st_existing_sorted_ships_xpos
+compare_xpos_of_closest_ship_to_new:
 // assess the gap between closest existing ship and newly spawned ship
-$E177               85 08    STA  genvarB  ; $08  ; holds x-width between the spawn-edge (left or right) and the closest existing ship
-$E179               B5 51    LDA  ships_type,x  ; $51,X  ; get the ship-type of the closest ship to the spawn-edge
-$E17B               0A       ASL  ; multiply by 2
-$E17C               75 51    ADC  ships_type,x  ; $51,X  ; a bit like multiply by 3  ; freighter=00, cruiser=3, ptboat=6
-$E17E               65 09    ADC  genvarA  ; $09  ; newly-spawned ship-type
-$E180               AA       TAX
-$E181               BD 13 EE LDA  map_gap_from_existing_ship_to_new_ship,x  ; $EE13,X
-$E184               C5 08    CMP  genvarB  ; $08  ; compare with x-width between spawn-edge and closest existing ship
-$E186               B0 35    BCS  +not_big_enough_gap_yet  ; $E1BD  ; branch if required_gap >= x-width spawn-edge to closest ship
-$E188               90 0D    BCC  +sufficient_gap_to_spawn_new_ship  ; $E197
-+no_other_ships_on_row:
-//---------------------
+    STA  genvarB  ; $08  ; holds x-width between the spawn-edge (left or right) and the closest existing ship
+    LDA  ships_type,x  ; $51,X  ; get the ship-type of the closest ship to the spawn-edge
+    ASL  ; multiply by 2
+    ADC  ships_type,x  ; $51,X  ; a bit like multiply by 3  ; freighter=00, cruiser=3, ptboat=6
+    ADC  genvarA  ; $09  ; newly-spawned ship-type
+    TAX
+    LDA  map_gap_from_existing_ship_to_new_ship,x  ; $EE13,X
+    CMP  genvarB  ; $08  ; compare with x-width between spawn-edge and closest existing ship
+    BCS  not_big_enough_gap_yet  ; $E1BD  ; branch if required_gap >= x-width spawn-edge to closest ship
+    BCC  sufficient_gap_to_spawn_new_ship  ; $E197
+no_other_ships_on_row:
+//-------------------
 // decide whether ship should move left-to-right (normal) or right-to-left (mirrored)
-$E18A               20 93 E8 JSR  random_num_gen_into_A  ; $E893  ; put magic number in A
-$E18D               A8       TAY
-$E18E               30 03    BMI  +skip_to_set_ship_mirrored  ; $E193  ; if neg-bit is on (i.e., range=128to255), then branch
-                                  ; This is giving a 50/50 chance of the ship moving from left-to-right (normal) or right-to-left (mirrored)
-$E190               A9 01    LDA  #$01  ; current ship = normal
-$E192               2C A9 FF BIT  $FFA9
-  +skip_to_set_ship_mirrored:
-  $E193               A9 FF    LDA  #$FF  ; current ship = mirrored
-$E195               85 0A    STA  curr_ship_mirror_state  ; $0A  ; set curr ship to mirrored
-+sufficient_gap_to_spawn_new_ship:
-$E197               A6 23    LDX  iterator_local  ; $23  ; idx to curr ship
-$E199               A9 01    LDA  #$01
-$E19B               95 39    STA  ships_visibility,x  ; $39,X  ; ship visibility table, set it to 1/visible
-$E19D               95 3D    STA  ships_move_tmr,x  ; $3D,X
-$E19F               A5 09    LDA  genvarA  ; $09  ; newly-spawned ship-type?
-$E1A1               95 51    STA  ships_type,x  ; $51,X  ; ship-type of all ships
-$E1A3               A8       TAY
-$E1A4               B9 1C EE LDA  ships_movement_delay,y  ; $EE1C,Y  ; find the movement frame-rate delay for this ship-type
-$E1A7               95 41    STA  ships_move_max_time,x  ; $41,X  ; record the needed frame-rate delay count in this array
-$E1A9               C0 02    CPY  #$02  ; is ship-type = pt-boat?
-$E1AB               D0 03    BNE  +tiny_skip  ; $E1B0  ; branch if not pt-boat
-$E1AD               20 3C E9 JSR  v1_reset_and_gate_off  ; $E93C  ; turn off v1 if we've spawned a pt-boat
-+tiny_skip:
-$E1B0               A5 0A    LDA  curr_ship_mirror_state  ; $0A  ; current ship mirror-state ($01=normal, $ff=mirrored)
-$E1B2               95 4D    STA  ships_mirror_flag,x  ; $4D,X  ; mirror orientation of all ships
-$E1B4               10 03    BPL  +skip_to_lda_00  ; $E1B9  ; branch if normal ship-orientation
-$E1B6               A9 88    LDA  #$88  ; a = #$88 (dec136) (the right-edge xpos) for reversed ship-mirror orientation
-$E1B8               2C A9 00 BIT  $00A9
-  +skip_to_lda_00:
-  $E1B9               A9 00    LDA  #$00  ; a = 0 (the left-edge xpos) for normal ship-mirror orientation
-$E1BB               95 45    STA  ships_xpos,x  ; $45,X  ; x-pos of all ships
-+not_big_enough_gap_yet:
-+super_duper_big_jump:
-$E1BD               C6 23    DEC  iterator_local  ; $23  ; idx to curr ship
-$E1BF               30 03    BMI  +skip_to_rts  ; $E1C4
-$E1C1               4C 04 E0 JMP  -retry_next_possible_ship  ; $E004
-+skip_to_rts:
-$E1C4               60       RTS
+    JSR  random_num_gen_into_A  ; $E893  ; put magic number in A
+    TAY
+    BMI  skip_to_set_ship_mirrored  ; $E193  ; if neg-bit is on (i.e., range=128to255), then branch
+         ; This is giving a 50/50 chance of the ship moving from left-to-right (normal) or right-to-left (mirrored)
+    LDA  #$01  ; current ship = normal
+    BIT  $FFA9
+skip_to_set_ship_mirrored:
+      LDA  #$FF  ; current ship = mirrored
+    STA  curr_ship_mirror_state  ; $0A  ; set curr ship to mirrored
+sufficient_gap_to_spawn_new_ship:
+    LDX  iterator_local  ; $23  ; idx to curr ship
+    LDA  #$01
+    STA  ships_visibility,x  ; $39,X  ; ship visibility table, set it to 1/visible
+    STA  ships_move_tmr,x  ; $3D,X
+    LDA  genvarA  ; $09  ; newly-spawned ship-type?
+    STA  ships_type,x  ; $51,X  ; ship-type of all ships
+    TAY
+    LDA  ships_movement_delay,y  ; $EE1C,Y  ; find the movement frame-rate delay for this ship-type
+    STA  ships_move_max_time,x  ; $41,X  ; record the needed frame-rate delay count in this array
+    CPY  #$02  ; is ship-type = pt-boat?
+    BNE  skip_if_not_pt_boat  ; $E1B0  ; branch if not pt-boat
+    JSR  v1_reset_and_gate_off  ; $E93C  ; turn off v1 if we've spawned a pt-boat
+skip_if_not_pt_boat:
+    LDA  curr_ship_mirror_state  ; $0A  ; current ship mirror-state ($01=normal, $ff=mirrored)
+    STA  ships_mirror_flag,x  ; $4D,X  ; mirror orientation of all ships
+    BPL  skip_to_lda_00  ; $E1B9  ; branch if normal ship-orientation
+    LDA  #$88  ; a = #$88 (dec136) (the right-edge xpos) for reversed ship-mirror orientation
+    BIT  $00A9
+skip_to_lda_00:
+      LDA  #$00  ; a = 0 (the left-edge xpos) for normal ship-mirror orientation
+    STA  ships_xpos,x  ; $45,X  ; x-pos of all ships
+not_big_enough_gap_yet:
+super_duper_big_jump:
+    DEC  iterator_local  ; $23  ; idx to curr ship
+    BMI  exit_ship_logic_routine  ; $E1C4
+    JMP  retry_next_possible_ship  ; $E004
+exit_ship_logic_routine:
+    RTS
 
-sprite ee: (freighter)
+// sprite ee: (freighter)
 
-+------------------------+
-| *  *  *                |
-|   *    *               |
-|                        |
-|        **              |
-|        **  **          |
-|   **   **  **          |
-|   **   **  **          |
-|   **   **  ***         |
-|** **   *******      ***|
-|*****  ** *** **  ******|
-|* ********* *** ********|
-|*** * ***************** |
-|*********************** |
-| *********************  |
-| ********************   |
-|  ******************    |
-|                        |
-|                        |
-|                        |
-|                        |
-|                        |
-+------------------------+
-
- 
-
-sprite ef: (cruiser)
-
-+------------------------+
-|                        |
-|                        |
-|                        |
-|       * *              |
-|  *   *                 |
-|    *    **             |
-|         **             |
-|      ** **             |
-|      ** *****          |
-|      ** ** ***    **** |
-|      ** **** *     *   |
-|***  ***********   *****|
-|*********************** |
-|**********************  |
-| ********************   |
-|  ******************    |
-|                        |
-|                        |
-|                        |
-|                        |
-|                        |
-+------------------------+
+// +------------------------+
+// | *  *  *                |
+// |   *    *               |
+// |                        |
+// |        **              |
+// |        **  **          |
+// |   **   **  **          |
+// |   **   **  **          |
+// |   **   **  ***         |
+// |** **   *******      ***|
+// |*****  ** *** **  ******|
+// |* ********* *** ********|
+// |*** * ***************** |
+// |*********************** |
+// | *********************  |
+// | ********************   |
+// |  ******************    |
+// |                        |
+// |                        |
+// |                        |
+// |                        |
+// |                        |
+// +------------------------+
 
  
 
-sprite f0: (p.t. boat)
+// sprite ef: (cruiser)
 
-    p.t. boat = "Patrol Torpedo" boat was a motor torpedo boat used by the United States Navy in World War II. It was small, fast, and inexpensive to build, valued for its maneuverability and speed
+// +------------------------+
+// |                        |
+// |                        |
+// |                        |
+// |       * *              |
+// |  *   *                 |
+// |    *    **             |
+// |         **             |
+// |      ** **             |
+// |      ** *****          |
+// |      ** ** ***    **** |
+// |      ** **** *     *   |
+// |***  ***********   *****|
+// |*********************** |
+// |**********************  |
+// | ********************   |
+// |  ******************    |
+// |                        |
+// |                        |
+// |                        |
+// |                        |
+// |                        |
+// +------------------------+
 
-+------------------------+
-|                        |
-|                        |
-|                        |
-|                        |
-|                        |
-|                        |
-|                        |
-|                        |
-|       *                |
-|       **               |
-|       ****             |
-|      ** * *            |
-|  **  **********        |
-|  *************         |
-|   ***********          |
-|   **********           |
-|                        |
-|                        |
-|                        |
-|                        |
-|                        |
-+------------------------+
+ 
 
+// sprite f0: (p.t. boat)
 
-sprite f2: (freighter - reversed)
+    // p.t. boat = "Patrol Torpedo" boat was a motor torpedo boat used by the United States Navy in World War II. It was small, fast, and inexpensive to build, valued for its maneuverability and speed
 
-+------------------------+
-|                *  *  * |
-|               *    *   |
-|                        |
-|              **        |
-|          **  **        |
-|          **  **   **   |
-|          **  **   **   |
-|         ***  **   **   |
-|***      *******   ** **|
-|******  ** *** **  *****|
-|******** *** ********* *|
-| ***************** * ***|
-| ***********************|
-|  ********************* |
-|   ******************** |
-|    ******************  |
-|                        |
-|                        |
-|                        |
-|                        |
-|                        |
-+------------------------+
-
-
-sprite f3: (cruiser - reversed)
-
-+------------------------+
-|                        |
-|                        |
-|                        |
-|              * *       |
-|                 *   *  |
-|             **    *    |
-|             **         |
-|             ** **      |
-|          ***** **      |
-| ****    *** ** **      |
-|   *     * **** **      |
-|*****   ***********  ***|
-| ***********************|
-|  **********************|
-|   ******************** |
-|    ******************  |
-|                        |
-|                        |
-|                        |
-|                        |
-|                        |
-+------------------------+
+// +------------------------+
+// |                        |
+// |                        |
+// |                        |
+// |                        |
+// |                        |
+// |                        |
+// |                        |
+// |                        |
+// |       *                |
+// |       **               |
+// |       ****             |
+// |      ** * *            |
+// |  **  **********        |
+// |  *************         |
+// |   ***********          |
+// |   **********           |
+// |                        |
+// |                        |
+// |                        |
+// |                        |
+// |                        |
+// +------------------------+
 
 
-sprite f4: (pt boat - reversed)
+// sprite f2: (freighter - reversed)
 
-+------------------------+
-|                        |
-|                        |
-|                        |
-|                        |
-|                        |
-|                        |
-|                        |
-|                        |
-|                *       |
-|               **       |
-|             ****       |
-|            * * **      |
-|        **********  **  |
-|         *************  |
-|          ***********   |
-|           **********   |
-|                        |
-|                        |
-|                        |
-|                        |
-|                        |
-+------------------------+
+// +------------------------+
+// |                *  *  * |
+// |               *    *   |
+// |                        |
+// |              **        |
+// |          **  **        |
+// |          **  **   **   |
+// |          **  **   **   |
+// |         ***  **   **   |
+// |***      *******   ** **|
+// |******  ** *** **  *****|
+// |******** *** ********* *|
+// | ***************** * ***|
+// | ***********************|
+// |  ********************* |
+// |   ******************** |
+// |    ******************  |
+// |                        |
+// |                        |
+// |                        |
+// |                        |
+// |                        |
+// +------------------------+
+
+
+// sprite f3: (cruiser - reversed)
+// 
+// +------------------------+
+// |                        |
+// |                        |
+// |                        |
+// |              * *       |
+// |                 *   *  |
+// |             **    *    |
+// |             **         |
+// |             ** **      |
+// |          ***** **      |
+// | ****    *** ** **      |
+// |   *     * **** **      |
+// |*****   ***********  ***|
+// | ***********************|
+// |  **********************|
+// |   ******************** |
+// |    ******************  |
+// |                        |
+// |                        |
+// |                        |
+// |                        |
+// |                        |
+// +------------------------+
+
+
+// sprite f4: (pt boat - reversed)
+// 
+// +------------------------+
+// |                        |
+// |                        |
+// |                        |
+// |                        |
+// |                        |
+// |                        |
+// |                        |
+// |                        |
+// |                *       |
+// |               **       |
+// |             ****       |
+// |            * * **      |
+// |        **********  **  |
+// |         *************  |
+// |          ***********   |
+// |           **********   |
+// |                        |
+// |                        |
+// |                        |
+// |                        |
+// |                        |
+// +------------------------+
 
 explosion_sprite_pointers:
- :000E1C5 F9 F5 F1
+// :000E1C5 F9 F5 F1
+  !byte $F9, $F5, $F1
 
 
-sprite F9
-+------------------------+
-|                        |
-|                        |
-|                        |
-|                        |
-|                        |
-|                        |
-|                        |
-|     *****              |
-|   **********           |
-|  * **********          |
-| * * **** * ****        |
-| *   ** ***   **        |
-|*   ********   **       |
-|*  *** ******   *       |
-|  * ****** * * *        |
-|** *** *** ******       |
-|                        |
-|                        |
-|                        |
-|                        |
-|                        |
-+------------------------+
-
-	
-sprite F5
-+------------------------+
-|  ** *     ****         |
-| * ** *   **  **        |
-|**   * * * *** *        |
-|*  *****  *   *         |
-|  *   *  * * **         |
-| *     * * **  *        |
-|   *** * **             |
-|  **  * **  ***         |
-| *   ***** *   *        |
-|    ** *******          |
-|   *  ***** * *         |
-|  *  ** ***  * *        |
-| *  ***** **            |
-|   * ********           |
-|  * ****** * *          |
-|** *** *** *****        |
-|                        |
-|                        |
-|                        |
-|                        |
-|                        |
-+------------------------+
+// sprite F9
+// +------------------------+
+// |                        |
+// |                        |
+// |                        |
+// |                        |
+// |                        |
+// |                        |
+// |                        |
+// |     *****              |
+// |   **********           |
+// |  * **********          |
+// | * * **** * ****        |
+// | *   ** ***   **        |
+// |*   ********   **       |
+// |*  *** ******   *       |
+// |  * ****** * * *        |
+// |** *** *** ******       |
+// |                        |
+// |                        |
+// |                        |
+// |                        |
+// |                        |
+// +------------------------+
 
 	
-sprite F1
-+------------------------+
-|                        |
-|                        |
-|                        |
-|                        |
-|                        |
-|                        |
-|                        |
-|                        |
-|                        |
-|    **                  |
-|   *  **  ***           |
-|  *  **  **  *          |
-| ** * *****             |
-| ***** ***  ***         |
-|** **  ****   **        |
-|**** *** *** ***        |
-|                        |
-|                        |
-|                        |
-|                        |
-|                        |
-+------------------------+
+// sprite F5
+// +------------------------+
+// |  ** *     ****         |
+// | * ** *   **  **        |
+// |**   * * * *** *        |
+// |*  *****  *   *         |
+// |  *   *  * * **         |
+// | *     * * **  *        |
+// |   *** * **             |
+// |  **  * **  ***         |
+// | *   ***** *   *        |
+// |    ** *******          |
+// |   *  ***** * *         |
+// |  *  ** ***  * *        |
+// | *  ***** **            |
+// |   * ********           |
+// |  * ****** * *          |
+// |** *** *** *****        |
+// |                        |
+// |                        |
+// |                        |
+// |                        |
+// |                        |
+// +------------------------+
+
+	
+// sprite F1
+// +------------------------+
+// |                        |
+// |                        |
+// |                        |
+// |                        |
+// |                        |
+// |                        |
+// |                        |
+// |                        |
+// |                        |
+// |    **                  |
+// |   *  **  ***           |
+// |  *  **  **  *          |
+// | ** * *****             |
+// | ***** ***  ***         |
+// |** **  ****   **        |
+// |**** *** *** ***        |
+// |                        |
+// |                        |
+// |                        |
+// |                        |
+// |                        |
+// +------------------------+
 
 
 buoy_logic:
 //---------
-$E1C8               A5 24    LDA  buoy_movement_timer  ; $24
-$E1CA               10 04    BPL  +buoy_timer_not_expired_yet  ; $E1D0
+    LDA  buoy_movement_timer  ; $24
+    BPL  +buoy_timer_not_expired_yet  ; $E1D0
 ; reset timer after expiring
-$E1CC               A9 0B    LDA  #$0B  ; dec11
-$E1CE               85 24    STA  buoy_movement_timer  ; $24
+    LDA  #$0B  ; dec11
+    STA  buoy_movement_timer  ; $24
 +buoy_timer_not_expired_yet:
-$E1D0               C6 24    DEC  buoy_movement_timer  ; $24
-$E1D2               A9 03    LDA  #$03  ; buoy iterator (3 to 0)
-$E1D4               85 23    STA  iterator_local  ; $23
+    DEC  buoy_movement_timer  ; $24
+    LDA  #$03  ; buoy iterator (3 to 0)
+    STA  iterator_local  ; $23
 -big_retry:
 // loops on a decrementing iterator_local until all the way to zero
-$E1D6               A6 23    LDX  iterator_local  ; $23
-$E1D8               B5 5D    LDA  buoys_visibility,x  ; $5D,X
-$E1DA               D0 03    BNE  +buoy_is_visible_or_exploading  ; $E1DF  ; branch if non-zero
+    LDX  iterator_local  ; $23
+    LDA  buoys_visibility,x  ; $5D,X
+    BNE  +buoy_is_visible_or_exploading  ; $E1DF  ; branch if non-zero
 // if buoy is invisible, jump to next buoy
-$E1DC               4C 75 E2 JMP  +jmp_to_next_buoy  ; $E275
+    JMP  +jmp_to_next_buoy  ; $E275
 +buoy_is_visible_or_exploading:
-$E1DF               B5 61    LDA  buoys_xpos,x  ; $61,X
-$E1E1               85 11    STA  xpos_local  ; $11  (x-position of current buoy)
-$E1E3               B5 65    LDA  buoys_ypos,x   ; $65,X  ; (array of all buoy y-positions)
-$E1E5               85 12    STA  ypos_local  ; $12  (y-position of the current buoy)
-$E1E7               8A       TXA
-$E1E8               09 04    ORA  #$04
-$E1EA               A8       TAY
-$E1EB               A5 19    LDA  buff_spr2back_coll  ; $19
-$E1ED               39 38 EE AND  or_bitfields,y  ; $EE38,Y
-$E1F0               F0 32    BEQ  +skip_due_to_no_spr_to_back_collision  ; $E224  ; branch if the bit isn't on (no spr-to-back collision with this sprite)
-$E1F2               A0 07    LDY  #$07
+    LDA  buoys_xpos,x  ; $61,X
+    STA  xpos_local  ; $11  (x-position of current buoy)
+    LDA  buoys_ypos,x   ; $65,X  ; (array of all buoy y-positions)
+    STA  ypos_local  ; $12  (y-position of the current buoy)
+    TXA
+    ORA  #$04
+    TAY
+    LDA  buff_spr2back_coll  ; $19
+    AND  or_bitfields,y  ; $EE38,Y
+    BEQ  +skip_due_to_no_spr_to_back_collision  ; $E224  ; branch if the bit isn't on (no spr-to-back collision with this sprite)
+    LDY  #$07
 -retry1:
-$E1F4               B9 75 00 LDA  torpedo_fire_ypos,y  ; $0075,Y  ; y-pos of all torpedoes
-$E1F7               F0 15    BEQ  +skip_on_zero  ; $E20E
-$E1F9               38       SEC
-$E1FA               E5 12    SBC  ypos_local  ; $12  ; (y-position of the current buoy)
-$E1FC               C9 15    CMP  #$15  ; dec21
-$E1FE               B0 0E    BCS  +branch_if_ypos_>=21  ; $E20E  ; branch if >= dec21
-$E200               B9 6D 00 LDA  torpedo_fire_xpos,y  ; $006D,Y  ; x-pos of all torpedoes
-$E203               38       SEC
-$E204               E5 11    SBC  xpos_local  ; $11  ; (x-position of the current buoy)
-$E206               C9 FE    CMP  #$FE  ; dec254
-$E208               B0 09    BCS  +branch_if_xpos_>=254  ; $E213 ; branch if >= 254
-$E20A               C9 0C    CMP  #$0C  ; dec12
-$E20C               90 05    BCC  +branch_if_xpos_<12  ; $E213
+    LDA  torpedo_fire_ypos,y  ; $0075,Y  ; y-pos of all torpedoes
+    BEQ  +skip_on_zero  ; $E20E
+    SEC
+    SBC  ypos_local  ; $12  ; (y-position of the current buoy)
+    CMP  #$15  ; dec21
+    BCS  +branch_if_ypos_>=21  ; $E20E  ; branch if >= dec21
+    LDA  torpedo_fire_xpos,y  ; $006D,Y  ; x-pos of all torpedoes
+    SEC
+    SBC  xpos_local  ; $11  ; (x-position of the current buoy)
+    CMP  #$FE  ; dec254
+    BCS  +branch_if_xpos_>=254  ; $E213 ; branch if >= 254
+    CMP  #$0C  ; dec12
+    BCC  +branch_if_xpos_<12  ; $E213
 +skip_on_zero:
 +branch_if_ypos_>=21:
-$E20E               88       DEY
-$E20F               10 E3    BPL  -retry1  ; $E1F4
-$E211               D0 11    BNE  +skip_due_to_no_spr_to_back_collision  ; $E224
+    DEY
+    BPL  -retry1  ; $E1F4
+    BNE  +skip_due_to_no_spr_to_back_collision  ; $E224
 +branch_if_xpos_<12:
 +branch_if_xpos_>=254:
 // if we're here, a missile has hit a buoy
-$E213               A9 FF    LDA  #$FF  ; #$ff = this torpedo is no longer visible
-$E215               99 7D 00 STA  torpedo_fire_state,y  ; $007D,Y
-$E218               95 5D    STA  buoys_visibility,x  ; $5D,X
-$E21A               A9 18    LDA  #$18  ; dec24
-$E21C               95 69    STA  buoys_explode_timer,x  ; $69,X
-$E21E               20 5D E9 JSR  trigger_voice3_sound  ; $E95D  ; (probably explosion sound?)
-$E221               4C 75 E2 JMP  +jmp_to_next_buoy  ; $E275
+    LDA  #$FF  ; #$ff = this torpedo is no longer visible
+    STA  torpedo_fire_state,y  ; $007D,Y
+    STA  buoys_visibility,x  ; $5D,X
+    LDA  #$18  ; dec24
+    STA  buoys_explode_timer,x  ; $69,X
+    JSR  trigger_voice3_sound  ; $E95D  ; (probably explosion sound?)
+    JMP  +jmp_to_next_buoy  ; $E275
 +skip_due_to_no_spr_to_back_collision:
-$E224               B5 5D    LDA  buoys_visibility,x  ; $5D,X
-$E226               30 36    BMI  +buoy_currently_exploding  ; $E25E
-$E228               A5 24    LDA  buoy_movement_timer  ; $24
-$E22A               D0 49    BNE  +jmp_to_next_buoy  ; $E275
+    LDA  buoys_visibility,x  ; $5D,X
+    BMI  +buoy_currently_exploding  ; $E25E
+    LDA  buoy_movement_timer  ; $24
+    BNE  +jmp_to_next_buoy  ; $E275
 ; interesting... buoys only move from left to right
-$E22C               E6 11    INC  xpos_local  ; $11  ; x-pos of current buoy
-$E22E               A5 11    LDA  xpos_local  ; $11
-$E230               C9 94    CMP  #$94  ; 148
-$E232               B0 1D    BCS  +skip_if_xpos_>=148  ; $E251
-$E234               95 61    STA  buoys_xpos,x  ; $61,X  (array of all buoy x-positions)
-$E236               8A       TXA
-$E237               09 04    ORA  #$04
-$E239               20 B4 E8 JSR  set_sprite_position  ; $E8B4  (a=sprite no#, x,y vals in xpos_local/$11 and ypos_local/$12)
-$E23C               A6 23    LDX  iterator_local  ; $23
-$E23E               A9 FA    LDA  #$FA  ; sprite fa (afd buoy)
-$E240               9D FC 07 STA  $07FC,X  ; sprite-pointers for sprites 4-7
-$E243               A9 01    LDA  #$01
-$E245               9D 2B D0 STA  $D02B,X  ; sprite 4-7 colour (set it to white for the buoy)
-$E248               8A       TXA
-$E249               09 04    ORA  #$04
-$E24B               20 DD E8 JSR  turn_on_sprite_A  ; $E8DD
-$E24E               4C 75 E2 JMP  +jmp_to_next_buoy  ; $E275
+    INC  xpos_local  ; $11  ; x-pos of current buoy
+    LDA  xpos_local  ; $11
+    CMP  #$94  ; 148
+    BCS  +skip_if_xpos_>=148  ; $E251
+    STA  buoys_xpos,x  ; $61,X  (array of all buoy x-positions)
+    TXA
+    ORA  #$04
+    JSR  set_sprite_position  ; $E8B4  (a=sprite no#, x,y vals in xpos_local/$11 and ypos_local/$12)
+    LDX  iterator_local  ; $23
+    LDA  #$FA  ; sprite fa (afd buoy)
+    STA  $07FC,X  ; sprite-pointers for sprites 4-7
+    LDA  #$01
+    STA  $D02B,X  ; sprite 4-7 colour (set it to white for the buoy)
+    TXA
+    ORA  #$04
+    JSR  turn_on_sprite_A  ; $E8DD
+    JMP  +jmp_to_next_buoy  ; $E275
 +skip_if_xpos_>=148:
 -retry_if_zero:
-$E251               A9 00    LDA  #$00
-$E253               95 5D    STA  buoys_visibility,x  ; $5D,X
-$E255               8A       TXA
-$E256               09 04    ORA  #$04
-$E258               20 E8 E8 JSR  turn_off_sprite_A  ; $E8E8
-$E25B               4C 75 E2 JMP  +jmp_to_next_buoy  ; $E275
+    LDA  #$00
+    STA  buoys_visibility,x  ; $5D,X
+    TXA
+    ORA  #$04
+    JSR  turn_off_sprite_A  ; $E8E8
+    JMP  +jmp_to_next_buoy  ; $E275
 +buoy_currently_exploding:
-$E25E               A6 23    LDX  iterator_local  ; $23  ; current buoy index
-$E260               D6 69    DEC  buoys_explode_timer,x  ; $69,X
-$E262               F0 ED    BEQ  -retry_if_zero  ; $E251
-$E264               B5 69    LDA  buoys_explode_timer,x  ; $69,X  (range 0-23)
-$E266               4A       LSR
-$E267               4A       LSR
-$E268               4A       LSR  ; divide by 8  (range 0-2)
-$E269               29 03    AND  #$03
-$E26B               85 08    STA  genvarB  ; $08  ; index of buoy explode frame index to display
-$E26D               A9 F8    LDA  #$F8  ; dec248  (prepare buoy explosion sprite pointer)
-$E26F               38       SEC
-$E270               E5 08    SBC  genvarB  ; $08
-$E272               9D FC 07 STA  $07FC,X  ; sprite-pointers for sprites 4-7
-                                           ; sprite-pointer can be set to anything between $F6 - $F8
+    LDX  iterator_local  ; $23  ; current buoy index
+    DEC  buoys_explode_timer,x  ; $69,X
+    BEQ  -retry_if_zero  ; $E251
+    LDA  buoys_explode_timer,x  ; $69,X  (range 0-23)
+    LSR
+    LSR
+    LSR  ; divide by 8  (range 0-2)
+    AND  #$03
+    STA  genvarB  ; $08  ; index of buoy explode frame index to display
+    LDA  #$F8  ; dec248  (prepare buoy explosion sprite pointer)
+    SEC
+    SBC  genvarB  ; $08
+    STA  $07FC,X  ; sprite-pointers for sprites 4-7
+                  ; sprite-pointer can be set to anything between $F6 - $F8
 +jmp_to_next_buoy:
-$E275               C6 23    DEC  iterator_local  ; $23
-$E277               30 03    BMI  +skip_to_rts  ; $E27C
-$E279               4C D6 E1 JMP  -big_retry  ; $E1D6
+    DEC  iterator_local  ; $23
+    BMI  +skip_to_rts  ; $E27C
+    JMP  -big_retry  ; $E1D6
 +skip_to_rts:
-$E27C               60       RTS
+    RTS
 
 
 sprite F6: (buoy explosion?)
@@ -1903,37 +1910,37 @@ $E762               60       RTS
 maybe_unused_function:
 //--------------------
 // or maybe time waster function?
-$E763               EA       EOM
-$E764               EA       EOM
-$E765               EA       EOM
-$E766               EA       EOM
-$E767               EA       EOM
-$E768               EA       EOM
-$E769               EA       EOM
-$E76A               EA       EOM
-$E76B               EA       EOM
-$E76C               EA       EOM
-$E76D               EA       EOM
-$E76E               EA       EOM
-$E76F               EA       EOM
-$E770               EA       EOM
-$E771               EA       EOM
-$E772               EA       EOM
-$E773               EA       EOM
-$E774               EA       EOM
-$E775               EA       EOM
-$E776               EA       EOM
-$E777               EA       EOM
-$E778               EA       EOM
-$E779               EA       EOM
-$E77A               EA       EOM
-$E77B               EA       EOM
-$E77C               EA       EOM
-$E77D               EA       EOM
-$E77E               EA       EOM
-$E77F               EA       EOM
-$E780               EA       EOM
-$E781               EA       EOM
+$E763               EA       NOP
+$E764               EA       NOP
+$E765               EA       NOP
+$E766               EA       NOP
+$E767               EA       NOP
+$E768               EA       NOP
+$E769               EA       NOP
+$E76A               EA       NOP
+$E76B               EA       NOP
+$E76C               EA       NOP
+$E76D               EA       NOP
+$E76E               EA       NOP
+$E76F               EA       NOP
+$E770               EA       NOP
+$E771               EA       NOP
+$E772               EA       NOP
+$E773               EA       NOP
+$E774               EA       NOP
+$E775               EA       NOP
+$E776               EA       NOP
+$E777               EA       NOP
+$E778               EA       NOP
+$E779               EA       NOP
+$E77A               EA       NOP
+$E77B               EA       NOP
+$E77C               EA       NOP
+$E77D               EA       NOP
+$E77E               EA       NOP
+$E77F               EA       NOP
+$E780               EA       NOP
+$E781               EA       NOP
 $E782               60       RTS
 
 
@@ -2507,7 +2514,7 @@ $EB58               AD 1E D0 LDA  $D01E  ; sprite-to-sprite collision detect
 $EB5B               85 18    STA  buff_spr2spr_coll  ; $18
 $EB5D               AD 1F D0 LDA  $D01F  ; sprite-to-background collision detect
 $EB60               85 19    STA  buff_spr2back_coll  ; $19
-$EB62               20 00 E0 JSR  game_mechanics_iteration  ; $E000  ; has logic to spawn new ships when needed
+$EB62               20 00 E0 JSR  ship_logic  ; $E000  ; has logic to spawn new ships when needed
 $EB65               20 C8 E1 JSR  buoy_logic  ; $E1C8
 $EB68               20 7D E2 JSR  handle_missile_firing_and_state  ; $E27D
 $EB6B               20 CE E3 JSR  redraw_player_submarines  ; $E3CE
