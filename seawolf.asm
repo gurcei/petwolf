@@ -1,67 +1,33 @@
-====================
-SEA WOLF DISASSEMBLY
-====================
+// ====================
+// SEA WOLF DISASSEMBLY
+// ====================
 
-' ----------------
-' global variables
-' ----------------
-$02 scr_ptr_lo:  (low-byte) pointer to screen memory
-$03 scr_ptr_hi:  (hight-byte) pointer to screen memory
-$04 clr_ptr_lo: (low-byte) pointer to colour memory
-$05 clr_ptr_hi: (high-byte) pointer to colour memory
-$06 ret_ptr_lo:  (low-byte) address to return to after call to draw_inline_text
-$07 ret_ptr_hi:  (high-byte) address to return to after call to draw_inline_text
-$08 genvarB:
-  - in print_remaining_game_time:
-    - set to #$01 
-  - in game_mechanics_iteration:
-    - sta at $e021 (stores a given ship_type_width,y) - for the ship that potentially had the collision with the missile
-    - cmp at $e03b (for checking x-range of ship against missile location)
-    - sta at $e0eb (stores the y-pos of the newly spawned ship)
-    - cmp at $e10c (compare y-pos of newly spawned ship to other ships, to find other ships on same row)
-    - sta at $e11b (the number of ships on same row as newly spawned ship)
-    - dec at $e11d (decrement, as the loop ahead will be comparing indexed ship to the indexed ship ahead of it, for sorting)
-    - cpy at $e145 (comparison of current ship index to the count-1 of other ships on same y-row)
-    - cpy at $e16c (comparison of current ship index to the count-1 of other ships on same y-row)
-    - sta at $e177 (holds x-width between the spawn-edge (left or right) and the closest existing ship)
-    - sta at $e184 (compare required gap with x-width between spawn-edge and closest existing ship)
-  - in buoy_logic:
-    - sta at $e26b (index of buoy explode frame index to display)
-    - sbc at $e270 (calculating genuine sprite frame index needed)
-  - redraw_torpedo_amount_indicator:
-    - sty at $e390 (set to #$04 - iterator over the screen offsets for 4 missile availability indicators for the current player)
-    - dec at $e39b (decrement to next offset)
-  - redraw_player_submarines:
-    - sta at $e430 (index of loop from 40 to 0, in order to copy across 5 chars to define player's sub (5x8=40) )
-    - dec at $e43a (next iteration of loop)
-  - bullet_redraw_and_ship_assessment:
-    - sta at $e477 (stores value indexed from missile_speed_at_indexed_2x2_ypos,y)
-    - lda at $e492 (retrieval of prior value)
-    - lda at $e4a9 (retrieval of prior value)
-    - lda at $e4e3 (retrieval of prior value)
-  - prepare_game_screen:
-    - sta at $e64f (set to #$02
-
-  - sta at $F0FB (in relation to paddle position)
-$09 genvarA:
-  - sta at $e100  (potentially could be set to either #$00 or #$01 or #$02 at this point, so maybe ship-type?)
-  - adc at $e17e
-  - sta at $e3e7  (current player x-pos)
-  - inc at $e3fb
-  - dec at $e3fe
-  - sta at $e40a  (maybe it stores the current paddle position?)
-  - lda at $e519  (seems to store the char representing the missile shot to be drawn to the screen)
-$0a curr_ship_mirror_state:
+// ----------------
+// global variables
+// ----------------
+scr_ptr_lo = $02  // (low-byte) pointer to screen memory
+scr_ptr_hi = $03  // (high-byte) pointer to screen memory
+clr_ptr_lo = $04  // (low-byte) pointer to colour memory
+clr_ptr_hi = $05  // (high-byte) pointer to colour memory
+ret_ptr_lo = $06  // (low-byte) address to return to after call to draw_inline_text
+ret_ptr_hi = $07  // (high-byte) address to return to after call to draw_inline_text
+genvarB = $08    // usage varies
+genvarA = $09  // usage varies
+curr_ship_mirror_state = $0a 
+/*
   - can either be:
     - #$01 = normal (ship faces to the right, will travel left to right)
     - #$ff = mirrored (ship faces to the left, will travel right to left)
-  - sta at $e123
-  - sta at $e195  (can either be #$01 or #$ff)
-$0e missile_chardata_row_iterator: iterator to write out the 8 bytes of small_missile_char_data_x_offset0/2 into genarrayA at a desired y-offset relating to missile position
+*/
+missile_chardata_row_iterator = $0e
+// iterator to write out the 8 bytes of small_missile_char_data_x_offset0/2 into genarrayA at a desired y-offset relating to missile position
+/*
   - in bullet_redraw_and_ship_assessment:
     - sta at $e4b0  ; (set it to #$08) 
     - dec at #e4be (index for loop_back_to_next_row loop)
-$0f offset_to_char_idx_of_2x2_missile_chars: offset to char index of 2x2 missile chars
+*/
+offset_to_char_idx_of_2x2_missile_chars = $0f  // offset to char index of 2x2 missile chars
+/*
   - bullet_redraw_and_ship_assessment:
     - sta at $e47c (multiply by 4  ; so now ship0 = 0, ship1 = 4, ship2 = 8, ... ship7 = 28)
       - reg A will equal one of the following, depending on which missile is referenced:
@@ -69,214 +35,142 @@ $0f offset_to_char_idx_of_2x2_missile_chars: offset to char index of 2x2 missile
         ; p1_missile2 = #$08, p1_missile1 = #$0c
         ; p2_missile4 = #$10, p2_missile3 = #$14
         ; p2_missile2 = #$18, p2_missile1 = #$1c
-    - lda at $e503
-$10 offset_to_char_data_addr_of_2x2_missile_chars:
-  - sta at $e481
-$11 xpos_local:  (a place to temporarily store x-position of current ship/missile/buoy)
-  - sbc at $e035
-  - lda at $e081
-  - lda at $e8b7
-$12 ypos_local:  (a place to temporarily store y-position of current ship/missile/buoy)
-  - sta at $E5AE
-  - inc at $e641
-  - inc at $e643
-  - lda at $E8D4
-  - sbc at $e1fa
-$13 txt_x_pos:  the x-position to draw text from  :  set to #$12 (18) in print_remaining_game_time
-$14 txt_y_pos:  the y-position (row) to draw text from  :  set to #$18 (24) in print_remaining_game_time
-           - set to #$00 in init_game_screen
-           - set to #$17  (23) in prepare_game_screen
-$16 real_game_mode_flag:  (is it some kind of attract-mode flag?)
+*/
+offset_to_char_data_addr_of_2x2_missile_chars = $10 
+xpos_local = $11  // (a place to temporarily store x-position of current ship/missile/buoy)
+ypos_local = $12  // (a place to temporarily store y-position of current ship/missile/buoy)
+txt_x_pos = $13  // the x-position to draw text from  :  set to #$12 (18) in print_remaining_game_time
+txt_y_pos = $14  // the y-position (row) to draw text from  :  set to #$18 (24) in print_remaining_game_time
+real_game_mode_flag = $16  // (is it some kind of attract-mode flag?)
+/*
   - if set to #$FF, this means user will control the paddles for real gameplay
   - if set to #$00, attract mode is on. This means that computer will control both paddles automatically for attract mode
-  - ldy at $e3e1
-$17 initial_game_time  (in minutes?)
-$18 buff_spr2spr_coll:  buffered value of sprite-to-sprite collision
-$19 buff_spr2back_coll:  buffered value of sprite-to-background collision
-$1B randomval_lsb:
-  - asl in $E897
-  - eor in $e89d
-  - eor in $e8a0
-$1C randomval_msb:
-  - rol in $e899
-$1D p1_score_lo: the low two-digits of player1 score : set to #$00 in start_game
-$1E p2_score_lo: the low two-digits of player2 score : set to #$00 in start_game
-$1F p1_score_hi: the high two-digits of player1 score : set to #$00 in start_game
-$20 p2_score_hi: the high two-digits of player2 score : set to #$00 in start_game
-$21 high_score_lo: the low two-digits of high score
-$22 high_score_hi: the high two-digits of high score
-$23 iterator_local: (possibly a general index var used for different purposes in different places)
-          (sometimes used as an index var to choose between player1 or 2)
-  - ldx at $e09c
-  - ldx at $e0b6
-  - ldx at $e0e7  (relates to index into ships_ypos[] / $49)
-  - sta at $e1d4  (sets it to #$03)
-  - ldx at $e23c
-  - ldx at $e25e
-  - dec at $e275
-  - lda at $e27d  (sets it to #$01)
-  - ldx at $e2fe  (later used as index to p1_num_missiles,y) (gives me impression it is a generic index var)
-  - lda at $e45f  (set to #$07)
-$24 buoy_movement_timer:
-  - buoy_logic:
-    - lda at $e1c8
-    - sta at $e1ce  (set to #$0b / dec11)
-$25 buoy_pair_index:
+*/
+initial_game_time   = $17 // (in minutes?)
+buff_spr2spr_coll = $18  // buffered value of sprite-to-sprite collision
+buff_spr2back_coll = $19  // buffered value of sprite-to-background collision
+randomval_lsb = $1B 
+randomval_msb = $1C 
+p1_score_lo = $1D  //the low two-digits of player1 score : set to #$00 in start_game
+p2_score_lo = $1E  //the low two-digits of player2 score : set to #$00 in start_game
+p1_score_hi = $1F  //the high two-digits of player1 score : set to #$00 in start_game
+p2_score_hi = $20  //the high two-digits of player2 score : set to #$00 in start_game
+high_score_lo = $21  //the low two-digits of high score
+high_score_hi = $22  //the high two-digits of high score
+iterator_local = $23  //(possibly a general index var used for different purposes in different places)
+buoy_movement_timer = $24 
+buoy_pair_index = $25 
+/*
   - Can either be:
   -   0: buoys 0 and 1 will be assessed
   -   2: buoys 2 and 3 will be assessed
-  - handle_missile_firing_and_state:
-    - lda at $e308
-    - sta at $e30a (bit 1 is toggled)
-$26 secs_in_minute_left:  var9:  ; maybe a seconds in the minute countdown
-  - set to #$3B (59) in init_game_vars
-$27 decimal_secs_in_minutes_left:
-  - lda at $e84e
-$28 minutes_left:  game_time:  (in minutes?) (in decimal mode)
-$2a idx_to_v1_ptboat_beep_beep_freq_array:
+*/
+secs_in_minute_left = $26  // maybe a seconds in the minute countdown
+decimal_secs_in_minutes_left = $27 
+minutes_left = $28  // (in minutes?) (in decimal mode)
+idx_to_v1_ptboat_beep_beep_freq_array = $2a 
+/*
   - This is an index to an array describing on which frames will there be a beep sound made for the p.t. boat
     - The array is v1_ptboat_beep_beep_freq_array
     - Some entries in the array are #$0000 (silence), while others are the beep frequency, #$4EE8
-  - dec at $e9a9
-  - sta at $e9af (sets it to #$05)
-$2b whatis3:
-  - sta at $e955 (set to #$03)
-$2c whatis4:
-  - lda at $e97f
-$2d whatis5:
+*/
+whatis3 = $2b 
+  // - sta at $e955 (set to #$03)
+whatis4 = $2c 
+  // - lda at $e97f
+whatis5 = $2d 
+/*
   - lda at $e967
   - dec at $e96b (only if whatis5 is not yet zero)
   - sta at $e970 (if it was previousy zero, it will be now set to #$03)
-$2e curr_missile_colour:
-  - sta at $e486  (stores some colour choice between yellow or light-brown)
-$2f-$30 missile_reload_timers[2]: countdown-to-zero timers for each player, to decide when missiles for player are reloaded
+*/
+curr_missile_colour = $2e 
+missile_reload_timers = $2f  // to $2f-$30 [2]: countdown-to-zero timers for each player, to decide when missiles for player are reloaded
+/*
     - timers start at #$B4 (180) - equates to "TIME TO LOAD: 3 SECONDS."
     - when timer reaches #$78 (120) -  msg is "TIME TO LOAD: 2 SECONDS."
     - when timer reaches #$3C (60)  -  msg is "TIME TO LOAD: 1 SECONDS."
-  - lda at $e283
-  - dec at $e287
-  - sta at $e306 (set to #$B4/dec180) it sets only if no# missiles left after shot is zero
-$31 p1_num_missiles:
-  - set to #$04 in init_game_vars
-  - sta at $e2a4 (set to #$04)  (for reload?)
-$32 p2_num_missiles: set to #$04 in init_game_vars
-$33-$34 last_paddle_fire_state[2]:  
+*/
+//  - sta at $e306 (set to #$B4/dec180) it sets only if no# missiles left after shot is zero
+p1_num_missiles = $31 
+p2_num_missiles = $32  //set to #$04 in init_game_vars
+last_paddle_fire_state = $33  // $33-$34 [2]:  
+/*
   - used to assure one-shot logic of the fire button (not rapid fire)
   - sta at $e2c3  (set to #$00)  - paddle fire button is off
   - sta at $e2d3  (set to #$ff)  - paddle fire button is on
-  - lda at $e2d5
-  - set to same value as initial_game_time in start_game
-  - set to same value as initial_game_time in start_game
-$35-36 players_xpos[2]: (some detail relating to player1 and 2)
+*/
+players_xpos = $35  // $35-36 [2]:
   - [0] = player1 x-pos in pixel units
-  - [1] = player2 y-pos in pixel units
-                   (maybe it is the current player1/2 x-positions)
+  - [1] = player2 x-pos in pixel units
+/*
                    - submarine chars can only be drawn on columns 0 to 39
                    - but I think the value stored here is x4 (so from 0 to 159)
-                     (as it is divided by 4 later in $e410
-  - lda at $e2e4
-  - lda at $e3e5
+                     (as it is divided by 4 later in $e410)
   - sta at $e442 (it is later divided by 4 and used as an x-pos to draw the player's submarine)
-$37-38 attract_mode_player_xpos_waypoint[2]: (some detail relating to player1 and 2)
-  - cmp at $e3e9
-  - sta at $e3f4
-$39-$3c ships_visibility[4]: visibility of ships
+*/
+attract_mode_player_xpos_waypoint = $37  // $37-38 [2]: for player1 and 2
+ships_visibility = $39  // $39-$3c [4]: visibility of ships
+/*
                    - #$00 = invisible
                    - #$01 = visible
                    - #$ff = shot/exploding
                    (the negative-flag seems critical, and causes 'ship_is_currently_exploding')
-  - read at $e006
-  - read at $e049
-  - sta at $e04f
-  - sta at $e0ba to #$00
-  - lda at $e106
-  (maybe keeps track of object collisions? index is sprite no#)
-$3d-40 ships_move_tmr[4]:  count-down timer of when to move ships along (I guess it counts down from larger amounts for slower ships?)
-  - lda at $e074
-  - dec at $e078
-$41-44 ships_move_max_time[4]: keeps a record of the max-count of frames the ship at this index needs to wait before moving
+*/
+ships_move_tmr = $3d  // $3d-40 [4]:  count-down timer of when to move ships along (I guess it counts down from larger amounts for slower ships?)
+ships_move_max_time = $41  // $41-44 [4]: keeps a record of the max-count of frames the ship at this index needs to wait before moving
   - lda at $e07d
-$45-48 ships_xpos[4]: x-pos of all ships
-  - accessed in $e000 routine
-  - lda at $e011
-  - sta at $e088
-  - lda at $e12f
-  - cmp at $e133
-$49-4c ships_ypos[4]: y-pos of all ships
-  - lda at $e00d
-  - lda at $e10a
-$4d-50 ships_mirror_flag[4]:  ; mirror orientation of all ships (01 = normal, FF = reversed?)
-  - adc at $e084
-  - lda at $e09e
-  - sta at $e0e9
-  - lda at $e121
-  - sta at $E1B2 
-$51-54 ships_type[4]: ship-type of all ships (idx 0-3) #$00=freighter, #$01=cruiser, #$02=p.t. boat
-                  (seems to have values of either #$00 or #$01)
-  - ldy at $e01c
-  - lda at $e05b
-  - ldy at $e08e
-  - ora at $e0a2
-  - lda at $e179
-  - adc at $e17c
-  (index to the type of ship on screen?)
-$55-xx ships_explosion_tmr[x]: explosion duration countdown timer of each ship (and buoy)
-                  (is divided by 8 to decide which explosion frame to show - F9, F5 or F1)
-  - sta at $e053  (sets is to max timer value of #$18 / 24)
-  - dec at $e0c2
-  - lda at $e0c6
-$5d-$60 buoys_visibility[4]: (possibly data relating to buoys)
+ships_xpos = $45  // $45-48 [4]: x-pos of all ships
+ships_ypos = $49  // $49-4c [4]: y-pos of all ships
+ships_mirror_flag = $4d  // $4d-50 [4]:  ; mirror orientation of all ships (01 = normal, FF = reversed?)
+ships_type = $51  // $51-54 [4]:
+//ship-type of all ships (idx 0-3) #$00=freighter, #$01=cruiser, #$02=p.t. boat
+ships_explosion_tmr = $55  // $55-5c [8]:
+// explosion duration countdown timer of each ship (and buoy)
+// (is divided by 8 to decide which explosion frame to show - F9, F5 or F1)
+//  - sta at $e053  (sets it to max timer value of #$18 / 24)
+buoys_visibility = $5d  // $5d-$60 [4]:
+/*
                    - #$00 = invisible
                    - #$01 = visible
                    - #$ff = shot/exploding
-  - lda at $e1d8 (with index of iterator_local)
   - sta at $e218 (sets it to #$ff) (if xpos of buoy <12 or >=254)
   - lda at $e224
   - sta at $e253 (sets it to #$00 - on occasions when x-pos > 148)
   - sta at $e349 (set to #$01)
-  - set to #$01 in init_game_vars
-  - set to #$01 in init_game_vars
-$61-64:  buoys_xpos[4]:  (array of all buoy x-positions)
-  - lda at $e1df (with index of iterator_local)
-  - sta at $e320 (set to #$00)
-  - [0] set to #$00 in init_game_vars
-  - [1] set to #$44 (68) in init_game_vars
-$65-$68:  buoys_ypos[4]:  (array of all buoy y-positions)
+*/
+buoys_xpos = $61  // $61-64:  [4]:  (array of all buoy x-positions)
+buoys_ypos = $65  // $65-68:  [4]:  (array of all buoy y-positions)
+/*
           - (have values of either #$60 or #$80)
           - (the absolute sprite x-pos for these is #$92 and #$B2)
           - (that's a difference of #$32)
-  - lda at $e1e3 (with index of iterator_local)
-  - set to #$60 (96) in init_game_vars
-  - set to #$60 (96) in init_game_vars
-$69-$6c: buoys_explode_timer[4]:
+*/
+buoys_explode_timer = $69  // $69-6c: [4]:
+/*
   - upon a buoy exploding, it is set to 24, and decremented every frame
   - its value is divided by 8 to assist as an index to which explosion frame to show (0 - 2)
   - in buoy_logic:
     - sta at $e21c (set to #$18 / dec24) - in response to a buoy being hit by a missile
-    - dec at $e260 (indexed by iterator_local)
-    - lda at $e264 (indexed by iterator_local)
-$6d-74 torpedo_fire_xpos[8]:  (x-positions of all torpedoes)
-  - read at $e031
-  - read at $e200 (with ,y index at 7)
-  - sta at $e2e9
-$75-$7c torpedo_fire_ypos[8]:  (y-positions of all torpedoes)
+*/
+torpedo_fire_xpos = $6d  // $6d-74 [8]:  (x-positions of all torpedoes)
+torpedo_fire_ypos = $75  // $75-7c [8]:  (y-positions of all torpedoes)
+/*
   - the missile-fire starts at ypos dec160, decrements until it reaches less than dec16
-  - read at $e025
-  - lda at $e1f4  (starting from index=7)
-  - sta at $e2ee (sets it to #$a0 / dec160) (when missile is initially fired)
-  - lda at $e465 (starting from index=7)
-  - sta at $e52c (sets it to #$00 / dec0) (this occurs when missile-fire is no longer visible on screen)
-                                          (if the ypos of the missile is less than #$10 / dec16, it will become invisible)
-$7d-84 torpedo_fire_state[8]: 
+*/
+//  - sta at $e52c (sets it to #$00 / dec0) (this occurs when missile-fire is no longer visible on screen)
+// (if the ypos of the missile is less than #$10 / dec16, it will become invisible)
+torpedo_fire_state = $7d  // $7d-84 [8]: 
+/*
   - #$00 = fired (is currently active on screen)
   - #$ff = not fired yet (no longer visible on screen)
   (index is the missile-index that hit the ship)
   - sta at $e046 (sets it to #$ff upon a missile hitting a ship)
   - sta at $e215 (sets it to #$ff upon a missile hitting a buoy)
   - sta at $e2f3 (sets it to #$00 upon a missile being fired by a player)
-  - in bullet_redraw_and_ship_assessment:
-    - ldy at $e4e9
-$85-$A4 genarrayA[32]:
+*/
+genarrayA = $85  // $85-A4 [32]:
+/*
   - multi-purpose array
   - PURPOSE1: within 'game_mechanics_iteration:'
     - is used to store a list of existing ship indexes that are on the same ypos as the newly spawned ship
@@ -286,24 +180,22 @@ $85-$A4 genarrayA[32]:
     - prepares the bullet chars needed for each player's missile custom char-based soft-sprites
       - which is then copied down to vic-bank0 at $0300 - $03ff
       - I.e., vicbank0_missile_chars_for_player1/2
-
-  - sta at $e111  ; seems to keep a list of existing ship indexes that are on the same ypos as the newly spawned ship
-                    (these are sorted on their xpos, depending on the mirror/direction the ships are going)
-  - ldx at $e11f
-  - sta at $e48c  ; resets entire array to zeroes
-  - sta at $e4ba  ; stores from the middle of the table and onwards 
-$fe-$ff filtered_player_xpos[2]:
+*/
+filtered_player_xpos = $fe  // $fe-ff [2]:
+/*
   - This stores the smoothed/filtered x-pos of the player's sub in 0-148 range (2-pixel units / pixel-pairs)
   - This value is calculated within 'read_paddle_position'
   - Later at $E442, it is copied across to 'players_xpos'
   - adc at $F109
   - sta at $F11F
+*/
 
 
-$02a8-02cf vicbank0_sub_chars_for_player1[5][8]:
+vicbank0_sub_chars_for_player1 = $02a8  // $02a8-02cf [5][8]:
+/*
   - The custom char-based soft-sprite used for player1's submarine, whose contents are copied from
     from submarine_charset1/2/3/4 ($ee48), depending on which 2-pixel location the sub is at 
-  - sta at $e435
+ 
 char idx $55-59 address: $02A80-02
 +--------+--------+--------+--------+--------+
 |        |        | **     |        |        |
@@ -315,8 +207,10 @@ char idx $55-59 address: $02A80-02
 |    ****|********|********|********|        |
 |        |        |        |        |        |
 +--------+--------+--------+--------+--------+
+*/
 
-$02d0-02ff vicbank0_sub_chars_for_player2[5][8]:
+vicbank0_sub_chars_for_player2 = $02d0  // $02d0-02ff [5][8]:
+/*
   - The custom char-based soft-sprite used for player2's submarine, whose contents are copied from
     from submarine_charset1/2/3/4 ($ee48), depending on which 2-pixel location the sub is at 
 +--------+--------+--------+--------+--------+
@@ -329,8 +223,11 @@ $02d0-02ff vicbank0_sub_chars_for_player2[5][8]:
 |        |********|********|********|****    |
 |        |        |        |        |        |
 +--------+--------+--------+--------+--------+
+*/
 
-$0300-037F vicbank0_missile_chars_for_player1[4][4][8]: ([4 missiles][4 chars per missile][8 bytes per char])
+vicbank0_missile_chars_for_player1 = $0300  // $0300-037F [4][4][8]:
+/*
+([4 missiles][4 chars per missile][8 bytes per char])
   - sta at $e4fa  (seems to copy across a chunk of genarrayA?)
 - E.g. if player1 has fired all 4 missiles, it may look like this:
 
@@ -354,9 +251,11 @@ $0300-037F vicbank0_missile_chars_for_player1[4][4][8]: ([4 missiles][4 chars pe
 |        |        | |        |        | |        |        | |        |        |
 |        |        | |        |        | |        |        | |        |        |
 +--------+--------+ +--------+--------+ +--------+--------+ +--------+--------+
+*/
 
-
-$0380-03ff vicbank0_missile_chars_for_player2[4][4][8]: ([4 missiles][4 chars per missile][8 bytes per char])
+vicbank0_missile_chars_for_player2 = $0380  // $0380-03ff [4][4][8]:
+/*
+([4 missiles][4 chars per missile][8 bytes per char])
 - E.g. if player2 has fired all 4 missiles, it may look like this:
  MISSILE 4           MISSILE 3           MISSILE 2           MISSILE 1
 +--------+--------+ +--------+--------+ +--------+--------+ +--------+--------+
@@ -378,13 +277,14 @@ $0380-03ff vicbank0_missile_chars_for_player2[4][4][8]: ([4 missiles][4 chars pe
 |   **   |        | |        |        | |        |        | |        |        |
 |        |        | |        |        | |        |        | |        |        |
 +--------+--------+ +--------+--------+ +--------+--------+ +--------+--------+
+*/
 
-'--------------------------------
+//--------------------------------
 
 game_mechanics_iteration:
 ------------------------
-' has logic to spawn new ships when needed
-' also checks for missile-to-ship collisions
+// has logic to spawn new ships when needed
+// also checks for missile-to-ship collisions
 $E000               A9 03    LDA  #$03  ; iterator over all 4 possible ships
 $E002               85 23    STA  iterator_local  ; $23
 -retry_next_possible_ship:
@@ -404,17 +304,17 @@ $E01A               F0 54    BEQ  +no_spr2back_collision_detected  ; $E070  ; if
 $E01C               B4 51    LDY  ships_type,x  ; $51,X  ship-type of all ships (idx 0-3) #$00=freighter, #$01=cruiser, #$02=p.t. boat
 $E01E               B9 0E EE LDA  ship_type_widths,y  ; $EE0E,Y
 $E021               85 08    STA  genvarB  ; $08
-' now figure out which of the 8 potential missiles hit this ship
+// now figure out which of the 8 potential missiles hit this ship
 $E023               A0 07    LDY  #$07
 -retry_next_missile:
-' assess if this missile is in a valid yrange to have hit this ship
+// assess if this missile is in a valid yrange to have hit this ship
 $E025               B9 75 00 LDA  torpedo_fire_ypos,y  ; $0075,Y  ; y-position of all torpedoes (4 for player1 and 4 for player2)
 $E028               F0 15    BEQ  +curr_torpedo_out_of_yrange_of_hit_ship  ; $E03F
 $E02A               38       SEC
 $E02B               E5 12    SBC  ypos_local  ; $12  ; y-pos of current ship
 $E02D               C9 10    CMP  #$10  ; (dec16)
 $E02F               B0 0E    BCS  +curr_torpedo_out_of_yrange_of_hit_ship  ; $E03F  ; branch if >= 16
-' yrange was valid, so now check missile is within xrange of hit ship
+// yrange was valid, so now check missile is within xrange of hit ship
 $E031               B9 6D 00 LDA  torpedo_fire_xpos,y  ; $006D,Y  ; x-pos of all torpedoes (y=currently indexed torpedo)
 $E034               38       SEC
 $E035               E5 11    SBC  xpos_local  ; $11  ; x-pos of current ship
@@ -457,7 +357,7 @@ $E076               F0 05    BEQ  +time_to_move_curr_ship_along  ; $E07D
 $E078               D6 3D    DEC  ships_move_tmr,x  ; $3D,X
 $E07A               4C BD E1 JMP  +super_duper_big_jump  ; $E1BD
 +time_to_move_curr_ship_along:
-' move the ship along a small increment along the x-axis?
+// move the ship along a small increment along the x-axis?
 $E07D               B5 41    LDA  ships_move_max_time,x  ; $41,X
 $E07F               95 3D    STA  ships_move_tmr,x  ; $3D,X
 $E081               A5 11    LDA  xpos_local  ; $11  ; x-position of current ship
@@ -571,14 +471,14 @@ $E129               F0 1E    BEQ  +skip4  ; $E149  ; if no# of existing ships on
 -jmp_retry:
 $E12B               A0 00    LDY  #$00    ; if we're here, then there are multiple existing ships on same ypos as new ship
 -retry3:
-' some kind of sorting logic?
+// some kind of sorting logic?
 $E12D               B6 85    LDX  genarrayA,y  ; $85,Y  ; idx of existing ships on same ypos as new ship
 $E12F               B5 45    LDA  ships_xpos,x  ; $45,X  ; x-pos of all ships (x = index of an existing ship from the genarrayA list)
 $E131               B6 86    LDX  genarrayA+1,y  ; $86,Y  ; idx of existing ship after this prior one
 $E133               D5 45    CMP  ships_xpos,x  ; $45,X  ; compare 1st ship's xpos with 2nd ships xpos
 $E135               90 0D    BCC  +no_need_to_swap_pair  ; $E144  ; if 1st existing ship's xpos is less than 2nd existing ship's xpos, then branch
 $E137               F0 0B    BEQ  +no_need_to_swap_pair ; $E144   ; or if their xpos are equal, branch too
-' need to swap pair to sort them in order
+// need to swap pair to sort them in order
 $E139               B9 85 00 LDA  genarrayA,y  ; $0085,Y  ; a = xpos of 1st existing ship
 $E13C               96 85    STX  genarrayA,y  ; $85,Y     ; let the 1st ship xpos now equal the 2nd ship xpos
 $E13E               99 86 00 STA  genarrayA+1,y  ; $0086,Y  ; let the 2nd ship xpos now equal the 1st ship xpos (i.e. swap them)
@@ -592,11 +492,11 @@ $E149               A6 85    LDX  genarrayA  ; $85  ; 1st of existing (and sorte
 $E14B               B5 45    LDA  ships_xpos,x  ; $45,X  ; x-pos of all ships
 $E14D               4C 77 E1 JMP  +another_skip  ; $E177
 +skip3:
-' mirrored orientation (ships on this row are currently moving right to left)
+// mirrored orientation (ships on this row are currently moving right to left)
 $E150               C0 01    CPY  #$01  ; the number of existing ships that are on the same ypos as newly spawned ship
 $E152               F0 1C    BEQ  +skip6  ; $E170  ; if there's only one existing ship on this row, then branch (no need to sort?)
 -jmp_back_a_little:
-' sorting logic for mirrored case
+// sorting logic for mirrored case
 $E154               A0 00    LDY  #$00
 -retry4:
 $E156               B6 85    LDX  genarrayA,y  ; $85,Y  ; idx of existing ships on same ypos as new ship
@@ -618,7 +518,7 @@ $E172               A9 88    LDA  #$88  ; dec136 (the right-most edge's xpos)
 $E174               38       SEC
 $E175               F5 45    SBC  ships_xpos,x  ; $45,X  ; A = right_edge_xpos - 1st_existing_sorted_ships_xpos
 +another_skip:
-' assess the gap between closest existing ship and newly spawned ship
+// assess the gap between closest existing ship and newly spawned ship
 $E177               85 08    STA  genvarB  ; $08  ; holds x-width between the spawn-edge (left or right) and the closest existing ship
 $E179               B5 51    LDA  ships_type,x  ; $51,X  ; get the ship-type of the closest ship to the spawn-edge
 $E17B               0A       ASL  ; multiply by 2
@@ -630,8 +530,8 @@ $E184               C5 08    CMP  genvarB  ; $08  ; compare with x-width between
 $E186               B0 35    BCS  +not_big_enough_gap_yet  ; $E1BD  ; branch if required_gap >= x-width spawn-edge to closest ship
 $E188               90 0D    BCC  +sufficient_gap_to_spawn_new_ship  ; $E197
 +no_other_ships_on_row:
-'---------------------
-' decide whether ship should move left-to-right (normal) or right-to-left (mirrored)
+//---------------------
+// decide whether ship should move left-to-right (normal) or right-to-left (mirrored)
 $E18A               20 93 E8 JSR  random_num_gen_into_A  ; $E893  ; put magic number in A
 $E18D               A8       TAY
 $E18E               30 03    BMI  +skip_to_set_ship_mirrored  ; $E193  ; if neg-bit is on (i.e., range=128to255), then branch
@@ -919,7 +819,7 @@ sprite F1
 
 
 buoy_logic:
-'---------
+//---------
 $E1C8               A5 24    LDA  buoy_movement_timer  ; $24
 $E1CA               10 04    BPL  +buoy_timer_not_expired_yet  ; $E1D0
 ; reset timer after expiring
@@ -930,11 +830,11 @@ $E1D0               C6 24    DEC  buoy_movement_timer  ; $24
 $E1D2               A9 03    LDA  #$03  ; buoy iterator (3 to 0)
 $E1D4               85 23    STA  iterator_local  ; $23
 -big_retry:
-' loops on a decrementing iterator_local until all the way to zero
+// loops on a decrementing iterator_local until all the way to zero
 $E1D6               A6 23    LDX  iterator_local  ; $23
 $E1D8               B5 5D    LDA  buoys_visibility,x  ; $5D,X
 $E1DA               D0 03    BNE  +buoy_is_visible_or_exploading  ; $E1DF  ; branch if non-zero
-' if buoy is invisible, jump to next buoy
+// if buoy is invisible, jump to next buoy
 $E1DC               4C 75 E2 JMP  +jmp_to_next_buoy  ; $E275
 +buoy_is_visible_or_exploading:
 $E1DF               B5 61    LDA  buoys_xpos,x  ; $61,X
@@ -969,7 +869,7 @@ $E20F               10 E3    BPL  -retry1  ; $E1F4
 $E211               D0 11    BNE  +skip_due_to_no_spr_to_back_collision  ; $E224
 +branch_if_xpos_<12:
 +branch_if_xpos_>=254:
-' if we're here, a missile has hit a buoy
+// if we're here, a missile has hit a buoy
 $E213               A9 FF    LDA  #$FF  ; #$ff = this torpedo is no longer visible
 $E215               99 7D 00 STA  torpedo_fire_state,y  ; $007D,Y
 $E218               95 5D    STA  buoys_visibility,x  ; $5D,X
@@ -1140,7 +1040,7 @@ sprite FA: (buoy)
 
 
 handle_missile_firing_and_state:
-'------------------------------
+//------------------------------
 $E27D               A9 01    LDA  #$01  ; iterator_local is set to #$01 to indicate (index to) player2 
                                         ; (it is set later at $E357 to #$00 to indicate player1)
 $E27F               85 23    STA  iterator_local  ; $23
@@ -1175,13 +1075,13 @@ $E2A6               20 5F E3 JSR  redraw_torpedo_amount_indicator  ; $E35F
 $E2A9               A5 23    LDA  iterator_local  ; $23
 $E2AB               A4 16    LDY  real_game_mode_flag  ; $16
 $E2AD               D0 0A    BNE  +skip_if_in_real_game_mode_flag  ; $E2B9
-' if in attract mode, randomly decide when to fire missiles
+// if in attract mode, randomly decide when to fire missiles
 $E2AF               20 93 E8 JSR  random_num_gen_into_A  ; $E893
 $E2B2               C9 03    CMP  #$03
 $E2B4               90 12    BCC  +auto_fire_missile_while_in_attract  ; $E2C8  ; branch if less than 3
 $E2B6               4C BF E2 JMP  +skip_jmp  ; $E2BF
 +skip_if_in_real_game_mode_flag:
-' if not in attract, we're in real game, to read user input for fire button
+// if not in attract, we're in real game, to read user input for fire button
 $E2B9               20 83 E7 JSR  read_paddle_fire_button  ; $E783
 $E2BC               AA       TAX
 $E2BD               D0 09    BNE  +paddle_fires_pressed  ; $E2C8  ; branch if any paddle fires pressed
@@ -1245,7 +1145,7 @@ $E317               4C 57 E3 JMP  +big_jmp_to_near_end  ; $E357
 $E31A               B5 5E    LDA  buoys_visibility+1,x ; $5E,X
 $E31C               D0 1C    BNE  +buoy1_invisible_and_buoy2_visible  ; $E33A
 ; both buoys in the pair are invisible
-'-------------------------------------
+//-------------------------------------
 $E31E               A9 00    LDA  #$00
 $E320               95 61    STA  buoys_xpos,x  ; $61,X  ; spawn new buoy at xpos=0
 $E322               18       CLC
@@ -1253,7 +1153,7 @@ $E323               69 44    ADC  #$44  ; dec68  ; 2nd buoy in pair will be at x
 $E325               95 62    STA  buoys_xpos+1,x  ; $62,X
 $E327               4C 47 E3 JMP  +assure_both_buoys_in_pair_visible_and_on_same_ypos  ; $E347
 +buoy1_visible_and_buoy2_invisible:
-'---------------------------------
+//---------------------------------
 $E32A               B5 61    LDA  buoys_xpos,x  ; $61,X  ; 1st buoy xpos
 $E32C               C9 4C    CMP  #$4C  ; dec76  ; 1st_buoy_xpos >= 76
 $E32E               B0 03    BCS  +respawn_2nd_buoy_behind_1st  ; $E333
@@ -1264,7 +1164,7 @@ $E332               2C E9 44 BIT  $44E9
 $E335               95 62    STA  buoys_xpos+1,x  ; $62,X
 $E337               4C 47 E3 JMP  +assure_both_buoys_in_pair_visible_and_on_same_ypos  ; $E347
 +buoy1_invisible_and_buoy2_visible:
-'---------------------------------
+//---------------------------------
 ; we're here if 1st buoy in pair is not visible, but 2nd buoy in pair is visible
 $E33A               B5 62    LDA  buoys_xpos+1,x  ; $62,X  ; A = xpos of 2nd buoy in pair
 $E33C               C9 4C    CMP  #$4C  ; dec76
@@ -1275,7 +1175,7 @@ $E342               2C E9 44 BIT  $44E9
   $E343               E9 44    SBC  #$44
 $E345               95 61    STA  buoys_xpos,x  ; $61,X
 +assure_both_buoys_in_pair_visible_and_on_same_ypos:
-'--------------------------------------------------
+//--------------------------------------------------
 $E347               A9 01    LDA  #$01
 $E349               95 5D    STA  buoys_visibility,x  ; $5D,X
 $E34B               95 5E    STA  buoys_visibility+1,x  ; $5E,X
@@ -1293,7 +1193,7 @@ $E35E               60       RTS
 
 
 redraw_torpedo_amount_indicator:
-'------------------------------
+//------------------------------
 $E35F               B5 31    LDA  p1_num_missiles,x  ; $31,X
 $E361               48       PHA
 $E362               8A       TXA
@@ -1364,7 +1264,7 @@ time_to_load_msg:
 
 
 redraw_player_submarines:
-'-----------------------
+//-----------------------
 $E3CE               A9 01    LDA  #$01  ; player index (0=player1, 1=player2)
 $E3D0               85 23    STA  iterator_local  ; $23
 -big_loopback:
@@ -1380,13 +1280,13 @@ $E3DC               85 13    STA  txt_x_pos  ; $13
 $E3DE               20 C0 E6 JSR  adjust_scr_and_clr_ptr_locations  ; $E6C0
 $E3E1               A4 16    LDY  real_game_mode_flag  ; $16
 $E3E3               D0 20    BNE  +skip_if_in_real_game_mode  ; $E405
-' if we're in attract mode, move paddles around automatically?
+// if we're in attract mode, move paddles around automatically?
 $E3E5               B5 35    LDA  players_xpos,x  ; $35,X
 $E3E7               85 09    STA  genvarA  ; $09  ; hold x-pos of current player
 $E3E9               D5 37    CMP  attract_mode_player_xpos_waypoint,x  ; $37,X
 $E3EB               D0 0C    BNE  +still_travelling_to_xpos_waypoint  ; $E3F9
-' if we get here, the attract mode paddle movement has reached the current waypoint,
-' so it's time to pick a new waypoint to automatically travel towards
+// if we get here, the attract mode paddle movement has reached the current waypoint,
+// so it's time to pick a new waypoint to automatically travel towards
 -retry_if_randnum_greater_or_equal_147:
 $E3ED               20 93 E8 JSR  random_num_gen_into_A  ; $E893
 $E3F0               C9 93    CMP  #$93  ; dec147
@@ -1395,7 +1295,7 @@ $E3F4               95 37    STA  attract_mode_player_xpos_waypoint,x  ; $37,X
 $E3F6               4C 00 E4 JMP  +jump_ahead  ; $E400
 +still_travelling_to_xpos_waypoint:
 $E3F9               B0 03    BCS  +skip_to_dec  ; $E3FE  ; if current player x-pos >= waypoint, then branch (for decrement)
-' otherwise player x-pos is less than waypoint (and we need to increment)
+// otherwise player x-pos is less than waypoint (and we need to increment)
 $E3FB               E6 09    INC  genvarA  ; $09  ; move paddle automatically to right
 $E3FD               2C C6 09 BIT  $09C6
   +skip_to_dec:
@@ -1471,7 +1371,7 @@ sub_start_chars:
 
 
 bullet_redraw_and_ship_assessment:
-'--------------------------------
+//--------------------------------
 $E45F               A9 07    LDA  #$07  ; iterator over all possible missiles (7-4 are for player2, 3-0 are for player1)
 $E461               85 23    STA  iterator_local  ; $23
 -jumbo_loopback:
@@ -1646,7 +1546,7 @@ $E535               60       RTS
 
 
 paddle_and_function_key_reading_routine:
-'--------------------------------------
+//--------------------------------------
 $E536               A9 00    LDA  #$00
 $E538               20 83 E7 JSR  read_paddle_fire_button  ; $E783
 $E53B               AA       TAX
@@ -1684,7 +1584,7 @@ $E567               60       RTS
 
 
 parent_routine_that_does_key_paddle_input:
-'----------------------------------------
+//----------------------------------------
 $E568               20 59 E7 JSR  timer_loop  ; $E759
 $E56B               20 36 E5 JSR  paddle_and_function_key_reading_routine  ; $E536
 $E56E               AA       TAX
@@ -1699,7 +1599,7 @@ $E57C               60       RTS
 
 
 prepare_game_screen:
-'------------------
+//------------------
 $E57D               20 99 E7 JSR  init_game_screen  ; $E799
 $E580               A2 27    LDX  #$27  ; (39)
 -loop1:
@@ -1854,7 +1754,7 @@ ship_sprite_colours:
   - 05 = Green (pt-boat)
 
 set_scr_and_clr_ptr_locations_based_on_ship_xy_pos:
-'-------------------------------------------------
+//-------------------------------------------------
 $E6B1               48       PHA
 $E6B2               A5 11    LDA  xpos_local  ; $11  ; x-pos of current ship
 $E6B4               4A       LSR
@@ -1868,7 +1768,7 @@ $E6BD               85 14    STA  txt_y_pos  ; $14
 $E6BF               24 48    BIT  ships_xpos+3  ; $48
 
 adjust_scr_and_clr_ptr_locations:
-'-------------------------------
+//-------------------------------
   $E6C0               48       PHA  ; preserve A on stack
   ; (if falling through from prior function, the BIT will skip this line)
 $E6C1               8A       TXA
@@ -1891,10 +1791,10 @@ $E6DE               68       PLA  ; restore A from stack
 $E6DF               60       RTS
 
 add_points_to_score_then_update_high_score_and_reprint:
-'-----------------------------------------------------
+//-----------------------------------------------------
 $E6E0               A4 16    LDY  real_game_mode_flag  ; $16  ; was set to #$ff in start_game
 $E6E2               D0 01    BNE  +skip_if_in_real_game_mode  ; $E6E5
-' if we are in attract mode, bail out early (we won't add anything to the score)
+// if we are in attract mode, bail out early (we won't add anything to the score)
 $E6E4               60       RTS
 +skip_if_in_real_game_mode:
 $E6E5               F8       SED
@@ -1920,7 +1820,7 @@ $E704               D8       CLD
 
 
 print_all_scores:
-'---------------
+//---------------
 $E705               A9 01    LDA  #$01
 $E707               85 14    STA  txt_y_pos  ; $14
 $E709               85 13    STA  txt_x_pos  ; $13
@@ -1945,7 +1845,7 @@ $E724               A6 20    LDX  p2_score_hi  ; var8  ; $20
 
 
 print_two_digits_in_X_and_two_digits_in_A_and_two_trailing_zeroes:
-'----------------------------------------------------------------
+//----------------------------------------------------------------
 $E726               20 31 E7 JSR  print_two_digits_in_X_and_two_digits_in_A  ; $E731
 $E729               A9 46    LDA  #$46  ; #$46 = '0' char
 $E72B               91 02    STA  ($02),Y
@@ -1993,7 +1893,7 @@ $E758               60       RTS
 
 
 timer_loop:
-'---------
+//---------
 $E759               AD 0E DC LDA  $DC0E  ; CIA Control Register A - bit0 = start(1)/stop(0) timer
 $E75C               4A       LSR
 $E75D               B0 FA    BCS  timer_loop  ;  $E759
@@ -2001,8 +1901,8 @@ $E75F               EE 0E DC INC  $DC0E  ; after timer has stopped, restart it (
 $E762               60       RTS
 
 maybe_unused_function:
-'--------------------
-' or maybe time waster function?
+//--------------------
+// or maybe time waster function?
 $E763               EA       EOM
 $E764               EA       EOM
 $E765               EA       EOM
@@ -2038,7 +1938,7 @@ $E782               60       RTS
 
 
 read_paddle_fire_button:
-'----------------------
+//----------------------
 $E783               AA       TAX  ; a = 0 always, so x = 0
 $E784               A9 FF    LDA  #$FF
 $E786               8D 00 DC STA  $DC00  ; Data Port A - Write Keyboard Column Values for keyboard scan
@@ -2058,7 +1958,7 @@ $E796               60       RTS  ; If paddle fire not pressed, return A = 0
 
 
 init_game_screen:
-'---------------
+//---------------
 $E799               A2 00    LDX  #$00
 -loop1:
 $E79B               A9 26    LDA  #$26  ; This is the space ' ' char in their charater map
@@ -2085,7 +1985,7 @@ $E7E9               4C 05 E7 JMP  print_all_scores  ; $E705
 
 
 draw_text_to_screen:
-'------------------
+//------------------
 $E7EC               A9 00    LDA  #$00
 $E7EE               85 13    STA  txt_x_pos  ; $13
 $E7F0               20 C0 E6 JSR  adjust_scr_and_clr_ptr_locations  ; $E6C0
@@ -2143,7 +2043,7 @@ $E838               60       RTS
 
 
 draw_inline_text:
-'---------------
+//---------------
 $E839               68       PLA
 $E83A               18       CLC
 $E83B               69 01    ADC  #$01
@@ -2161,7 +2061,7 @@ $E84D               60       RTS
 
 
 update_game_time_left:
-'--------------------
+//--------------------
 $E84E               A5 27    LDA  decimal_secs_in_minutes_left  ; $27
 $E850               05 28    ORA  minutes_left  ; $28
 $E852               F0 1F    BEQ  print_remaining_game_time  ; $E873
@@ -2186,7 +2086,7 @@ $E871               85 28    STA  game_time  ; $28
 
 
 print_remaining_game_time:
-'------------------------
+//------------------------
 $E873               A9 12    LDA  #$12  ; (18)
 $E875               85 13    STA  txt_x_pos  ; $13
 $E877               A9 18    LDA  #$18  ; (24)
@@ -2206,8 +2106,8 @@ $E890               4C 3B E7 JMP  print_two_digits_in_A  ; $E73B
 
 random_num_gen_into_A:
 ---------------------
-' NOTE: randomval_lsb is constantly incremented inside the game_loop routine on every frame/iteration
-'       (perhaps to improve the randomness provided by this routine)
+// NOTE: randomval_lsb is constantly incremented inside the game_loop routine on every frame/iteration
+//       (perhaps to improve the randomness provided by this routine)
 $E893               8A       TXA  ; ship-index?
 $E894               48       PHA
 $E895               A2 0B    LDX  #$0B  ; dec11  ; loop over 10 times
@@ -2235,11 +2135,11 @@ $E8B3               60       RTS
 
 set_sprite_position:
 -------------------
-' A = ship/buoy sprite index
-'   - ships are from sprite index 0-3
-'   - buoys are from sprite index 4-7
-' xpos_local = curr ship/buoy xpos
-' ypos_local = curr ship/buoy ypos
+// A = ship/buoy sprite index
+//   - ships are from sprite index 0-3
+//   - buoys are from sprite index 4-7
+// xpos_local = curr ship/buoy xpos
+// ypos_local = curr ship/buoy ypos
 $E8B4               AA       TAX
 $E8B5               0A       ASL  ; multiply by 2
 $E8B6               A8       TAY
@@ -2319,7 +2219,7 @@ $E926               68       PLA
 $E927               40       RTI
 
 raster_colours:
-' used within interrupt routine
+// used within interrupt routine
  :000E928 03 0E 06 00
   - [0] = 03 (cyan)
   - [1] = 0e (light blue)
@@ -2344,7 +2244,7 @@ $E93B               60       RTS
 
 v1_reset_and_gate_off:
 ---------------------
-' we've spawned a pt boat, so turn off prior ocean sound (to make way for pt boat beep-beep later)
+// we've spawned a pt boat, so turn off prior ocean sound (to make way for pt boat beep-beep later)
 $E93C               A9 06    LDA  #$06
 $E93E               85 2A    STA  idx_to_v1_ptboat_beep_beep_freq_array  ; $2A
 $E940               A9 00    LDA  #$00
@@ -2358,7 +2258,7 @@ $E952               60       RTS
 
 
 play_fire_shoot_sound_on_v2:
-'--------------------------
+//--------------------------
 $E953               A9 03    LDA  #$03
 $E955               85 2B    STA  whatis3  ; $2B
 $E957               A9 81    LDA  #$81  ; %1000 0001
@@ -2366,7 +2266,7 @@ $E959               8D 0B D4 STA  $D40B  ; v2_ctrl_reg  (noise wave, gate on)
 $E95C               60       RTS
 
 trigger_voice3_sound:
-'-------------------
+//-------------------
 $E95D               A9 03    LDA  #$03
 $E95F               85 2C    STA  whatis4  ; $2C
 $E961               A9 81    LDA  #$81  ; %1000 0001
@@ -2436,7 +2336,7 @@ $E9C6               60       RTS
 
 
 start_game:
-'---------
+//---------
 $E9C7               20 93 EB JSR  init_game_vars  ; $EB93
 $E9CA               A9 FF    LDA  #$FF  ; turn on flag to say we are in real game (and not in attract mode)
 $E9CC               85 16    STA  real_game_mode_flag  ; $16
@@ -2513,8 +2413,8 @@ $EA72               A9 01    LDA  #$01
 $EA74               85 14    STA  txt_y_pos  ; $14
 $EA76               20 39 E8 JSR  draw_inline_text  ; $E839
 
-' trailing two zeroes of p1 score + highscore + p2 score
-' ------------------------------------------------------
+// trailing two zeroes of p1 score + highscore + p2 score
+// ------------------------------------------------------
  :000EA79 F8 26 26 26 26 46 46 26  26 26 26 26 26 26 26 26  | .&&&&FF&&&&&&&&&
                           0  0                            
  :000EA89 26 26 26 46 46 26 26 26  26 26 26 26 26 26 26 26  | &&&FF&&&&&&&&&&&
@@ -2601,7 +2501,7 @@ $EB55               4C 2D EB JMP  -retry_loop1  ; $EB2D
 
 
 game_loop:
-'--------
+//--------
 -loopback:
 $EB58               AD 1E D0 LDA  $D01E  ; sprite-to-sprite collision detect
 $EB5B               85 18    STA  buff_spr2spr_coll  ; $18
@@ -2635,7 +2535,7 @@ $EB92               60       RTS
 
 
 init_game_vars:
-'--------------
+//--------------
 $EB93               A2 82    LDX  #$82
 $EB95               A9 00    LDA  #$00
 $EB97               8D 15 D0 STA  $D015  ; sprite display enable/disable  (this will disable them all)
@@ -2663,145 +2563,145 @@ $EBBD               60       RTS
 vic_init_values:
  :000EBBE 1B 00 00 00 00 08 00 10  FF 00 FF 00 0F 00 00 03  | ................
  :000EBCE 00 00 00 00 00 00 00 00  00 00 00 00 00 00        | ..............
-' $d011 = vic_ctrl_reg = 1B = %0001 1011
-'     bit7 = raster_compare
-'     bit6 = extended colour text (0=disable)
-'     bit5 = bitmap mode (0=disable)
-'     bit4 = blank screen to border colour (1=disable)
-'     bit3 = select 24/25 row text (1=25rows)
-'   bit2-0 = smooth scroll to y-dot position (val=3)
-' $d012 = read/write raster value for compare irq (00)
-' $d013 = light-pen latch xpos (00)
-' $d014 = light-pen latch ypos (00)
-' $d015 = sprite display enable (00 = disable all)
-' $d016 = vic_ctrl_reg = 08 (%0000 1000)
-'   bit7-6 = unused
-'   bit5   = always set to zero
-'   bit4   = multi-colour mode (0 = disable)
-'   bit3   = select 38/40 column text (1 = 40 columns)
-'   bit2-0 = smooth scroll to x-pos (val = 0)
-' $d017 = sprites_expand_vert = 00
-' $d018 = vic_mem_ctrl_reg = 10 (%0001 0000)
-'   bit7-4 = video_matrix_base_addr (screen memory) = %0001 (i.e., default $0400 location)
-'   bit3-1 = char dot-data base addr = %000 ; from $0000 to $07ff (based on vic-ii bank chosen by $DD00 - see c64 ref page 101)
-'  $d019 = vic_interrupt_flag_reg = ff (%1111 1111)
-'   bit7 = set on any enabled VIC IRQ condition
-'   bit3 = light-pen triggered irq
-'   bit2 = sprite-to-sprite collision irq
-'   bit1 = sprite-to-background collision irq
-'   bit0 = raster-compare irq flag
-' $d01a = irq mask reg = 00 (0 = interrupt disabled)
-' $d01b = sprite-to-background priority display = FF (1 = sprite)
-' $d01c = sprite 0-7 multi-colour mode = 00 (0 = disable)
-' $d01d = sprite 0-7 expand 2x horizontal = $0F = %0000 1111
+// $d011 = vic_ctrl_reg = 1B = %0001 1011
+//     bit7 = raster_compare
+//     bit6 = extended colour text (0=disable)
+//     bit5 = bitmap mode (0=disable)
+//     bit4 = blank screen to border colour (1=disable)
+//     bit3 = select 24/25 row text (1=25rows)
+//   bit2-0 = smooth scroll to y-dot position (val=3)
+// $d012 = read/write raster value for compare irq (00)
+// $d013 = light-pen latch xpos (00)
+// $d014 = light-pen latch ypos (00)
+// $d015 = sprite display enable (00 = disable all)
+// $d016 = vic_ctrl_reg = 08 (%0000 1000)
+//   bit7-6 = unused
+//   bit5   = always set to zero
+//   bit4   = multi-colour mode (0 = disable)
+//   bit3   = select 38/40 column text (1 = 40 columns)
+//   bit2-0 = smooth scroll to x-pos (val = 0)
+// $d017 = sprites_expand_vert = 00
+// $d018 = vic_mem_ctrl_reg = 10 (%0001 0000)
+//   bit7-4 = video_matrix_base_addr (screen memory) = %0001 (i.e., default $0400 location)
+//   bit3-1 = char dot-data base addr = %000 ; from $0000 to $07ff (based on vic-ii bank chosen by $DD00 - see c64 ref page 101)
+//  $d019 = vic_interrupt_flag_reg = ff (%1111 1111)
+//   bit7 = set on any enabled VIC IRQ condition
+//   bit3 = light-pen triggered irq
+//   bit2 = sprite-to-sprite collision irq
+//   bit1 = sprite-to-background collision irq
+//   bit0 = raster-compare irq flag
+// $d01a = irq mask reg = 00 (0 = interrupt disabled)
+// $d01b = sprite-to-background priority display = FF (1 = sprite)
+// $d01c = sprite 0-7 multi-colour mode = 00 (0 = disable)
+// $d01d = sprite 0-7 expand 2x horizontal = $0F = %0000 1111
           (i.e., expand sprites 0-3 horz - for the ships)
-' $d01e = sprite-to-sprite collision detect = 00
-' $d01f = sprite-to-background collision detect = 00
-' $d020 = border colour = 03 (cyan?)
-' $d021 = background colour 0 = 00 (black)
-' $d022 = background colour 1 = 00
-' $d023 = background colour 2 = 00
-' $d024 = background colour 3 = 00
-' $d025 = sprite multi-colour register 0 = 00
-' $d026 = sprite multi-colour register 1 = 00
-' $d027 = sprite 0 colour = 00
-' $d028 = sprite 1 colour = 00
-' $d029 = sprite 2 colour = 00
-' $d02a = sprite 3 colour = 00
-' $d02b = sprite 4 colour = 00
-' $d02c = sprite 5 colour = 00
-' $d02d = sprite 6 colour = 00
-' $d02e = sprite 6 colour = 00
+// $d01e = sprite-to-sprite collision detect = 00
+// $d01f = sprite-to-background collision detect = 00
+// $d020 = border colour = 03 (cyan?)
+// $d021 = background colour 0 = 00 (black)
+// $d022 = background colour 1 = 00
+// $d023 = background colour 2 = 00
+// $d024 = background colour 3 = 00
+// $d025 = sprite multi-colour register 0 = 00
+// $d026 = sprite multi-colour register 1 = 00
+// $d027 = sprite 0 colour = 00
+// $d028 = sprite 1 colour = 00
+// $d029 = sprite 2 colour = 00
+// $d02a = sprite 3 colour = 00
+// $d02b = sprite 4 colour = 00
+// $d02c = sprite 5 colour = 00
+// $d02d = sprite 6 colour = 00
+// $d02e = sprite 6 colour = 00
 
 sid_init_values:
  :000EBDC 88 13 00 08 81 00 21 98  3A 00 08 80 8C 4B B0 04  | ......!.:....K..
  :000EBEC 00 08 80 00 FA 00 96 F4  30                       | ........0
 
-' VOICE1  (ocean sound?)
-' ------
-' $d400 = v1_freq_lo = $88
-' $d401 = v1_freq_hi = $13
-' $d402 = v1_pulse_lo = $00
-' $d403 = v1_pulse_hi = $08
-' $d404 = $81 = %1000 0001
-'    $d404.7 = select noise = on
-'    $d404.6 = select pulse = off
-'    $d404.5 = select sawtooth = off
-'    $d404.4 = select triangle = off
-'    $d404.3 = disable oscillator 1 = off
-'    $d404.2 = ring mod osc1 with osc3 = off
-'    $d404.1 = sync osc1 with osc3 freq = off
-'    $d404.0 = gate = on (start att/dec/sus)
-' $d405 = v1_env_att_dec = $00 = %0000 0000
-'    $d405.7-4 = attack = 0
-'    $d405.3-0 = decay = 0
-' $d406 = v1_env_sus_rel = $21 = %0010 0001
-'    $d406.7-4 = sustain = 2
-'    $d406.3-0 = release = 1
-'
-' VOICE2  (fire sound?)
-' ------	
-' $d407 = v2_freq_lo = $98
-' $d408 = v2_freq_hi = $3A
-' $d409 = v2_pulse_lo = $00
-' $d40a = v2_pulse_hi = $08
-' $d40b = $80 = %1000 0000
-'    $d40b.7 = select noise = on
-'    $d40b.6 = select pulse = off
-'    $d40b.5 = select sawtooth = off
-'    $d40b.4 = select triangle = off
-'    $d40b.3 = disable oscillator 2 = off
-'    $d40b.2 = ring mod osc2 with osc1 = off
-'    $d40b.1 = sync osc2 with osc1 freq = off
-'    $d40b.0 = gate = off (start att/dec/sus)
-' $d40c = v2_env_att_dec = $8C = %1000 1100
-'    $d40c.7-4 = attack = 8
-'    $d40c.3-0 = decay = 12
-' $d40d = v2_env_sus_rel = $4B = %0100 1011
-'    $d40d.7-4 = sustain = 4
-'    $d40d.3-0 = release = 11
-'
-' VOICE3  (explosion sound?)
-' ------	
-' $d40e = v3_freq_lo = $B0
-' $d40f = v3_freq_hi = $04
-' $d410 = v3_pulse_lo = $00
-' $d411 = v3_pulse_hi = $08
-' $d412 = $80 = %1000 0000
-'    $d412.7 = select noise = on
-'    $d412.6 = select pulse = off
-'    $d412.5 = select sawtooth = off
-'    $d412.4 = select triangle = off
-'    $d412.3 = disable oscillator 3 = off
-'    $d412.2 = ring mod osc3 with osc2 = off
-'    $d412.1 = sync osc3 with osc2 freq = off
-'    $d412.0 = gate = off (start att/dec/sus)
-' $d413 = v3_env_att_dec = $00 = %0000 0000
-'    $d413.7-4 = attack = 0
-'    $d413.3-0 = decay = 0
-' $d414 = v3_env_sus_rel = $FA %1111 1010
-'    $d414.7-4 = sustain = 15
-'    $d414.3-0 = release = 10
-'
-' FILTERS/VOLUME
-' --------------
-' $d415 = filter_cutoff_freq_lo (2-0) = $00
-' $d416 = filter_cutoff_freq_hi (10-3) = $96
-' $d417 = $F4 = %1111 0100
-'    $d417.7-4 = filter resonance = 15
-'    $d417.3 = filter external input = 0 (no)
-'    $d417.2 = filter v3 output = 1 (yes)
-'    $d417.1 = filter v2 output = 0 (no)
-'    $d417.0 = filter v1 output = 0 (no)
-' $d418 = $30 = %0011 0000
-'    $d418.7 = cut-off v3 output = 0 (on)
-'    $d418.6 = filter high-pass mode = 0 (off)
-'    $d418.5 = filter band-pass mode = 1 (on)
-'    $d418.4 = filter low-pass mode = 1 (on)
-'    $d418.3-0 = output volume = 4
+// VOICE1  (ocean sound?)
+// ------
+// $d400 = v1_freq_lo = $88
+// $d401 = v1_freq_hi = $13
+// $d402 = v1_pulse_lo = $00
+// $d403 = v1_pulse_hi = $08
+// $d404 = $81 = %1000 0001
+//    $d404.7 = select noise = on
+//    $d404.6 = select pulse = off
+//    $d404.5 = select sawtooth = off
+//    $d404.4 = select triangle = off
+//    $d404.3 = disable oscillator 1 = off
+//    $d404.2 = ring mod osc1 with osc3 = off
+//    $d404.1 = sync osc1 with osc3 freq = off
+//    $d404.0 = gate = on (start att/dec/sus)
+// $d405 = v1_env_att_dec = $00 = %0000 0000
+//    $d405.7-4 = attack = 0
+//    $d405.3-0 = decay = 0
+// $d406 = v1_env_sus_rel = $21 = %0010 0001
+//    $d406.7-4 = sustain = 2
+//    $d406.3-0 = release = 1
+//
+// VOICE2  (fire sound?)
+// ------	
+// $d407 = v2_freq_lo = $98
+// $d408 = v2_freq_hi = $3A
+// $d409 = v2_pulse_lo = $00
+// $d40a = v2_pulse_hi = $08
+// $d40b = $80 = %1000 0000
+//    $d40b.7 = select noise = on
+//    $d40b.6 = select pulse = off
+//    $d40b.5 = select sawtooth = off
+//    $d40b.4 = select triangle = off
+//    $d40b.3 = disable oscillator 2 = off
+//    $d40b.2 = ring mod osc2 with osc1 = off
+//    $d40b.1 = sync osc2 with osc1 freq = off
+//    $d40b.0 = gate = off (start att/dec/sus)
+// $d40c = v2_env_att_dec = $8C = %1000 1100
+//    $d40c.7-4 = attack = 8
+//    $d40c.3-0 = decay = 12
+// $d40d = v2_env_sus_rel = $4B = %0100 1011
+//    $d40d.7-4 = sustain = 4
+//    $d40d.3-0 = release = 11
+//
+// VOICE3  (explosion sound?)
+// ------	
+// $d40e = v3_freq_lo = $B0
+// $d40f = v3_freq_hi = $04
+// $d410 = v3_pulse_lo = $00
+// $d411 = v3_pulse_hi = $08
+// $d412 = $80 = %1000 0000
+//    $d412.7 = select noise = on
+//    $d412.6 = select pulse = off
+//    $d412.5 = select sawtooth = off
+//    $d412.4 = select triangle = off
+//    $d412.3 = disable oscillator 3 = off
+//    $d412.2 = ring mod osc3 with osc2 = off
+//    $d412.1 = sync osc3 with osc2 freq = off
+//    $d412.0 = gate = off (start att/dec/sus)
+// $d413 = v3_env_att_dec = $00 = %0000 0000
+//    $d413.7-4 = attack = 0
+//    $d413.3-0 = decay = 0
+// $d414 = v3_env_sus_rel = $FA %1111 1010
+//    $d414.7-4 = sustain = 15
+//    $d414.3-0 = release = 10
+//
+// FILTERS/VOLUME
+// --------------
+// $d415 = filter_cutoff_freq_lo (2-0) = $00
+// $d416 = filter_cutoff_freq_hi (10-3) = $96
+// $d417 = $F4 = %1111 0100
+//    $d417.7-4 = filter resonance = 15
+//    $d417.3 = filter external input = 0 (no)
+//    $d417.2 = filter v3 output = 1 (yes)
+//    $d417.1 = filter v2 output = 0 (no)
+//    $d417.0 = filter v1 output = 0 (no)
+// $d418 = $30 = %0011 0000
+//    $d418.7 = cut-off v3 output = 0 (on)
+//    $d418.6 = filter high-pass mode = 0 (off)
+//    $d418.5 = filter band-pass mode = 1 (on)
+//    $d418.4 = filter low-pass mode = 1 (on)
+//    $d418.3-0 = output volume = 4
 
 cold_start_handler:
-'-----------------
+//-----------------
 $EBF5               78       SEI
 $EBF6               D8       CLD
 $EBF7               A2 2F    LDX  #$2F
@@ -2851,7 +2751,7 @@ $EC57               D0 F1    BNE  $EC4A
 $EC59               4C 0D EA JMP  jump_here_after_cold_start  ; $EA0D
 
 char_data_group1:
-'---------------
+//---------------
   - starting at chridx $26
  :000EC5C 00 00 00 00 00 00 00 00  38 6C C6 C6 FE C6 C6 00  | ........8l......
  :000EC6C FC 66 66 7C 66 66 FC 00  3C 66 C0 C0 C0 66 3C 00  | .ff|ff..<f...f<.
@@ -2886,7 +2786,7 @@ char idx $2E address: $0170
 +--------+--------+--------+--------+--------+--------+--------+
 
 char_data_group2:
-'---------------
+//---------------
  :000ECD4 7C EE C6 C6 C6 EE 7C 00  FC 66 66 7C 60 60 F0 00  | |.....|..ff|``..
  :000ECE4 38 64 C2 C2 CA 64 3A 00  FC C6 C6 FC D8 CC C6 00  | 8d...d:.........
  :000ECF4 7C C6 C0 7C 06 C6 7C 00  7E 18 18 18 18 18 3C 00  | |..|..|.~.....<.
@@ -2952,7 +2852,7 @@ char idx $4D address: $0268
 +--------+--------+--------+--------+--------+--------+--------+--------+
 
 some_unused_char_maybe:
-'---------------------
+//---------------------
   - This looks like HAL (HAL Laboratories?)
  :000EDD4 A4 EE AA 00 20 20 38 00                           | ....  8.
 +--------+
@@ -2967,12 +2867,12 @@ some_unused_char_maybe:
 +--------+
 
 scr_row_ptr_lo:
-'-------------
+//-------------
  :000EDDC 00 28 50 78 A0 C8 F0 18  40 68 90 B8 E0 08 30 58  | .(Px....@h....0X
  :000EDEC 80 A8 D0 F8 20 48 70 98  C0                       | .... Hp..
 
 scr_row_ptr_hi:
-'-------------
+//-------------
  :000EDF5 04 04 04 04 04 04 04 05  05 05 05 05 05 06 06 06  | ................
  :000EE05 06 06 06 06 07 07 07 07  07                       | .........
 
@@ -3054,7 +2954,7 @@ possible_buoy_y_positions:
     $80 = 128
 
 screen_offsets_for_each_missile_indicator:
-' (in the indicator group of 4 per player)
+// (in the indicator group of 4 per player)
  :000EE24 2F 07 2A 02
 
     $2F = 47
@@ -3063,8 +2963,8 @@ screen_offsets_for_each_missile_indicator:
     $02 = 2
 
 missile_char_offsets:
-' as each missile is drawn with custom-chars in a 2x2 group, these relative screen offsets
-' can quickly refer to each char offset of the 2x2 group
+// as each missile is drawn with custom-chars in a 2x2 group, these relative screen offsets
+// can quickly refer to each char offset of the 2x2 group
  :000EE28 00 28 01 29
   - $00 = 0
   - $28 = 40
@@ -3165,13 +3065,13 @@ submarine_charset4:
 +--------+--------+--------+--------+--------+
 
 submarine_charset_idx:
-' choose between submarine_charset1/2/3/4
+// choose between submarine_charset1/2/3/4
  :000EEE8 00 28 50 78
 
-' small_missile_char_data_start  = EEEC
-' medium_missile_char_data_start = EF2C 
-' big_missile_char_data_start    = EF6C
-' These are #$40 apart
+// small_missile_char_data_start  = EEEC
+// medium_missile_char_data_start = EF2C 
+// big_missile_char_data_start    = EF6C
+// These are #$40 apart
 
 small_missile_char_data_x_offset0:
  :000EEEC 00 00 40 E0 E0 E0 E0 40  00 00 00 00 00 00 00 00 
@@ -3337,13 +3237,13 @@ missiles_colour_table:
   - player2's 4 missiles will all be light brown
 
 map_2x2_ypos_to_chardata_offset_for_missile_size:
-' the offset into the missile char data to reference either small (#$00), medium (#$40) or big (#$80) missiles
+// the offset into the missile char data to reference either small (#$00), medium (#$40) or big (#$80) missiles
  :000EFB4 00 00 00 00 00 40 40 40  80 80 80 80
 
 missile_speed_at_indexed_2x2_ypos:
-' At the lower part of the screen, the missile moves faster, #$02 = 2 pixels per frame
-' At the mid and upper parts of the screen, the missile moves slower, #$01 = 1 pixel per frame
-' the #$03 speed seems unused
+// At the lower part of the screen, the missile moves faster, #$02 = 2 pixels per frame
+// At the mid and upper parts of the screen, the missile moves slower, #$01 = 1 pixel per frame
+// the #$03 speed seems unused
  :000EFC0 01 01 01 01 01 01 02 02  02 02 03 03
 
 mission_text1:
@@ -3439,9 +3339,9 @@ $F101               6A       ROR  ; A = 0.75 * genvarB  (range: 0 to 150?)
 $F102               A0 00    LDY  #$00
 $F104               84 08    STY  genvarB  ; $08
 $F106               A0 03    LDY  #$03
-' Seems like prior x-pos of the player's submarine is added to the current paddle pos three times
-' So the carry bits accumulate in genvarB. So genvarB is like the 'high byte' of this addition.
-' Later, when the two ror's occur, it's like a division by 4, which brings it all back to the 8-bit range.
+// Seems like prior x-pos of the player's submarine is added to the current paddle pos three times
+// So the carry bits accumulate in genvarB. So genvarB is like the 'high byte' of this addition.
+// Later, when the two ror's occur, it's like a division by 4, which brings it all back to the 8-bit range.
 ;
 ; I sense this is a smoothing filter, to prevent too much jitter on the paddles, by putting a heavier weighting
 ; on the prior xpos (x3) and smaller weighter on the newer xpos (x1), then divide by 4 to average it out.
@@ -3473,11 +3373,11 @@ $F11F               95 FE    STA  filtered_player_xpos,x  ; $FE,X  ; This stores
 $F121               60       RTS
 
 some_unknown_data:
-' doesn't appear to be used anywhere
+// doesn't appear to be used anywhere
  :000F122 FF FF FF
 
 set_sprite_colour:
-'----------------
+//----------------
 $F125               BD 2C F1 LDA  $F12C,X
 $F128               9D 27 D0 STA  $D027,X
 $F12B               60       RTS
@@ -3494,56 +3394,56 @@ void_data:
  :000FB70 FF FF FF FF FF FF FF FF  FF FF FF FF FF FF FF FF
 
 sprite_data:
-' NOTE: I was a bit puzzled as to how the program as able to see these sprites
-' at address $3B80 and onwards. (I couldn't find any code that copied it there!)
-'
-' It finally made sense after I read an explanation here:
-' - http://www.floodgap.com/retrobits/ckb/secret/ultimax.html
-'
-' > The VIC-II, however, sees all 64K in its usual 16K clumps, with ROM banked
-' > into the upper 4K of its current "slice" (meaning $F000-$FFFF of the
-' > cartridge ROM actually "appears" at $3000-$3FFF in the default VIC addressing
-' > space as well).'
-'
-' NOTE2: As I was using a cracked version of this game for the disassembly, I
-' noticed that its decrunching routine appeared to indeed copy the sprites down
-' to this lower $3B80 region. I.e., perhaps the cracked game didn't rely on this
-' "ultimax" mode of behaviour? I might be able to assess this later by checking
-' what the /LORAM, /HIRAM, /GAME and /EXROM lines were set to...
-'
-' Taking a look at memory location $01, it is set to $E5 (%1110 0101)
-'   bit0 = /LORAM = 1
-'   bit1 = /HIRAM = 0
-'   bit2 = /CHAREN = 1
-'   bit3 = Cassette Data Output Line = 0
-'   bit4 = Cassette Switch Sense = 0 (Switch open)
-'   bit5 = Cassette Motor Control = 1 (Motor off)
-'   bit7-6 = 1 (undefined)
-'
-' The /GAME and /EXROM lines can only be set via a cartridge
-' (pins 8 and 9, respectively)
-'
-' This memory mapping mode is described in the manual as:
-' 
-' > This map provides 60K bytes of RAM and I/O devices.
-' > The user must write his own I/O driver routines.
-'
-' This $E5 value may have been placed in $01 via either the
-' 'cold_start_handler' routine, or possibly the decrunching routine?
-'
-' NOTE3: Ah, the earlier-mentioned web paged elaborated on the reasons the
-' decruncher did this:
-' - http://www.floodgap.com/retrobits/ckb/secret/ultimax.html
-'
-' > This is the only mode where the VIC-II can access external memory (i.e., 
-' > memory outside of its default 16K slice), engineered to allow the cartridge's
-' > sprite and character data to be visible to the VIC-II without copying it and
-' > wasting what little RAM is present -- particularly important since the Ultimax
-' > has no built-in character set! (However, because of the processor's
-' > restrictions it would be very stupid for software to attempt to use memory
-' > higher than $1000.) Because of this complex little internal hackery, you must
-' > also copy $F000-$FFFF to $3000-$3FFF before running an Ultimax cartridge dump
-' > or the game will have scrambled graphics.
+// NOTE: I was a bit puzzled as to how the program as able to see these sprites
+// at address $3B80 and onwards. (I couldn't find any code that copied it there!)
+//
+// It finally made sense after I read an explanation here:
+// - http://www.floodgap.com/retrobits/ckb/secret/ultimax.html
+//
+// > The VIC-II, however, sees all 64K in its usual 16K clumps, with ROM banked
+// > into the upper 4K of its current "slice" (meaning $F000-$FFFF of the
+// > cartridge ROM actually "appears" at $3000-$3FFF in the default VIC addressing
+// > space as well).'
+//
+// NOTE2: As I was using a cracked version of this game for the disassembly, I
+// noticed that its decrunching routine appeared to indeed copy the sprites down
+// to this lower $3B80 region. I.e., perhaps the cracked game didn't rely on this
+// "ultimax" mode of behaviour? I might be able to assess this later by checking
+// what the /LORAM, /HIRAM, /GAME and /EXROM lines were set to...
+//
+// Taking a look at memory location $01, it is set to $E5 (%1110 0101)
+//   bit0 = /LORAM = 1
+//   bit1 = /HIRAM = 0
+//   bit2 = /CHAREN = 1
+//   bit3 = Cassette Data Output Line = 0
+//   bit4 = Cassette Switch Sense = 0 (Switch open)
+//   bit5 = Cassette Motor Control = 1 (Motor off)
+//   bit7-6 = 1 (undefined)
+//
+// The /GAME and /EXROM lines can only be set via a cartridge
+// (pins 8 and 9, respectively)
+//
+// This memory mapping mode is described in the manual as:
+// 
+// > This map provides 60K bytes of RAM and I/O devices.
+// > The user must write his own I/O driver routines.
+//
+// This $E5 value may have been placed in $01 via either the
+// 'cold_start_handler' routine, or possibly the decrunching routine?
+//
+// NOTE3: Ah, the earlier-mentioned web paged elaborated on the reasons the
+// decruncher did this:
+// - http://www.floodgap.com/retrobits/ckb/secret/ultimax.html
+//
+// > This is the only mode where the VIC-II can access external memory (i.e., 
+// > memory outside of its default 16K slice), engineered to allow the cartridge's
+// > sprite and character data to be visible to the VIC-II without copying it and
+// > wasting what little RAM is present -- particularly important since the Ultimax
+// > has no built-in character set! (However, because of the processor's
+// > restrictions it would be very stupid for software to attempt to use memory
+// > higher than $1000.) Because of this complex little internal hackery, you must
+// > also copy $F000-$FFFF to $3000-$3FFF before running an Ultimax cartridge dump
+// > or the game will have scrambled graphics.
 
  :000FB80 49 00 00 10 80 00 00 00  00 00 C0 00 00 CC 00 18  | I...............
  :000FB90 CC 00 18 CC 00 18 CE 00  D8 FE 07 F9 BB 3F BF EE  | .............?..
