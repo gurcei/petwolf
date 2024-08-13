@@ -1577,211 +1577,229 @@ exit_missile_redraw_assessment_routine:
 
 paddle_and_function_key_reading_routine:
 //--------------------------------------
-$E536               A9 00    LDA  #$00
-$E538               20 83 E7 JSR  read_paddle_fire_button  ; $E783
-$E53B               AA       TAX
-$E53C               D0 0D    BNE  paddle_fire_or_F1_pressed  ; $E54B  ; jump if paddle fire pressed (A = FF)
-$E53E               A9 FE    LDA  #$FE
-$E540               8D 00 DC STA  $DC00
-$E543               AD 01 DC LDA  $DC01
-$E546               AA       TAX
-$E547               29 10    AND  #$10  ; Check if F1 is pressed
-$E549               D0 04    BNE  no_paddle_fire_or_F1  ; $E54F ; Jump if not pressed
+    LDA  #$00
+    JSR  read_paddle_fire_button  ; $E783
+    TAX
+    BNE  paddle_fire_or_F1_pressed  ; $E54B  ; jump if paddle fire pressed (A = FF)
+    LDA  #$FE
+    STA  $DC00
+    LDA  $DC01
+    TAX
+    AND  #$10  ; Check if F1 is pressed
+    BNE  no_paddle_fire_or_F1  ; $E54F ; Jump if not pressed
 paddle_fire_or_F1_pressed:
-$E54B               A9 01    LDA  #$01
-$E54D               D0 13    BNE  finish_off_routine  ; $E562  ; will always jump (as A is non-zero)
+    LDA  #$01
+    BNE  finish_off_routine  ; $E562  ; will always jump (as A is non-zero)
 no_paddle_fire_or_F1:
-$E54F               8A       TXA
-$E550               29 20    AND  #$20  ; Check if F3 is pressed
-$E552               D0 04    BNE  no_F3_pressed  ; $E558  ; Jump if not pressed
-$E554               A9 03    LDA  #$03
-$E556               D0 0A    BNE  finish_off_routine  ; $E562
+    TXA
+    AND  #$20  ; Check if F3 is pressed
+    BNE  no_F3_pressed  ; $E558  ; Jump if not pressed
+    LDA  #$03
+    BNE  finish_off_routine  ; $E562
 no_F3_pressed:
-$E558               8A       TXA
-$E559               29 40    AND  #$40  ; Check if F5 is pressed
-$E55B               D0 03    BNE  $E560  ; Jump if not pressed
-$E55D               A9 05    LDA  #$05
-$E55F               2C A9 00 BIT  $00A9
-  $E560               A9 00    LDA  #$00
+    TXA
+    AND  #$40  ; Check if F5 is pressed
+    BNE  $E560  ; Jump if not pressed
+    LDA  #$05
+    BIT  $00A9
+      LDA  #$00
 finish_off_routine:
-$E562               A2 7F    LDX  #$7F
-$E564               8E 00 DC STX  $DC00
-$E567               60       RTS
-                                      ; If F1 or paddle-fire was pressed, A = 1
-                                      ; If F3 was pressed, A = 3
-                                      ; If F5 was pressed, A = 5
-                                      ; else A = 0
+    LDX  #$7F
+    STX  $DC00
+    RTS
+             ; If F1 or paddle-fire was pressed, A = 1
+             ; If F3 was pressed, A = 3
+             ; If F5 was pressed, A = 5
+             ; else A = 0
 
 
 parent_routine_that_does_key_paddle_input:
 //----------------------------------------
-$E568               20 59 E7 JSR  timer_loop  ; $E759
-$E56B               20 36 E5 JSR  paddle_and_function_key_reading_routine  ; $E536
-$E56E               AA       TAX
-$E56F               D0 F7    BNE  parent_routine_that_does_key_paddle_input  ; $E568
-                             ; jump if any paddle-fire or func-key press (perhaps waiting for prior press to unpress)
-$E571               20 59 E7 JSR  timer_loop  ; $E759
-$E574               E6 1B    INC  $1B
-$E576               20 36 E5 JSR  paddle_and_function_key_reading_routine  ; $E536
-$E579               AA       TAX
-$E57A               F0 F5    BEQ  $E571  ; jump if no paddle-fire or func-key press
-$E57C               60       RTS
+    JSR  timer_loop  ; $E759
+    JSR  paddle_and_function_key_reading_routine  ; $E536
+    TAX
+    BNE  parent_routine_that_does_key_paddle_input  ; $E568
+    ; jump if any paddle-fire or func-key press (perhaps waiting for prior press to unpress)
+    JSR  timer_loop  ; $E759
+    INC  $1B
+    JSR  paddle_and_function_key_reading_routine  ; $E536
+    TAX
+    BEQ  $E571  ; jump if no paddle-fire or func-key press
+    RTS
 
 
 prepare_game_screen:
 //------------------
-$E57D               20 99 E7 JSR  init_game_screen  ; $E799
-$E580               A2 27    LDX  #$27  ; (39)
--loop1:
-$E582               A9 07    LDA  #$07
-$E584               9D 48 DB STA  $DB48,X  (row 21 colour ram all set to 7 / yellow) - player 1 submarine row
-$E587               A9 08    LDA  #$08     (row 22 colour ram all set to 8 / light brown?) - player 2 submarine row
-$E589               9D 70 DB STA  $DB70,X
-$E58C               A9 00    LDA  #$00
-$E58E               9D 00 D8 STA  $D800,X  (row 0 colour ram all set to 0 / black)
-$E591               9D 28 D8 STA  $D828,X  (row 1 colour ram all set to 0 / black)
-$E594               CA       DEX
-$E595               10 EB    BPL  -loop1  ; $E582
-$E597               A2 0D    LDX  #$0D    ; (13)
--loop2:
-$E599               A9 07    LDA  #$07      ; 7 = yellow
-$E59B               9D 99 DB STA  $DB99,X   ; (row 23 - from col 1 to 8)
-$E59E               9D C1 DB STA  $DBC1,X   ; (row 24 - from col 1 to 8)
-$E5A1               A9 08    LDA  #$08      ; 8 = light brown
-$E5A3               9D B2 DB STA  $DBB2,X   ; (row 23 - from col 26 to 33)
-$E5A6               9D DA DB STA  $DBDA,X   ; (row 24 - from col 26 to 33)
-$E5A9               CA       DEX
-$E5AA               10 ED    BPL  -loop2  ; $E599
-$E5AC               A9 17    LDA  #$17  ; dec23
-$E5AE               85 14    STA  ypos_local  ; $14  (curr. ship y-pos?)
-$E5B0               20 39 E8 JSR  draw_inline_text  ; $E839
+    JSR  init_game_screen  ; $E799
+    ; set colour various rows on screen (in colour ram)
+    ; -------------------------------------------------
+    LDX  #$27  ; (39)
+loop_next_char_colour_in_row:
+    LDA  #$07
+    STA  $DB48,X  ; (row 21 colour ram all set to 7 / yellow) - player 1 submarine row
+    LDA  #$08     ; (row 22 colour ram all set to 8 / light brown?) - player 2 submarine row
+    STA  $DB70,X
+    LDA  #$00
+    STA  $D800,X  ; (row 0 colour ram all set to 0 / black)
+    STA  $D828,X  ; (row 1 colour ram all set to 0 / black)
+    DEX
+    BPL  loop_next_char_colour_in_row  ; $E582
+    ; set colours for missile indicator regions
+    ; -----------------------------------------
+    LDX  #$0D    ; (13)
+loop_next_char_colour_in_missile_indicator_region:
+    LDA  #$07      ; 7 = yellow
+    STA  $DB99,X   ; (row 23 - from col 1 to 8)
+    STA  $DBC1,X   ; (row 24 - from col 1 to 8)
+    LDA  #$08      ; 8 = light brown
+    STA  $DBB2,X   ; (row 23 - from col 26 to 33)
+    STA  $DBDA,X   ; (row 24 - from col 26 to 33)
+    DEX
+    BPL  loop_next_char_colour_in_missile_indicator_region  ; $E599
+    LDA  #$17  ; dec23
+    STA  ypos_local  ; $14  (curr. ship y-pos?)
+    JSR  draw_inline_text  ; $E839
 
- :000E5B3 3A 2F 33 2B 26 32 2B 2C  3A 00 
-           T  I  M  E     L  E  F   T
+    !byte $3A, $2F, $33, $2B, $26, $32, $2B, $2C,  $3A, $00 
+    //       T  I  M  E     L  E  F   T
 
-$E5BD               20 73 E8 JSR  print_remaining_game_time  ; $E873
-$E5C0               A2 00    LDX  #$00
-$E5C2               20 5F E3 JSR  redraw_torpedo_amount_indicator  ; $E35F
-$E5C5               A2 01    LDX  #$01
-$E5C7               20 5F E3 JSR  redraw_torpedo_amount_indicator  ; $E35F
-$E5CA               4C F3 E8 JMP  allow_interrupts  ; $E8F3
-midway_in_preparing_game_screen:
-$E5CD               20 F5 E8 JSR  interrupt_precursor  ; $E8F5
-$E5D0               20 99 E7 JSR  init_game_screen  ; $E799
-$E5D3               A2 4F    LDX  #$4F  ; dec79
-$E5D5               A9 01    LDA  #$01
-$E5D7               9D 00 D8 STA  $D800,X  ; set first 2 lines to be white text?
-$E5DA               CA       DEX
-$E5DB               10 FA    BPL  $E5D7
-$E5DD               A9 18    LDA  #$18  ; dec24
-$E5DF               85 14    STA  txt_y_pos  ; $14
-$E5E1               20 39 E8 JSR  draw_inline_text  ; $E839
+    JSR  print_remaining_game_time  ; $E873
+    LDX  #$00  ; for player 1
+    JSR  redraw_torpedo_amount_indicator  ; $E35F
+    LDX  #$01  ; for player 2
+    JSR  redraw_torpedo_amount_indicator  ; $E35F
+    JMP  allow_interrupts  ; $E8F3
 
- :777E5E4 44 29 45 26 47 4F 4E 48  26 28 27 32 32 3F 43 33  | D)E&GONH&('22?C3
-           (  C  )     1  9  8  2      B  A  L  L  Y  -  M
- :777E5F4 2F 2A 3D 27 3F 26 44 29  45 26 47 4F 4E 48 26 29  | /*='?&D)E&GONH&)
-           I  D  W  A  Y     (  C   )     1  9  8  2     C
- :777E604 35 33 33 35 2A 35 38 2B  00 
-           O  M  M  O  D  O  R  E   
 
-$E60D               A2 04    LDX  #$04
--loopback_title_sprites:
-$E60F               BD A4 E6 LDA  title_sprites_xpos,x  ; $E6A4,X
-$E612               9D 00 D0 STA  $D000,X  ; set xpos for sprite 2 (#$ff/255), 1 (#$e2/226) and then 0 (#$c5/197)
-$E615               BD A9 E6 LDA  title_sprites_ypos,x  ; $E6A9,X
-$E618               9D 01 D0 STA  $D001,X  ; set ypos for sprite 2 (#$c2/194), 1 (#$b2/178) and then 0 (#$a2/162)
-$E61B               CA       DEX
-$E61C               CA       DEX
-$E61D               10 F0    BPL  -loopback_title_sprites  ; $E60F
-$E61F               A9 00    LDA  #$00
-$E621               8D 10 D0 STA  $D010  ; sprites 0-7 xpos msb
-$E624               A9 07    LDA  #$07   ; %0000 0111
-$E626               8D 15 D0 STA  $D015  ; sprite display enable (only 1st 3 sprites visible)
-$E629               A9 CC    LDA  #>mission_text1  ; #$CC
-$E62B               85 06    STA  ret_ptr_lo  ; $06
-$E62D               A9 EF    LDA  #<mission_text1  ; #$EF
-$E62F               85 07    STA  ret_ptr_hi  ; $07  ; note: no valid assembly exists at $EFCC
-$E631               A9 03    LDA  #$03
-$E633               85 14    STA  txt_y_pos  ; $14
+show_intro_screen:
+//---------------
+; returns: - 0 if no user input pressed during intro (i.e., next up, switch to attract mode)
+;          - ff if user pressed F1 or paddle fire
+    JSR  interrupt_precursor  ; $E8F5
+    JSR  init_game_screen  ; $E799
+    ; prepare colour of 1st two rows to white
+    ; ---------------------------------------
+    LDX  #$4F  ; dec79
+    LDA  #$01
+loop_next_char_colour_for_top_rows:
+    STA  $D800,X  ; set first 2 lines to be white text?
+    DEX
+    BPL  loop_next_char_colour_for_top_rows
+    LDA  #$18  ; dec24
+    STA  txt_y_pos  ; $14
+    JSR  draw_inline_text  ; $E839
 
--loop1:
-$E635               A0 00    LDY  #$00
-$E637               B1 06    LDA  (ret_ptr_lo),y  ; ($06),Y  ; pointer to inline-text-string
-$E639               F0 12    BEQ  +skip1 ; $E64D  ; found string null-terminator? then branch
-$E63B               4C 6A E6 JMP  +big_jump  ; $E66A
+    !byte $44, $29, $45, $26, $47, $4F, $4E, $48,  $26, $28, $27, $32, $32, $3F, $43, $33
+    //       (  C  )     1  9  8  2      B  A  L  L  Y  -  M
+    !byte $2F, $2A, $3D, $27, $3F, $26, $44, $29,  $45, $26, $47, $4F, $4E, $48, $26, $29
+    //       I  D  W  A  Y     (  C   )     1  9  8  2     C
+    !byte $35, $33, $33, $35, $2A, $35, $38, $2B,  $00 
+    //       O  M  M  O  D  O  R  E   
+
+    ; title sprite preparations
+    ; -------------------------
+    LDX  #$04
+loop_set_xy_pos_for_title_sprites:
+    LDA  title_sprites_xpos,x  ; $E6A4,X
+    STA  $D000,X  ; set xpos for sprite 2 (#$ff/255), 1 (#$e2/226) and then 0 (#$c5/197)
+    LDA  title_sprites_ypos,x  ; $E6A9,X
+    STA  $D001,X  ; set ypos for sprite 2 (#$c2/194), 1 (#$b2/178) and then 0 (#$a2/162)
+    DEX
+    DEX
+    BPL  loop_set_xy_pos_for_title_sprites  ; $E60F
+    LDA  #$00
+    STA  $D010  ; sprites 0-7 xpos msb
+    LDA  #$07   ; %0000 0111
+    STA  $D015  ; sprite display enable (only 1st 3 sprites visible)
+    ; print mission text
+    ; ------------------
+    LDA  #>mission_text1  ; #$CC
+    STA  ret_ptr_lo  ; $06
+    LDA  #<mission_text1  ; #$EF
+    STA  ret_ptr_hi  ; $07  ; note: no valid assembly exists at $EFCC
+    LDA  #$03
+    STA  txt_y_pos  ; $14
+
+prepare_to_display_next_line_of_intro_text:
+    LDY  #$00
+    LDA  (ret_ptr_lo),y  ; ($06),Y  ; pointer to inline-text-string
+    BEQ  final_wait_for_user_input_on_title_screen ; $E64D  ; if next string is just a null terminator, branch to final wait for user input
+    JMP  glide_ships_left_for_a_while_then_display_next_line_of_text  ; $E66A
+
 write_line_routine:
-$E63E               20 EC E7 JSR  draw_text_to_screen  ; $E7EC
-$E641               E6 14    INC  ypos_local  ; $14
-$E643               E6 14    INC  ypos_local  ; $14
-$E645               E6 06    INC  ret_ptr_lo  ; $06
-$E647               D0 EC    BNE  -loop1  ; $E635
-$E649               E6 07    INC  ret_ptr_hi  ; $07
-$E64B               D0 E8    BNE  -loop1  ; $E635
-+skip1:
-$E64D               A9 02    LDA  #$02
-$E64F               85 08    STA  genvarB  ; $08
--loopback_wait_longer_on_title_screen:
-$E651               A0 78    LDY  #$78
--loopback_wait_on_title_screen:
-$E653               20 36 E5 JSR  paddle_and_function_key_reading_routine  ; $E536
-$E656               C9 01    CMP  #$01
-$E658               F0 0D    BEQ  exit_from_title_screen_due_to_paddle_fire  ; $E667
-$E65A               20 59 E7 JSR  timer_loop  ; $E759
-$E65D               88       DEY
-$E65E               D0 F3    BNE  loopback_wait_on_title_screen  ; $E653
-$E660               C6 08    DEC  genvarB  ; $08
-$E662               D0 ED    BNE  loopback_wait_longer_on_title_screen  ; $E651
-$E664               A9 00    LDA  #$00
-$E666               2C A9 FF BIT  $FFA9
-  -exit_from_title_screen_due_to_paddle_fire:
-  $E667               A9 FF    LDA  #$FF
-$E669               60       RTS
+    JSR  draw_text_to_screen  ; $E7EC
+    INC  ypos_local  ; $14
+    INC  ypos_local  ; $14
+    INC  ret_ptr_lo  ; $06
+    BNE  prepare_to_display_next_line_of_intro_text  ; $E635
+    INC  ret_ptr_hi  ; $07
+    BNE  prepare_to_display_next_line_of_intro_text  ; $E635
+final_wait_for_user_input_on_title_screen:
+    LDA  #$02
+    STA  genvarB  ; $08  ; extra delay counter
+loop_wait_longer_on_title_screen:
+    LDY  #$78
+loop_wait_on_title_screen:
+    JSR  paddle_and_function_key_reading_routine  ; $E536
+    CMP  #$01
+    BEQ  exit_from_title_screen_due_to_paddle_fire  ; $E667
+    JSR  timer_loop  ; $E759
+    DEY
+    BNE  loop_wait_on_title_screen  ; $E653
+    DEC  genvarB  ; $08
+    BNE  loop_wait_longer_on_title_screen  ; $E651
+    LDA  #$00  ; if there was no user input till now, then it's time to jump to attract mode
+    BIT  $FFA9
+exit_from_title_screen_due_to_paddle_fire:
+      LDA  #$FF
+    RTS
 
-+big_jump:
-$E66A               A2 02    LDX  #$02
-$E66C               A0 F4    LDY  #$F4  ; sprite frame for pt-boat reversed
--loopback_ship_sprite_colours:
-$E66E               98       TYA
-$E66F               9D F8 07 STA  $07F8,X  ; set sprite frame for sprite 2
-$E672               88       DEY
-$E673               BD AE E6 LDA  ship_sprite_colours,x  ; $E6AE,X
-$E676               9D 27 D0 STA  $D027,X  ; set colours of sprites 0, 1 and 2
-$E679               CA       DEX
-$E67A               10 F2    BPL  loopback_ship_sprite_colours  ; $E66E
-$E67C               A9 1D    LDA  #$1D  ; dec29
-$E67E               85 08    STA  genvarB  ; $08
+glide_ships_left_for_a_while_then_display_next_line_of_text:
+;----------------------------------------------------------
+    LDX  #$02
+    LDY  #$F4  ; sprite frame for pt-boat reversed
+loop_next_ship_sprite_colour:
+    TYA
+    STA  $07F8,X  ; set sprite frame for sprite 2
+    DEY
+    LDA  ship_sprite_colours,x  ; $E6AE,X
+    STA  $D027,X  ; set colours of sprites 0, 1 and 2
+    DEX
+    BPL  loop_next_ship_sprite_colour  ; $E66E
+    LDA  #$1D  ; dec29
+    STA  genvarB  ; $08
 
-loopy1:
-$E680               A2 04    LDX  #$04
-loopy2:
-$E682               BD 00 D0 LDA  $D000,X  ; $d004/$d002/$d000 = sprite2/1/0 x-pos, 
-$E685               C9 38    CMP  #$38  ; dec56
-$E687               F0 03    BEQ  skip_ship_move  ; $E68C
-$E689               DE 00 D0 DEC  $D000,X  ; glide ships to left on title screen
+loop_keep_gliding_left_until_time_to_display_next_line_of_text:
+    LDX  #$04  ; index to sprite xy-pos details
+loop_next_ship_sprite_to_glide_left:
+    LDA  $D000,X  ; $d004/$d002/$d000 = sprite2/1/0 x-pos, 
+    CMP  #$38  ; dec56
+    BEQ  skip_ship_move  ; $E68C
+    DEC  $D000,X  ; glide ships to left on title screen
 skip_ship_move:
-$E68C               CA       DEX
-$E68D               CA       DEX
-$E68E               10 F2    BPL  loopy2  ; $E682
-$E690               20 59 E7 JSR  timer_loop  ; $E759
-$E693               20 59 E7 JSR  timer_loop  ; $E759
-$E696               20 36 E5 JSR  paddle_and_function_key_reading_routine  ; $E536
-$E699               C9 01    CMP  #$01
-$E69B               F0 CA    BEQ  exit_from_title_screen_due_to_paddle_fire  ; $E667
-$E69D               C6 08    DEC  genvarB  ; $08
-$E69F               D0 DF    BNE  loopy1  ; $E680
-$E6A1               4C 3E E6 JMP  write_line_routine  ; $E63E
+    DEX
+    DEX
+    BPL  loop_next_ship_sprite_to_glide_left  ; $E682
+    JSR  timer_loop  ; $E759
+    JSR  timer_loop  ; $E759
+    JSR  paddle_and_function_key_reading_routine  ; $E536
+    CMP  #$01
+    BEQ  exit_from_title_screen_due_to_paddle_fire  ; $E667
+    DEC  genvarB  ; $08
+    BNE  loop_keep_gliding_left_until_time_to_display_next_line_of_text  ; $E680
+    JMP  write_line_routine  ; $E63E
 
 title_sprites_xpos:
- :000E6A4 C5 00 E2 00 FF
+    !byte $C5, $00, $E2, $00, $FF
 
 title_sprites_ypos:
- :000E6A9 A2 00 B2 00 C2
+    !byte $A2, $00, $B2, $00, $C2
 
 ship_sprite_colours:
- :000E6AE 07 03 05                                          | ...
-  - 07 = Yellow (freighter)
-  - 03 = Cyan (cruiser)
-  - 05 = Green (pt-boat)
+    !byte $07, $03, $05
+//  - 07 = Yellow (freighter)
+//  - 03 = Cyan (cruiser)
+//  - 05 = Green (pt-boat)
 
 set_scr_and_clr_ptr_locations_based_on_ship_xy_pos:
 //-------------------------------------------------
@@ -2400,26 +2418,31 @@ $EA0B               D0 FA    BNE  $EA07
 jump_here_after_cold_start:
 $EA0D               A9 00    LDA  #$00  ; turn off flag to say we are in attract mode game (and not in real game mode)
 $EA0F               85 16    STA  real_game_mode_flag  ; $16
-$EA11               20 CD E5 JSR  midway_in_preparing_game_screen  ; $E5CD
+$EA11               20 CD E5 JSR  show_intro_screen  ; $E5CD
 $EA14               A8       TAY
-$EA15               D0 4A    BNE  $EA61
+$EA15               D0 4A    BNE  user_wants_to_start_game  ; user pressed F1 or paddle fire to start game?
+; ATTRACT MODE
+; ------------
 $EA17               20 93 EB JSR  init_game_vars  ; $EB93
 $EA1A               A9 20    LDA  #$20
 $EA1C               85 27    STA  decimal_secs_in_minutes_left  ; $27
-$EA1E               A2 01    LDX  #$01
+$EA1E               A2 01    LDX  #$01  ; player index (1=player2, 0=player1)
+retry_random_num_for_initial_player_sub_position_in_attract_mode:
 $EA20               20 93 E8 JSR  random_num_gen_into_A  ; $E893
 $EA23               C9 28    CMP  #$28  ; dec40
-$EA25               B0 F9    BCS  $EA20  ; if a >= 40 then loop
+$EA25               B0 F9    BCS  retry_random_num_for_initial_player_sub_position_in_attract_mode  ; if a >= 40 then loop
 $EA27               95 35    STA  players_xpos,x  ; $35,X  ; place both player subs at some random 0-39 char xpos
-$EA29               CA       DEX
-$EA2A               10 F4    BPL  $EA20
+$EA29               CA       DEX  ; switch index from player2 to player1
+$EA2A               10 F4    BPL  retry_random_num_for_initial_player_sub_position_in_attract_mode
 $EA2C               20 7D E5 JSR  prepare_game_screen  ; $E57D
-$EA2F               A9 0A    LDA  #$0A
+$EA2F               A9 0A    LDA  #$0A  ; dec10
 $EA31               85 14    STA  txt_y_pos  ; $14
 $EA33               20 39 E8 JSR  draw_inline_text  ; $E839
 
- :000EA36 2D 27 33 2B 26 26 35 3C  2B 38 00
-           G  A  M  E        O  V   E  R
+; this is overlay text shown in attract mode during gameplay
+
+    !byte $2D, $27, $33, $2B, $26, $26, $35, $3C,  $2B, $38, $00
+    //       G  A  M  E        O  V   E  R
 
 $EA41               A9 0F    LDA  #$0F
 $EA43               85 14    STA  txt_y_pos  ; $14
@@ -2433,6 +2456,7 @@ $EA45               20 39 E8 JSR  draw_inline_text  ; $E839
 $EA5B               20 58 EB JSR  game_loop  ; $EB58
 $EA5E               A8       TAY
 $EA5F               F0 AC    BEQ  jump_here_after_cold_start  ; $EA0D
+user_wants_to_start_game:
 $EA61               20 99 E7 JSR  init_game_screen  ; $E799
 $EA64               A9 00    LDA  #$00
 $EA66               8D 15 D0 STA  $D015  ; sprite display enable (hide all sprites)
@@ -3342,11 +3366,11 @@ mission_text9:
      <green>                              -        P  .  T
  :000F0D6 41 26 28 35 27 3A 42 26  47 46 46 46 26 36 35 2F  | A&(5':B&GFFF&65/
            .     B  O  A  T  :      1  0  0  0     P  O  I
- :000F0E6 34 3A 39 00                                       | 4:9.
+ :000F0E6 34 3A 39 00 00 ; NOTE: Two null terminators indicate end of all intro text lines
            N  T  S
 
 no_idea_yet:
- :000F0EA 00 FF FF FF FF FF                                 | ......
+ :000F0EB FF FF FF FF FF
 
 read_paddle_position:
 --------------------
