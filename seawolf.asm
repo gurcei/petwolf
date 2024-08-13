@@ -1273,11 +1273,12 @@ time_to_load_msg:
 //           E  C  O  N  D  S  .
 
 
-redraw_player_submarines:
-//-----------------------
+update_player_submarine_positions:
+//-------------------------------
+// NOTE: Also assesses paddle-input to decide submarine position
     LDA  #$01  ; player index (0=player1, 1=player2)
     STA  iterator_local  ; $23
--big_loopback:
+loop_next_player_submarine:
     LDX  iterator_local  ; $23
     TXA
     CLC
@@ -1289,95 +1290,97 @@ redraw_player_submarines:
     STA  txt_x_pos  ; $13
     JSR  adjust_scr_and_clr_ptr_locations  ; $E6C0
     LDY  real_game_mode_flag  ; $16
-    BNE  +skip_if_in_real_game_mode  ; $E405
+    BNE  assess_paddle_movement  ; $E405
 // if we're in attract mode, move paddles around automatically?
     LDA  players_xpos,x  ; $35,X
     STA  genvarA  ; $09  ; hold x-pos of current player
     CMP  attract_mode_player_xpos_waypoint,x  ; $37,X
-    BNE  +still_travelling_to_xpos_waypoint  ; $E3F9
+    BNE  assess_auto_travel_direction  ; $E3F9  ; if we didn't arrive to waypoint, branch to assess direction to travel
 // if we get here, the attract mode paddle movement has reached the current waypoint,
 // so it's time to pick a new waypoint to automatically travel towards
--retry_if_randnum_greater_or_equal_147:
+retry_if_random_waypoint_not_in_valid_xrange:
     JSR  random_num_gen_into_A  ; $E893
     CMP  #$93  ; dec147
-    BCS  -retry_if_randnum_greater_or_equal_147  ; $E3ED ; branch if >= 147
+    BCS  retry_if_random_waypoint_not_in_valid_xrange  ; $E3ED ; branch if >= 147
     STA  attract_mode_player_xpos_waypoint,x  ; $37,X
-    JMP  +jump_ahead  ; $E400
-+still_travelling_to_xpos_waypoint:
-    BCS  +skip_to_dec  ; $E3FE  ; if current player x-pos >= waypoint, then branch (for decrement)
+    JMP  jump_ahead  ; $E400
+assess_auto_travel_direction:
+    BCS  travelling_right_to_left  ; $E3FE  ; if current player x-pos >= waypoint, then branch (for decrement)
 // otherwise player x-pos is less than waypoint (and we need to increment)
     INC  genvarA  ; $09  ; move paddle automatically to right
     BIT  $09C6
-  +skip_to_dec:
+travelling_right_to_left:
       DEC  genvarA ; $09  ; move paddle automatically to left
-+jump_ahead:
+jump_ahead:
     LDA  genvarA  ; $09
-    JMP  +jump_ahead2  ; $E40C
-+skip_if_in_real_game_mode:
+    JMP  wipe_current_player_submarine  ; $E40C
+assess_paddle_movement:
     LDA  iterator_local  ; $23
     JSR  read_paddle_position  ; $F0F0
     STA  genvarA  ; $09
-+jump_ahead2:
+wipe_current_player_submarine:
     LDX  iterator_local  ; $23
-    LDA  players_xpos,x  ; $35,X  ; some player1/2 detail (maybe player submarine x-pos x 4)
+    LDA  players_xpos,x  ; $35,X  ; player1/2 xpos
     LSR
     LSR
     TAY
     LDX  #$05
     LDA  #$26  ; ' ' space char
--loop1:
+loop_wipe_next_submarine_char:
     STA  ($02),Y  ; wipe away existing player submarine chars with spaces (submarine is 5 chars wide)
     INY
     DEX
-    BNE  -loop1  ; $E417
-    LDA  genvarA  ; $09
-    AND  #$03
+    BNE  loop_wipe_next_submarine_char  ; $E417
+    // time to draw player's submarine at new position
+    // -----------------------------------------------
+    LDA  genvarA  ; $09  ; new xposition for paddle
+    AND  #$03  ; figure out what x-offset within char the sub-should be drawn at (in pixel-pair units)
     TAX
     LDY  submarine_charset_idx,x  ; $EEE8,X  ; choose between submarine_charset1/2/3/4
     LDA  iterator_local  ; $23  ; player 1 or 2 index (0=player1, 1=player2)
-    BNE  +jump_if_player2  ; $E42C
+    BNE  jump_if_player2  ; $E42C
     LDX  #$00  ; relative index for vic-bank0 chars describing current player1 submarine
                ; (absolute char idx range 55-59)
     BIT  $28A2
-  +jump_if_player2:
+jump_if_player2:
       LDX  #$28  ; dec40  ; relative index for vic-bank0 chars describing current player2 submarine
     LDA  #$28  ; dec40  ; index of loop from 40 to 0, in order to copy across 5 chars to define player's sub)
     STA  genvarB  ; $08
--loopy:
+loop_copy_desired_submarine_charset_across:
     LDA  submarine_charset1,y  ; $EE48,Y
     STA  vicbank0_sub_chars_for_player1,x  ; $02A8,X
     INX
     INY
     DEC  genvarB  ; $08
-    BNE  -loopy ; $E432
-    LDX  iterator_local  ; $23
-    LDA  genvarA  ; $09
-    STA  players_xpos,x  ; $35,X  ; some player1/2 detail
+    BNE  loop_copy_desired_submarine_charset_across ; $E432
+    LDX  iterator_local  ; $23  ; current player
+    LDA  genvarA  ; $09  ; new x-pos of player's submarine
+    STA  players_xpos,x  ; $35,X
     LSR
     LSR
     TAY
     LDA  sub_start_chars,x  ; $E45D,X  ; where x=0 is player1, x=1 is player2
     LDX  #$05  ; player submarine sprite consists of 5 chars
--loopy2:
+loop_draw_next_submarine_char:
     STA  ($02),Y
     CLC
     ADC  #$01
     INY
     DEX
-    BNE  -loopy2  ; $E44C
+    BNE  loop_draw_next_submarine_char  ; $E44C
     DEC  iterator_local  ; $23
-    BMI  +skip_to_end  ; $E45C
-    JMP  -big_loopback  ; $E3D2
-+skip_to_end:
+    BMI  exit_update_player_submarine_positions_routine  ; $E45C
+    JMP  loop_next_player_submarine  ; $E3D2
+exit_update_player_submarine_positions_routine:
     RTS
 
 
 sub_start_chars:
- :000E45D 55 5A                                             | UZ
+    !byte $55, $5A
 
-    55 = start char of 1st variation of submarine chars (maybe intended for player1)
-    5A = start char of 2nd variation of submarine chars (though both variations look quite similar)
-            (maybe intended for player2, possibly to give it a unique look?)
+//    55 = start char of 1st variation of submarine chars (maybe intended for player1)
+//    5A = start char of 2nd variation of submarine chars (though both variations look quite similar)
+//            (maybe intended for player2, possibly to give it a unique look?)
 
 
 bullet_redraw_and_ship_assessment:
@@ -2520,7 +2523,7 @@ $EB60               85 19    STA  buff_spr2back_coll  ; $19
 $EB62               20 00 E0 JSR  ship_logic  ; $E000  ; has logic to spawn new ships when needed
 $EB65               20 C8 E1 JSR  buoy_logic  ; $E1C8
 $EB68               20 7D E2 JSR  handle_missile_firing_and_player_movement  ; $E27D
-$EB6B               20 CE E3 JSR  redraw_player_submarines  ; $E3CE
+$EB6B               20 CE E3 JSR  update_player_submarine_positions  ; $E3CE
 $EB6E               20 5F E4 JSR  bullet_redraw_and_ship_assessment  ; $E45F
 $EB71               A5 16    LDA  real_game_mode_flag  ; $16
 $EB73               F0 03    BEQ  +skip_if_in_attract_mode  ; $EB78
