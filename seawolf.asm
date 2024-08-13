@@ -287,6 +287,7 @@ vicbank0_missile_chars_for_player2 = $0380  // $0380-03ff [4][4][8]:
 
 * = $E000
 
+// LOCATION: E000
 ship_logic:
 //--------
 // has logic to spawn new ships when needed
@@ -742,8 +743,8 @@ exit_ship_logic_routine:
 // |                        |
 // +------------------------+
 
+// LOCATION: E1C5
 explosion_sprite_pointers:
-// :000E1C5 F9 F5 F1
   !byte $F9, $F5, $F1
 
 
@@ -825,25 +826,26 @@ explosion_sprite_pointers:
 // +------------------------+
 
 
+// LOCATION: E1C8
 buoy_logic:
 //---------
     LDA  buoy_movement_timer  ; $24
-    BPL  +buoy_timer_not_expired_yet  ; $E1D0
+    BPL  buoy_timer_not_expired_yet  ; $E1D0
 ; reset timer after expiring
     LDA  #$0B  ; dec11
     STA  buoy_movement_timer  ; $24
-+buoy_timer_not_expired_yet:
+buoy_timer_not_expired_yet:
     DEC  buoy_movement_timer  ; $24
     LDA  #$03  ; buoy iterator (3 to 0)
     STA  iterator_local  ; $23
--big_retry:
+loop_next_buoy:
 // loops on a decrementing iterator_local until all the way to zero
     LDX  iterator_local  ; $23
     LDA  buoys_visibility,x  ; $5D,X
-    BNE  +buoy_is_visible_or_exploading  ; $E1DF  ; branch if non-zero
+    BNE  buoy_is_visible_or_exploading  ; $E1DF  ; branch if non-zero
 // if buoy is invisible, jump to next buoy
-    JMP  +jmp_to_next_buoy  ; $E275
-+buoy_is_visible_or_exploading:
+    JMP  jmp_to_next_buoy  ; $E275
+buoy_is_visible_or_exploading:
     LDA  buoys_xpos,x  ; $61,X
     STA  xpos_local  ; $11  (x-position of current buoy)
     LDA  buoys_ypos,x   ; $65,X  ; (array of all buoy y-positions)
@@ -853,47 +855,49 @@ buoy_logic:
     TAY
     LDA  buff_spr2back_coll  ; $19
     AND  or_bitfields,y  ; $EE38,Y
-    BEQ  +skip_due_to_no_spr_to_back_collision  ; $E224  ; branch if the bit isn't on (no spr-to-back collision with this sprite)
+    BEQ  skip_due_to_no_spr_to_back_collision  ; $E224  ; branch if the bit isn't on (no spr-to-back collision with this sprite)
     LDY  #$07
--retry1:
+loop_next_torpedo_to_buoy_collision_check:
+    // assess y-range
     LDA  torpedo_fire_ypos,y  ; $0075,Y  ; y-pos of all torpedoes
-    BEQ  +skip_on_zero  ; $E20E
+    BEQ  skip_to_next_torpedo  ; $E20E
     SEC
     SBC  ypos_local  ; $12  ; (y-position of the current buoy)
     CMP  #$15  ; dec21
-    BCS  +branch_if_ypos_>=21  ; $E20E  ; branch if >= dec21
+    BCS  skip_to_next_torpedo  ; $E20E  ; branch if >= dec21 (or if we had an underflow and <0) i.e., torpedo not in y-range of current buoy
+    // assess x-range
     LDA  torpedo_fire_xpos,y  ; $006D,Y  ; x-pos of all torpedoes
     SEC
     SBC  xpos_local  ; $11  ; (x-position of the current buoy)
     CMP  #$FE  ; dec254
-    BCS  +branch_if_xpos_>=254  ; $E213 ; branch if >= 254
+    BCS  this_torpedo_hit_current_buoy  ; $E213 ; branch if >= 254 (-2)
     CMP  #$0C  ; dec12
-    BCC  +branch_if_xpos_<12  ; $E213
-+skip_on_zero:
-+branch_if_ypos_>=21:
+    BCC  this_torpedo_hit_current_buoy  ; $E213
+skip_to_next_torpedo:
     DEY
-    BPL  -retry1  ; $E1F4
-    BNE  +skip_due_to_no_spr_to_back_collision  ; $E224
-+branch_if_xpos_<12:
-+branch_if_xpos_>=254:
+    BPL  loop_next_torpedo_to_buoy_collision_check  ; $E1F4
+    BNE  skip_due_to_no_spr_to_back_collision  ; $E224
+this_torpedo_hit_current_buoy:
 // if we're here, a missile has hit a buoy
+// Y = the torpedo/missile that made the hit
+// X = the buoy that was hit
     LDA  #$FF  ; #$ff = this torpedo is no longer visible
     STA  torpedo_fire_state,y  ; $007D,Y
     STA  buoys_visibility,x  ; $5D,X
     LDA  #$18  ; dec24
     STA  buoys_explode_timer,x  ; $69,X
     JSR  trigger_voice3_sound  ; $E95D  ; (probably explosion sound?)
-    JMP  +jmp_to_next_buoy  ; $E275
-+skip_due_to_no_spr_to_back_collision:
+    JMP  jmp_to_next_buoy  ; $E275
+skip_due_to_no_spr_to_back_collision:
     LDA  buoys_visibility,x  ; $5D,X
-    BMI  +buoy_currently_exploding  ; $E25E
+    BMI  buoy_currently_exploding  ; $E25E
     LDA  buoy_movement_timer  ; $24
-    BNE  +jmp_to_next_buoy  ; $E275
+    BNE  jmp_to_next_buoy  ; $E275
 ; interesting... buoys only move from left to right
     INC  xpos_local  ; $11  ; x-pos of current buoy
     LDA  xpos_local  ; $11
     CMP  #$94  ; 148
-    BCS  +skip_if_xpos_>=148  ; $E251
+    BCS  make_this_buoy_invisible  ; $E251  ; buoy moved past right-edge of screen
     STA  buoys_xpos,x  ; $61,X  (array of all buoy x-positions)
     TXA
     ORA  #$04
@@ -906,19 +910,18 @@ buoy_logic:
     TXA
     ORA  #$04
     JSR  turn_on_sprite_A  ; $E8DD
-    JMP  +jmp_to_next_buoy  ; $E275
-+skip_if_xpos_>=148:
--retry_if_zero:
+    JMP  jmp_to_next_buoy  ; $E275
+make_this_buoy_invisible:
     LDA  #$00
     STA  buoys_visibility,x  ; $5D,X
     TXA
     ORA  #$04
     JSR  turn_off_sprite_A  ; $E8E8
-    JMP  +jmp_to_next_buoy  ; $E275
-+buoy_currently_exploding:
+    JMP  jmp_to_next_buoy  ; $E275
+buoy_currently_exploding:
     LDX  iterator_local  ; $23  ; current buoy index
     DEC  buoys_explode_timer,x  ; $69,X
-    BEQ  -retry_if_zero  ; $E251
+    BEQ  make_this_buoy_invisible  ; $E251  ; timer expired? Then make buoy invisible
     LDA  buoys_explode_timer,x  ; $69,X  (range 0-23)
     LSR
     LSR
@@ -930,273 +933,273 @@ buoy_logic:
     SBC  genvarB  ; $08
     STA  $07FC,X  ; sprite-pointers for sprites 4-7
                   ; sprite-pointer can be set to anything between $F6 - $F8
-+jmp_to_next_buoy:
+jmp_to_next_buoy:
     DEC  iterator_local  ; $23
-    BMI  +skip_to_rts  ; $E27C
-    JMP  -big_retry  ; $E1D6
-+skip_to_rts:
+    BMI  exit_buoy_logic_routine  ; $E27C
+    JMP  loop_next_buoy  ; $E1D6
+exit_buoy_logic_routine:
     RTS
 
 
-sprite F6: (buoy explosion?)
-
-+------------------------+
-|   *  ** *  *   ** **   |
-|  *  **       * *   **  |
-| ***   **  ** ***    ** |
-| **  *  **   * ** ** ** |
-|  ** * * **   **     *  |
-|***** ***    ***  *** **|
-| ** **   ** ***  **  ** |
-|  **  *** * *  **** **  |
-|   **  ** *   *    **   |
-|    **  ***  ***  **    |
-|     ****  **  ****     |
-|      **   **   **      |
-|     ****  **  ****     |
-|    **  ** ** **  **    |
-|   **    ******    **   |
-|  **      ****      **  |
-| ********************** |
-|*** *** ***  *** *** ***|
-|*** *** ***  *** *** ***|
-|*** *** ***  *** *** ***|
-| ********************** |
-+------------------------+
-
-
-sprite F7: (buoy explosion?)
-
-+------------------------+
-|  *    * *  *   **   *  |
-| *   **       * *     * |
-|** *   *   *    *      *|
-|* *          * *  ** ***|
-|*  *          **     * *|
-|***               *** **|
-| ** **   *    *   *   * |
-| ***  *** *    ***  **  |
-|** **  ** *   *     *   |
-| *  *   ***  * *  **    |
-|*    ****  **  **** *   |
-| **   **   **   **    * |
-|      ***  **      **** |
-| *  *   ** ** **  **    |
-|    *    *** **     *   |
-|  **      **        **  |
-| *    ***  ****     *** |
-|**    * ***   *  *   * *|
-|***      **  *** *   * *|
-|*   *** * *  *   *** ***|
-| * * *********  ******* |
-+------------------------+
+// sprite F6: (buoy explosion?)
+// 
+// +------------------------+
+// |   *  ** *  *   ** **   |
+// |  *  **       * *   **  |
+// | ***   **  ** ***    ** |
+// | **  *  **   * ** ** ** |
+// |  ** * * **   **     *  |
+// |***** ***    ***  *** **|
+// | ** **   ** ***  **  ** |
+// |  **  *** * *  **** **  |
+// |   **  ** *   *    **   |
+// |    **  ***  ***  **    |
+// |     ****  **  ****     |
+// |      **   **   **      |
+// |     ****  **  ****     |
+// |    **  ** ** **  **    |
+// |   **    ******    **   |
+// |  **      ****      **  |
+// | ********************** |
+// |*** *** ***  *** *** ***|
+// |*** *** ***  *** *** ***|
+// |*** *** ***  *** *** ***|
+// | ********************** |
+// +------------------------+
 
 
-sprite F8:  (buoy explosion?)
-
-+------------------------+
-|   ** ** * ** ****  *   |
-|     **       * *       |
-| * *   *   *    *    ** |
-|  *          * *  ** ** |
-| * *                 * *|
-|***               *** **|
-| ** **            *   * |
-| ***  *          *      |
-|** **               **  |
-| *                     *|
-|*    *            * * **|
-| **   *               **|
-|*                  **** |
-| *  *      *  *   **   *|
-|    *         *     *  *|
-|  **      **        **  |
-|**    ***  ****     *** |
-| *  * * ***      *   * *|
-| **      ** ***  *   * *|
-|    *** *  * *     *   *|
-|   *** *  *  * * * **   |
-+------------------------+
-
-
-sprite FA: (buoy)
-
-+------------------------+
-|      ************      |
-|     *   *    *   *     |
-|     * * * **** * *     |
-|     *   *   ** * *     |
-|     * * * ****   *     |
-|**    ************    **|
-| **      ******      ** |
-|  **      ****      **  |
-|   **    ******    **   |
-|    **  ** ** **  **    |
-|     ****  **  ****     |
-|      **   **   **      |
-|     ****  **  ****     |
-|    **  ** ** **  **    |
-|   **    ******    **   |
-|  **      ****      **  |
-| ********************** |
-|*** *** ***  *** *** ***|
-|*** *** ***  *** *** ***|
-|*** *** ***  *** *** ***|
-| ********************** |
-+------------------------+
+// sprite F7: (buoy explosion?)
+// 
+// +------------------------+
+// |  *    * *  *   **   *  |
+// | *   **       * *     * |
+// |** *   *   *    *      *|
+// |* *          * *  ** ***|
+// |*  *          **     * *|
+// |***               *** **|
+// | ** **   *    *   *   * |
+// | ***  *** *    ***  **  |
+// |** **  ** *   *     *   |
+// | *  *   ***  * *  **    |
+// |*    ****  **  **** *   |
+// | **   **   **   **    * |
+// |      ***  **      **** |
+// | *  *   ** ** **  **    |
+// |    *    *** **     *   |
+// |  **      **        **  |
+// | *    ***  ****     *** |
+// |**    * ***   *  *   * *|
+// |***      **  *** *   * *|
+// |*   *** * *  *   *** ***|
+// | * * *********  ******* |
+// +------------------------+
 
 
-handle_missile_firing_and_state:
-//------------------------------
-$E27D               A9 01    LDA  #$01  ; iterator_local is set to #$01 to indicate (index to) player2 
-                                        ; (it is set later at $E357 to #$00 to indicate player1)
-$E27F               85 23    STA  iterator_local  ; $23
--big_retry:
-$E281               A6 23    LDX  iterator_local  ; $23
-$E283               B5 2F    LDA  missile_reload_timers,x  ; $2F,X
-$E285               F0 22    BEQ  +skip_if_zero  ; $E2A9
-$E287               D6 2F    DEC  missile_reload_timers,x  ; $2F,X
-$E289               B5 2F    LDA  missile_reload_timers,x  ; $2F,X
-$E28B               F0 15    BEQ  +skip_if_dec_to_zero  ; $E2A2
-$E28D               C9 78    CMP  #$78  ; dec120
-$E28F               F0 04    BEQ  +skip_if_=_120  ; $E295
-$E291               C9 3C    CMP  #$3C  ; dec60
-$E293               D0 14    BNE  +skip_if_not_60  ; $E2A9
-+skip_if_=_120:
-$E295               8A       TXA  ; a=0 for player1, a=1 for player2
-$E296               D0 05    BNE  +skip1  ; $E29D  ; branch if player2
-$e298      m_nnnn:2 ce c2 07 dec  $07c2   ; row24 - column2 on char screen (decrements the TIME TO LOAD: x SECONDS.) for player1
-                                          ; (it might be a black/invisible character that is used as a temp var) 
-$E29B               D0 0C    BNE  +skip_if_07c2_not_zero  ; $E2A9
-+skip1:
-$E29D               CE DB 07 DEC  $07DB   ; row24 - column27 on char screen  (decrements the TIME TO LOAD: x SECONDS.) for player2
-$E2A0               D0 07    BNE  +skip_if_07db_not_zero  ; $E2A9
-+skip_if_dec_to_zero:
-$E2A2               A9 04    LDA  #$04
-$E2A4               95 31    STA  p1_num_missiles,x  ; $31,X
-$E2A6               20 5F E3 JSR  redraw_torpedo_amount_indicator  ; $E35F
-+skip_if_07db_not_zero:
-+skip_if_07c2_not_zero:
-+skip_if_not_60:
-+skip_if_zero:
-$E2A9               A5 23    LDA  iterator_local  ; $23
-$E2AB               A4 16    LDY  real_game_mode_flag  ; $16
-$E2AD               D0 0A    BNE  +skip_if_in_real_game_mode_flag  ; $E2B9
+// sprite F8:  (buoy explosion?)
+// 
+// +------------------------+
+// |   ** ** * ** ****  *   |
+// |     **       * *       |
+// | * *   *   *    *    ** |
+// |  *          * *  ** ** |
+// | * *                 * *|
+// |***               *** **|
+// | ** **            *   * |
+// | ***  *          *      |
+// |** **               **  |
+// | *                     *|
+// |*    *            * * **|
+// | **   *               **|
+// |*                  **** |
+// | *  *      *  *   **   *|
+// |    *         *     *  *|
+// |  **      **        **  |
+// |**    ***  ****     *** |
+// | *  * * ***      *   * *|
+// | **      ** ***  *   * *|
+// |    *** *  * *     *   *|
+// |   *** *  *  * * * **   |
+// +------------------------+
+
+
+// sprite FA: (buoy)
+// 
+// +------------------------+
+// |      ************      |
+// |     *   *    *   *     |
+// |     * * * **** * *     |
+// |     *   *   ** * *     |
+// |     * * * ****   *     |
+// |**    ************    **|
+// | **      ******      ** |
+// |  **      ****      **  |
+// |   **    ******    **   |
+// |    **  ** ** **  **    |
+// |     ****  **  ****     |
+// |      **   **   **      |
+// |     ****  **  ****     |
+// |    **  ** ** **  **    |
+// |   **    ******    **   |
+// |  **      ****      **  |
+// | ********************** |
+// |*** *** ***  *** *** ***|
+// |*** *** ***  *** *** ***|
+// |*** *** ***  *** *** ***|
+// | ********************** |
+// +------------------------+
+
+
+// LOCATION: E27D
+handle_missile_firing_and_player_movement:
+//---------------------------------------
+// NOTE: It also contains buoy-respawn logic (based on player firing last missile of 4)
+    LDA  #$01  ; iterator_local is set to #$01 to indicate (index to) player2 
+               ; (it is set later at $E357 to #$00 to indicate player1)
+    STA  iterator_local  ; $23
+loop_next_player_to_assess_missiles_for:
+    LDX  iterator_local  ; $23
+    LDA  missile_reload_timers,x  ; $2F,X
+    BEQ  assess_player_movement  ; $E2A9  ; if timer is zero, then skip over to assess player movement
+    DEC  missile_reload_timers,x  ; $2F,X
+    LDA  missile_reload_timers,x  ; $2F,X
+    BEQ  reload_player_missiles  ; $E2A2  ; once timer expires, reload player missiles
+    CMP  #$78  ; dec120
+    BEQ  decrement_reload_time_on_screen  ; $E295  ; if we reach this timer=120 threshold, decrement reload time on screen
+    CMP  #$3C  ; dec60
+    BNE  assess_player_movement  ; $E2A9  ; if we reach this timer=60 threshold, decrement reload time on screen
+decrement_reload_time_on_screen:
+    TXA  ; a=0 for player1, a=1 for player2
+    BNE  player2_update_reload_time  ; $E29D  ; branch if player2
+    dec  $07c2   ; row24 - column2 on char screen (decrements the TIME TO LOAD: x SECONDS.) for player1
+                 ; (it might be a black/invisible character that is used as a temp var) 
+    BNE  assess_player_movement  ; $E2A9  ; if timer hasn't expired yet, skip to player movement assessment
+player2_update_reload_time:
+    DEC  $07DB   ; row24 - column27 on char screen  (decrements the TIME TO LOAD: x SECONDS.) for player2
+    BNE  assess_player_movement  ; $E2A9  ; if timer hasn't expired yet, skip to player movement assessment
+reload_player_missiles:
+    LDA  #$04
+    STA  p1_num_missiles,x  ; $31,X
+    JSR  redraw_torpedo_amount_indicator  ; $E35F
+assess_player_movement:
+    LDA  iterator_local  ; $23
+    LDY  real_game_mode_flag  ; $16
+    BNE  skip_if_in_real_game_mode_flag  ; $E2B9
 // if in attract mode, randomly decide when to fire missiles
-$E2AF               20 93 E8 JSR  random_num_gen_into_A  ; $E893
-$E2B2               C9 03    CMP  #$03
-$E2B4               90 12    BCC  +auto_fire_missile_while_in_attract  ; $E2C8  ; branch if less than 3
-$E2B6               4C BF E2 JMP  +skip_jmp  ; $E2BF
-+skip_if_in_real_game_mode_flag:
+    JSR  random_num_gen_into_A  ; $E893
+    CMP  #$03
+    BCC  auto_fire_missile_while_in_attract  ; $E2C8  ; branch if less than 3
+    JMP  skip_over_paddle_reading  ; $E2BF
+skip_if_in_real_game_mode_flag:
 // if not in attract, we're in real game, to read user input for fire button
-$E2B9               20 83 E7 JSR  read_paddle_fire_button  ; $E783
-$E2BC               AA       TAX
-$E2BD               D0 09    BNE  +paddle_fires_pressed  ; $E2C8  ; branch if any paddle fires pressed
-+skip_jmp:
-$E2BF               A6 23    LDX  iterator_local  ; $23  ; player idx (0=player1, 1=player2)
-$E2C1               A9 00    LDA  #$00  ; set flag to record that paddle fire state is presently off
-$E2C3               95 33    STA  last_paddle_fire_state,x  ; $33,X
-$E2C5               4C 57 E3 JMP  +big_jmp_to_near_end  ; $E357
-+auto_fire_missile_while_in_attract:
-+paddle_fires_pressed:
-$E2C8               A6 23    LDX  iterator_local  ; $23
-$E2CA               B5 33    LDA  last_paddle_fire_state,x  ; $33,X
-$E2CC               F0 03    BEQ  +skip_if_last_paddle_fire_state_is_off  ; $E2D1
-$E2CE               4C 57 E3 JMP  +big_jmp_to_near_end  ; $E357
-+skip_if_last_paddle_fire_state_is_off:
-$E2D1               A9 FF    LDA  #$FF
-$E2D3               95 33    STA  last_paddle_fire_state,x  ; $33,X
-$E2D5               B5 2F    LDA  missile_reload_timers,x  ; $2F,X
-$E2D7               F0 03    BEQ  +skip_if_missile_reload_timer_is_zero  ; $E2DC
-$E2D9               4C 57 E3 JMP  +big_jmp_to_near_end  ; $E357
-+skip_if_missile_reload_timer_is_zero:
-$E2DC               8A       TXA  ; X = player idx (0=player1, 1=player2)
-$E2DD               0A       ASL
-$E2DE               0A       ASL  ; multiply by 4  (0=player1, 4=player2)
-$E2DF               18       CLC
-$E2E0               75 31    ADC  p1_num_missiles,x  ; $31,X  ; let A be index to the next available missile for this player
-$E2E2               A8       TAY  ; Y = idx to next available missile for this player
-$E2E3               88       DEY  ; this decrement might be to assure the a kind of zero-indexed nature of referring to missiles here
-$E2E4               B5 35    LDA  players_xpos,x  ; $35,X
-$E2E6               18       CLC
-$E2E7               69 07    ADC  #$07
-$E2E9               99 6D 00 STA  torpedo_fire_xpos,y  ; $006D,Y
-$E2EC               A9 A0    LDA  #$A0  ; dec160
-$E2EE               99 75 00 STA  torpedo_fire_ypos,y  ; $0075,Y  ; y-position of submarine torpedo/fire
-$E2F1               A9 00    LDA  #$00  ; #$00 = this torpedo is now visible
-$E2F3               99 7D 00 STA  torpedo_fire_state,y  ; $007D,Y
-$E2F6               D6 31    DEC  p1_num_missiles,x  ; $31,X
-$E2F8               20 5F E3 JSR  redraw_torpedo_amount_indicator  ; $E35F
-$E2FB               20 53 E9 JSR  play_fire_shoot_sound_on_v2  ; $E953
-$E2FE               A6 23    LDX  iterator_local  ; $23
-$E300               B5 31    LDA  p1_num_missiles,x  ; $31,X
-$E302               D0 53    BNE  +big_jmp_to_near_end  ; $E357  ; if player still has missiles, do branch
-$E304               A9 B4    LDA  #$B4  ; dec180
-$E306               95 2F    STA  missile_reload_timers,x  ; $2F,X
+    JSR  read_paddle_fire_button  ; $E783
+    TAX
+    BNE  paddle_fires_pressed  ; $E2C8  ; branch if any paddle fires pressed
+skip_over_paddle_reading:
+    LDX  iterator_local  ; $23  ; player idx (0=player1, 1=player2)
+    LDA  #$00  ; set flag to record that paddle fire state is presently off
+    STA  last_paddle_fire_state,x  ; $33,X
+    JMP  skip_to_next_player_assessment  ; $E357
+auto_fire_missile_while_in_attract:
+paddle_fires_pressed:
+    LDX  iterator_local  ; $23
+    LDA  last_paddle_fire_state,x  ; $33,X
+    BEQ  transition_paddle_fire_state_from_off_to_on  ; $E2D1  ; if last paddle fire-state was off, then we have now transitioned to on
+    JMP  skip_to_next_player_assessment  ; $E357
+transition_paddle_fire_state_from_off_to_on:
+    LDA  #$FF  ; $FF = fire-state = on
+    STA  last_paddle_fire_state,x  ; $33,X
+    LDA  missile_reload_timers,x  ; $2F,X
+    BEQ  shoot_a_missile  ; $E2DC  ; if player's reload timer is zero, it means we still have missiles available to fire
+    JMP  skip_to_next_player_assessment  ; $E357
+shoot_a_missile:
+    TXA  ; X = player idx (0=player1, 1=player2)
+    ASL
+    ASL  ; multiply by 4  (0=player1, 4=player2)
+    CLC
+    ADC  p1_num_missiles,x  ; $31,X  ; let A be index to the next available missile for this player
+    TAY  ; Y = idx to next available missile for this player
+    DEY  ; this decrement might be to assure the a kind of zero-indexed nature of referring to missiles here
+    LDA  players_xpos,x  ; $35,X
+    CLC
+    ADC  #$07
+    STA  torpedo_fire_xpos,y  ; $006D,Y
+    LDA  #$A0  ; dec160
+    STA  torpedo_fire_ypos,y  ; $0075,Y  ; y-position of submarine torpedo/fire
+    LDA  #$00  ; #$00 = this torpedo is now visible
+    STA  torpedo_fire_state,y  ; $007D,Y
+    DEC  p1_num_missiles,x  ; $31,X
+    JSR  redraw_torpedo_amount_indicator  ; $E35F
+    JSR  play_fire_shoot_sound_on_v2  ; $E953
+    LDX  iterator_local  ; $23
+    LDA  p1_num_missiles,x  ; $31,X
+    BNE  skip_to_next_player_assessment  ; $E357  ; if player still has missiles, do branch
+    ; otherwise, they've run out of missiles now, and time to prepare the reload timer
+    LDA  #$B4  ; dec180
+    STA  missile_reload_timers,x  ; $2F,X
 ; buoy respawn logic
 ; ------------------
 ; we can only get here if we just fired the last missile in our set of 4 (whether it be player 1 or 2)
-$E308               A5 25    LDA  buoy_pair_index  ; $25
-$E30A               49 02    EOR  #$02  ; toggle bit1  ; so below, we can only possibly assess visibility of buoy 0 or 2
-$E30C               85 25    STA  buoy_pair_index  ; $25
-$E30E               AA       TAX
-                             ; X = buoy-pair index (either 0 or 2)
-$E30F               B5 5D    LDA  buoys_visibility,x  ; $5D,X
-$E311               F0 07    BEQ  +buoy1_is_invisible  ; $E31A
-$E313               B5 5E    LDA  buoys_visibility+1,x  ; $5E,X
-$E315               F0 13    BEQ  +buoy1_visible_and_buoy2_invisible  ; $E32A
+    LDA  buoy_pair_index  ; $25
+    EOR  #$02  ; toggle bit1  ; so below, we can only possibly assess visibility of buoy 0 or 2
+    STA  buoy_pair_index  ; $25
+    TAX
+    ; X = buoy-pair index (either 0 or 2)
+    LDA  buoys_visibility,x  ; $5D,X  ; assess buoy1
+    BEQ  assess_buoy2_visibility  ; $E31A  ; if buoy1 not visible, then branch
+    LDA  buoys_visibility+1,x  ; $5E,X  ; assess buoy2
+    BEQ  buoy1_visible_and_buoy2_invisible  ; $E32A  ; if buoy2 also not visible, then branch
 ; if both buoys visible, no need to do any respawning
 ; ---------------------------------------------------
-$E317               4C 57 E3 JMP  +big_jmp_to_near_end  ; $E357
-+buoy1_is_invisible:
-$E31A               B5 5E    LDA  buoys_visibility+1,x ; $5E,X
-$E31C               D0 1C    BNE  +buoy1_invisible_and_buoy2_visible  ; $E33A
+    JMP  skip_to_next_player_assessment  ; $E357
+assess_buoy2_visibility:
+    LDA  buoys_visibility+1,x ; $5E,X
+    BNE  buoy1_invisible_and_buoy2_visible  ; $E33A
 ; both buoys in the pair are invisible
 //-------------------------------------
-$E31E               A9 00    LDA  #$00
-$E320               95 61    STA  buoys_xpos,x  ; $61,X  ; spawn new buoy at xpos=0
-$E322               18       CLC
-$E323               69 44    ADC  #$44  ; dec68  ; 2nd buoy in pair will be at xpos=68
-$E325               95 62    STA  buoys_xpos+1,x  ; $62,X
-$E327               4C 47 E3 JMP  +assure_both_buoys_in_pair_visible_and_on_same_ypos  ; $E347
-+buoy1_visible_and_buoy2_invisible:
+    LDA  #$00
+    STA  buoys_xpos,x  ; $61,X  ; spawn new buoy at xpos=0
+    CLC
+    ADC  #$44  ; dec68  ; 2nd buoy in pair will be at xpos=68
+    STA  buoys_xpos+1,x  ; $62,X
+    JMP  assure_both_buoys_in_pair_visible_and_on_same_ypos  ; $E347
+buoy1_visible_and_buoy2_invisible:
 //---------------------------------
-$E32A               B5 61    LDA  buoys_xpos,x  ; $61,X  ; 1st buoy xpos
-$E32C               C9 4C    CMP  #$4C  ; dec76  ; 1st_buoy_xpos >= 76
-$E32E               B0 03    BCS  +respawn_2nd_buoy_behind_1st  ; $E333
-$E330               69 44    ADC  #$44  ; dec68
-$E332               2C E9 44 BIT  $44E9
-  +respawn_2nd_buoy_behind_1st:
-  $E333               E9 44    SBC  #$44  ; dec68
-$E335               95 62    STA  buoys_xpos+1,x  ; $62,X
-$E337               4C 47 E3 JMP  +assure_both_buoys_in_pair_visible_and_on_same_ypos  ; $E347
-+buoy1_invisible_and_buoy2_visible:
+    LDA  buoys_xpos,x  ; $61,X  ; 1st buoy xpos
+    CMP  #$4C  ; dec76  ; 1st_buoy_xpos >= 76
+    BCS  respawn_2nd_buoy_behind_1st  ; $E333
+    ADC  #$44  ; dec68
+    BIT  $44E9
+respawn_2nd_buoy_behind_1st:
+      SBC  #$44  ; dec68
+    STA  buoys_xpos+1,x  ; $62,X
+    JMP  assure_both_buoys_in_pair_visible_and_on_same_ypos  ; $E347
+buoy1_invisible_and_buoy2_visible:
 //---------------------------------
 ; we're here if 1st buoy in pair is not visible, but 2nd buoy in pair is visible
-$E33A               B5 62    LDA  buoys_xpos+1,x  ; $62,X  ; A = xpos of 2nd buoy in pair
-$E33C               C9 4C    CMP  #$4C  ; dec76
-$E33E               B0 03    BCS  +respawn_1st_buoy_behind_2nd  ; $E343 ; if A >= 76 then branch to spawn 1st buoy behind 2nd
-$E340               69 44    ADC  #$44  ; otherwise spawn 1st buoy (in pair) in front of 2nd by dec68
-$E342               2C E9 44 BIT  $44E9
-  +respawn_1st_buoy_behind_2nd:
-  $E343               E9 44    SBC  #$44
-$E345               95 61    STA  buoys_xpos,x  ; $61,X
-+assure_both_buoys_in_pair_visible_and_on_same_ypos:
+    LDA  buoys_xpos+1,x  ; $62,X  ; A = xpos of 2nd buoy in pair
+    CMP  #$4C  ; dec76
+    BCS  respawn_1st_buoy_behind_2nd  ; $E343 ; if A >= 76 then branch to spawn 1st buoy behind 2nd
+    ADC  #$44  ; otherwise spawn 1st buoy (in pair) in front of 2nd by dec68
+    BIT  $44E9
+respawn_1st_buoy_behind_2nd:
+      SBC  #$44
+    STA  buoys_xpos,x  ; $61,X
+assure_both_buoys_in_pair_visible_and_on_same_ypos:
 //--------------------------------------------------
-$E347               A9 01    LDA  #$01
-$E349               95 5D    STA  buoys_visibility,x  ; $5D,X
-$E34B               95 5E    STA  buoys_visibility+1,x  ; $5E,X
-$E34D               8A       TXA
-$E34E               4A       LSR
-$E34F               A8       TAY
-$E350               B9 22 EE LDA  possible_buoy_y_positions,y  ; $EE22,Y
-$E353               95 65    STA  buoys_ypos,x  ; $65,X
-$E355               95 66    STA  buoys_ypos+1,x  ; $66,X
-+big_jmp_to_near_end:
-$E357               C6 23    DEC  iterator_local  ; $23  ; decrement player index from player2 to player1
-$E359               30 03    BMI  $E35E
-$E35B               4C 81 E2 JMP  -big_retry  ; $E281
-$E35E               60       RTS
+    LDA  #$01
+    STA  buoys_visibility,x  ; $5D,X
+    STA  buoys_visibility+1,x  ; $5E,X
+    TXA
+    LSR
+    TAY
+    LDA  possible_buoy_y_positions,y  ; $EE22,Y
+    STA  buoys_ypos,x  ; $65,X
+    STA  buoys_ypos+1,x  ; $66,X
+skip_to_next_player_assessment:
+    DEC  iterator_local  ; $23  ; decrement player index from player2 to player1
+    BMI  $E35E
+    JMP  loop_next_player_to_assess_missiles_for  ; $E281
+    RTS
 
 
 redraw_torpedo_amount_indicator:
@@ -2516,7 +2519,7 @@ $EB5D               AD 1F D0 LDA  $D01F  ; sprite-to-background collision detect
 $EB60               85 19    STA  buff_spr2back_coll  ; $19
 $EB62               20 00 E0 JSR  ship_logic  ; $E000  ; has logic to spawn new ships when needed
 $EB65               20 C8 E1 JSR  buoy_logic  ; $E1C8
-$EB68               20 7D E2 JSR  handle_missile_firing_and_state  ; $E27D
+$EB68               20 7D E2 JSR  handle_missile_firing_and_player_movement  ; $E27D
 $EB6B               20 CE E3 JSR  redraw_player_submarines  ; $E3CE
 $EB6E               20 5F E4 JSR  bullet_redraw_and_ship_assessment  ; $E45F
 $EB71               A5 16    LDA  real_game_mode_flag  ; $16
@@ -3827,3 +3830,5 @@ irq_pointers:
   - [0] = $E904 : interrupt_routine (NMI handler)
   - [1] = $EBF5 : cold_start_handler (Cold start handler)
   - [2] = $E904 : interrupt_routine (IRQ and BRK handler)
+
+// in vim, type: nnoremap <F5>  :make seawolf.prg<CR>
