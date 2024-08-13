@@ -1204,172 +1204,172 @@ skip_to_next_player_assessment:
 
 redraw_torpedo_amount_indicator:
 //------------------------------
-$E35F               B5 31    LDA  p1_num_missiles,x  ; $31,X
-$E361               48       PHA
-$E362               8A       TXA
-$E363               D0 03    BNE  +still_have_missiles  ; $E368
-$E365               A9 01    LDA  #$01
-$E367               2C A9 1A BIT  $1AA9
-  +still_have_missiles:
-  $E368               A9 1A    LDA  #$1A  ; dec26
-$E36A               85 13    STA  txt_x_pos  ; $13
-$E36C               A9 17    LDA  #$17  ; dec23
-$E36E               85 14    STA  txt_y_pos  ; $14
-$E370               20 C0 E6 JSR  adjust_scr_and_clr_ptr_locations  ; $E6C0
-$E373               A9 26    LDA  #$26  ; ' ' space character
-$E375               A0 00    LDY  #$00
--retry2:
-$E377               A2 0D    LDX  #$0D  ; 13
--retry_clear_loop:
-$E379               91 02    STA  ($02),Y   ; draw 13 spaces in the missile area, starting at either (1,23) for no missiles,
-                                            ; or (26,23) for have missiles.
-$E37B               C8       INY
-$E37C               CA       DEX
-$E37D               D0 FA    BNE  -retry_clear_loop  ; $E379
-$E37F               C0 28    CPY  #$28  ; dec40
-$E381               B0 04    BCS  +cleared_2nd_missile_line  ; $E387  ; branch if y >= 40 (upon clearing 2nd line of missiles?)
-$E383               A0 28    LDY  #$28  ; dec40
-$E385               D0 F0    BNE  -retry2  ; $E377
-+cleared_2nd_missile_line:
-$E387               68       PLA  ; retrieve number of missiles for currently assessed player again
-$E388               F0 19    BEQ  +skip_due_to_no_missiles_left  ; $E3A3  ; branch if player has no more missiles
-$E38A               AA       TAX
-$E38B               CA       DEX  ; decrease number of player missiles by one
--loop_to_draw_prior_torpedo_in_group:
-$E38C               A9 50    LDA  #$50  ; #$50 = start of torpedo char
-$E38E               A0 04    LDY  #$04
-$E390               84 08    STY  genvarB  ; $08
-$E392               BC 24 EE LDY  screen_offsets_for_each_missile_indicator,x  ; $EE24,X
--loop_to_draw_next_torpedo_char:
-$E395               91 02    STA  (scr_ptr_lo),y   ; ($02),Y
-$E397               C8       INY
-$E398               18       CLC
-$E399               69 01    ADC  #$01  ; increment to next torpedo char (e.g., #$50, #$51, #$52, #$53)
-$E39B               C6 08    DEC  genvarB  ; $08
-$E39D               D0 F6    BNE  -loop_to_draw_next_torpedo_char  ; $E395
-$E39F               CA       DEX  ; decrease x to point to prior torpedo in group (aiming to redraw it on screen next)
-$E3A0               10 EA    BPL  -loop_to_draw_prior_torpedo_in_group  ; $E38C
-$E3A2               60       RTS
-+skip_due_to_no_missiles_left:
-$E3A3               A2 16    LDX  #$16  ; dec22
-$E3A5               A0 32    LDY  #$32  ; dec50
--loop_for_dex:
-$E3A7               BD B7 E3 LDA  time_to_load_msg,x  ; $E3B7,X
-$E3AA               91 02    STA  scr_ptr_lo,y  ; ($02),Y
-$E3AC               88       DEY
-$E3AD               C0 28    CPY  #$28  ; dec40
-$E3AF               D0 02    BNE  +skip_if_y_not_40  ; $E3B3
-$E3B1               A0 0C    LDY  #$0C  ; dec12
-+skip_if_y_not_40:
-$E3B3               CA       DEX
-$E3B4               10 F1    BPL  -loop_for_dex  ; $E3A7
-$E3B6               60       RTS
+    LDA  p1_num_missiles,x  ; $31,X   ; the number of missiles this player has remaining (player = x)
+    PHA
+    TXA
+    BNE  still_have_missiles  ; $E368  ; if player still have missiles, redraw missile indicator area
+    LDA  #$01
+    BIT  $1AA9
+still_have_missiles:
+      LDA  #$1A  ; dec26
+    STA  txt_x_pos  ; $13
+    LDA  #$17  ; dec23
+    STA  txt_y_pos  ; $14
+    JSR  adjust_scr_and_clr_ptr_locations  ; $E6C0
+    LDA  #$26  ; ' ' space character
+    LDY  #$00
+loop_clear_next_line:
+    LDX  #$0D  ; 13
+loop_clear_next_char:
+    STA  ($02),Y   ; draw 13 spaces in the missile area, starting at either (1,23) for no missiles,
+                   ; or (26,23) for have missiles.
+    INY
+    DEX
+    BNE  loop_clear_next_char  ; $E379
+    CPY  #$28  ; dec40
+    BCS  draw_players_torpedoes  ; $E387  ; branch if y >= 40 (upon clearing 2nd line of missiles?)
+    LDY  #$28  ; dec40
+    BNE  loop_clear_next_line  ; $E377
+draw_players_torpedoes:
+    PLA  ; retrieve number of missiles for currently assessed player again
+    BEQ  draw_reloading_message  ; $E3A3  ; branch if player has no more missiles
+    TAX
+    DEX  ; decrease number of player missiles by one
+loop_to_draw_prior_torpedo_in_group:
+    LDA  #$50  ; #$50 = start of torpedo char
+    LDY  #$04
+    STY  genvarB  ; $08
+    LDY  screen_offsets_for_each_missile_indicator,x  ; $EE24,X
+loop_to_draw_next_torpedo_char:
+    STA  (scr_ptr_lo),y   ; ($02),Y
+    INY
+    CLC
+    ADC  #$01  ; increment to next torpedo char (e.g., #$50, #$51, #$52, #$53)
+    DEC  genvarB  ; $08
+    BNE  loop_to_draw_next_torpedo_char  ; $E395
+    DEX  ; decrease x to point to prior torpedo in group (aiming to redraw it on screen next)
+    BPL  loop_to_draw_prior_torpedo_in_group  ; $E38C
+    RTS
+draw_reloading_message:
+    LDX  #$16  ; dec22  ; it draws from the end of the string and moves forward
+    LDY  #$32  ; dec50
+loop_for_next_char:
+    LDA  time_to_load_msg,x  ; $E3B7,X
+    STA  scr_ptr_lo,y  ; ($02),Y
+    DEY
+    CPY  #$28  ; dec40      ; did we finish the 2nd line, and are now on last char of 1st line?
+    BNE  skip_if_still_on_2nd_line  ; $E3B3  ; if not, maintain usual loop behaviour 
+    LDY  #$0C  ; dec12  ; if so, reposition y to point to end of 1st line (to draw it from last char to first)
+skip_if_still_on_2nd_line:
+    DEX
+    BPL  loop_for_next_char  ; $E3A7
+    RTS
 
-
+// LOCATION: E3B7
 time_to_load_msg:
- :000E3B7 3A 2F 33 2B 26 3A 35 26  32 35 27 2A 42 49 26 39  | :/3+&:5&25'*BI&9
-           T  I  M  E     T  O      L  O  A  D  :  3     S
- :000E3C7 2B 29 35 34 2A 39 41                               | +)54*9
-           E  C  O  N  D  S  .
+    !byte $3A, $2F, $33, $2B, $26, $3A, $35, $26,  $32, $35, $27, $2A, $42, $49, $26, $39
+//           T  I  M  E     T  O      L  O  A  D  :  3     S
+    !byte $2B, $29, $35, $34, $2A, $39, $41
+//           E  C  O  N  D  S  .
 
 
 redraw_player_submarines:
 //-----------------------
-$E3CE               A9 01    LDA  #$01  ; player index (0=player1, 1=player2)
-$E3D0               85 23    STA  iterator_local  ; $23
+    LDA  #$01  ; player index (0=player1, 1=player2)
+    STA  iterator_local  ; $23
 -big_loopback:
-$E3D2               A6 23    LDX  iterator_local  ; $23
-$E3D4               8A       TXA
-$E3D5               18       CLC
-$E3D6               69 15    ADC  #$15  ; dec21  ; this is row containing either:
-                                                 ;    player1 sub (row21) - yellow
-                                                 ; or player2 sub (row22) - light brown
-$E3D8               85 14    STA  txt_y_pos  ; $14
-$E3DA               A9 00    LDA  #$00
-$E3DC               85 13    STA  txt_x_pos  ; $13
-$E3DE               20 C0 E6 JSR  adjust_scr_and_clr_ptr_locations  ; $E6C0
-$E3E1               A4 16    LDY  real_game_mode_flag  ; $16
-$E3E3               D0 20    BNE  +skip_if_in_real_game_mode  ; $E405
+    LDX  iterator_local  ; $23
+    TXA
+    CLC
+    ADC  #$15  ; dec21  ; this is row containing either:
+                        ;    player1 sub (row21) - yellow
+                        ; or player2 sub (row22) - light brown
+    STA  txt_y_pos  ; $14
+    LDA  #$00
+    STA  txt_x_pos  ; $13
+    JSR  adjust_scr_and_clr_ptr_locations  ; $E6C0
+    LDY  real_game_mode_flag  ; $16
+    BNE  +skip_if_in_real_game_mode  ; $E405
 // if we're in attract mode, move paddles around automatically?
-$E3E5               B5 35    LDA  players_xpos,x  ; $35,X
-$E3E7               85 09    STA  genvarA  ; $09  ; hold x-pos of current player
-$E3E9               D5 37    CMP  attract_mode_player_xpos_waypoint,x  ; $37,X
-$E3EB               D0 0C    BNE  +still_travelling_to_xpos_waypoint  ; $E3F9
+    LDA  players_xpos,x  ; $35,X
+    STA  genvarA  ; $09  ; hold x-pos of current player
+    CMP  attract_mode_player_xpos_waypoint,x  ; $37,X
+    BNE  +still_travelling_to_xpos_waypoint  ; $E3F9
 // if we get here, the attract mode paddle movement has reached the current waypoint,
 // so it's time to pick a new waypoint to automatically travel towards
 -retry_if_randnum_greater_or_equal_147:
-$E3ED               20 93 E8 JSR  random_num_gen_into_A  ; $E893
-$E3F0               C9 93    CMP  #$93  ; dec147
-$E3F2               B0 F9    BCS  -retry_if_randnum_greater_or_equal_147  ; $E3ED ; branch if >= 147
-$E3F4               95 37    STA  attract_mode_player_xpos_waypoint,x  ; $37,X
-$E3F6               4C 00 E4 JMP  +jump_ahead  ; $E400
+    JSR  random_num_gen_into_A  ; $E893
+    CMP  #$93  ; dec147
+    BCS  -retry_if_randnum_greater_or_equal_147  ; $E3ED ; branch if >= 147
+    STA  attract_mode_player_xpos_waypoint,x  ; $37,X
+    JMP  +jump_ahead  ; $E400
 +still_travelling_to_xpos_waypoint:
-$E3F9               B0 03    BCS  +skip_to_dec  ; $E3FE  ; if current player x-pos >= waypoint, then branch (for decrement)
+    BCS  +skip_to_dec  ; $E3FE  ; if current player x-pos >= waypoint, then branch (for decrement)
 // otherwise player x-pos is less than waypoint (and we need to increment)
-$E3FB               E6 09    INC  genvarA  ; $09  ; move paddle automatically to right
-$E3FD               2C C6 09 BIT  $09C6
+    INC  genvarA  ; $09  ; move paddle automatically to right
+    BIT  $09C6
   +skip_to_dec:
-  $E3FE               C6 09    DEC  genvarA ; $09  ; move paddle automatically to left
+      DEC  genvarA ; $09  ; move paddle automatically to left
 +jump_ahead:
-$E400               A5 09    LDA  genvarA  ; $09
-$E402               4C 0C E4 JMP  +jump_ahead2  ; $E40C
+    LDA  genvarA  ; $09
+    JMP  +jump_ahead2  ; $E40C
 +skip_if_in_real_game_mode:
-$E405               A5 23    LDA  iterator_local  ; $23
-$E407               20 F0 F0 JSR  read_paddle_position  ; $F0F0
-$E40A               85 09    STA  genvarA  ; $09
+    LDA  iterator_local  ; $23
+    JSR  read_paddle_position  ; $F0F0
+    STA  genvarA  ; $09
 +jump_ahead2:
-$E40C               A6 23    LDX  iterator_local  ; $23
-$E40E               B5 35    LDA  players_xpos,x  ; $35,X  ; some player1/2 detail (maybe player submarine x-pos x 4)
-$E410               4A       LSR
-$E411               4A       LSR
-$E412               A8       TAY
-$E413               A2 05    LDX  #$05
-$E415               A9 26    LDA  #$26  ; ' ' space char
+    LDX  iterator_local  ; $23
+    LDA  players_xpos,x  ; $35,X  ; some player1/2 detail (maybe player submarine x-pos x 4)
+    LSR
+    LSR
+    TAY
+    LDX  #$05
+    LDA  #$26  ; ' ' space char
 -loop1:
-$E417               91 02    STA  ($02),Y  ; wipe away existing player submarine chars with spaces (submarine is 5 chars wide)
-$E419               C8       INY
-$E41A               CA       DEX
-$E41B               D0 FA    BNE  -loop1  ; $E417
-$E41D               A5 09    LDA  genvarA  ; $09
-$E41F               29 03    AND  #$03
-$E421               AA       TAX
-$E422               BC E8 EE LDY  submarine_charset_idx,x  ; $EEE8,X  ; choose between submarine_charset1/2/3/4
-$E425               A5 23    LDA  iterator_local  ; $23  ; player 1 or 2 index (0=player1, 1=player2)
-$E427               D0 03    BNE  +jump_if_player2  ; $E42C
-$E429               A2 00    LDX  #$00  ; relative index for vic-bank0 chars describing current player1 submarine
-                                        ; (absolute char idx range 55-59)
-$E42B               2C A2 28 BIT  $28A2
+    STA  ($02),Y  ; wipe away existing player submarine chars with spaces (submarine is 5 chars wide)
+    INY
+    DEX
+    BNE  -loop1  ; $E417
+    LDA  genvarA  ; $09
+    AND  #$03
+    TAX
+    LDY  submarine_charset_idx,x  ; $EEE8,X  ; choose between submarine_charset1/2/3/4
+    LDA  iterator_local  ; $23  ; player 1 or 2 index (0=player1, 1=player2)
+    BNE  +jump_if_player2  ; $E42C
+    LDX  #$00  ; relative index for vic-bank0 chars describing current player1 submarine
+               ; (absolute char idx range 55-59)
+    BIT  $28A2
   +jump_if_player2:
-  $E42C               A2 28    LDX  #$28  ; dec40  ; relative index for vic-bank0 chars describing current player2 submarine
-$E42E               A9 28    LDA  #$28  ; dec40  ; index of loop from 40 to 0, in order to copy across 5 chars to define player's sub)
-$E430               85 08    STA  genvarB  ; $08
+      LDX  #$28  ; dec40  ; relative index for vic-bank0 chars describing current player2 submarine
+    LDA  #$28  ; dec40  ; index of loop from 40 to 0, in order to copy across 5 chars to define player's sub)
+    STA  genvarB  ; $08
 -loopy:
-$E432               B9 48 EE LDA  submarine_charset1,y  ; $EE48,Y
-$E435               9D A8 02 STA  vicbank0_sub_chars_for_player1,x  ; $02A8,X
-$E438               E8       INX
-$E439               C8       INY
-$E43A               C6 08    DEC  genvarB  ; $08
-$E43C               D0 F4    BNE  -loopy ; $E432
-$E43E               A6 23    LDX  iterator_local  ; $23
-$E440               A5 09    LDA  genvarA  ; $09
-$E442               95 35    STA  players_xpos,x  ; $35,X  ; some player1/2 detail
-$E444               4A       LSR
-$E445               4A       LSR
-$E446               A8       TAY
-$E447               BD 5D E4 LDA  sub_start_chars,x  ; $E45D,X  ; where x=0 is player1, x=1 is player2
-$E44A               A2 05    LDX  #$05  ; player submarine sprite consists of 5 chars
+    LDA  submarine_charset1,y  ; $EE48,Y
+    STA  vicbank0_sub_chars_for_player1,x  ; $02A8,X
+    INX
+    INY
+    DEC  genvarB  ; $08
+    BNE  -loopy ; $E432
+    LDX  iterator_local  ; $23
+    LDA  genvarA  ; $09
+    STA  players_xpos,x  ; $35,X  ; some player1/2 detail
+    LSR
+    LSR
+    TAY
+    LDA  sub_start_chars,x  ; $E45D,X  ; where x=0 is player1, x=1 is player2
+    LDX  #$05  ; player submarine sprite consists of 5 chars
 -loopy2:
-$E44C               91 02    STA  ($02),Y
-$E44E               18       CLC
-$E44F               69 01    ADC  #$01
-$E451               C8       INY
-$E452               CA       DEX
-$E453               D0 F7    BNE  -loopy2  ; $E44C
-$E455               C6 23    DEC  iterator_local  ; $23
-$E457               30 03    BMI  +skip_to_end  ; $E45C
-$E459               4C D2 E3 JMP  -big_loopback  ; $E3D2
+    STA  ($02),Y
+    CLC
+    ADC  #$01
+    INY
+    DEX
+    BNE  -loopy2  ; $E44C
+    DEC  iterator_local  ; $23
+    BMI  +skip_to_end  ; $E45C
+    JMP  -big_loopback  ; $E3D2
 +skip_to_end:
-$E45C               60       RTS
+    RTS
 
 
 sub_start_chars:
