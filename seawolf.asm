@@ -1630,7 +1630,7 @@ parent_routine_that_does_key_paddle_input:
 
 prepare_game_screen:
 //------------------
-    JSR  init_game_screen  ; $E799
+    JSR  clear_screen_and_draw_scores  ; $E799
     ; set colour various rows on screen (in colour ram)
     ; -------------------------------------------------
     LDX  #$27  ; (39)
@@ -1676,7 +1676,7 @@ show_intro_screen:
 ; returns: - 0 if no user input pressed during intro (i.e., next up, switch to attract mode)
 ;          - ff if user pressed F1 or paddle fire
     JSR  interrupt_precursor  ; $E8F5
-    JSR  init_game_screen  ; $E799
+    JSR  clear_screen_and_draw_scores  ; $E799
     ; prepare colour of 1st two rows to white
     ; ---------------------------------------
     LDX  #$4F  ; dec79
@@ -1803,291 +1803,297 @@ ship_sprite_colours:
 
 set_scr_and_clr_ptr_locations_based_on_ship_xy_pos:
 //-------------------------------------------------
-$E6B1               48       PHA
-$E6B2               A5 11    LDA  xpos_local  ; $11  ; x-pos of current ship
-$E6B4               4A       LSR
-$E6B5               4A       LSR  ; divide by 4
-$E6B6               85 13    STA  txt_x_pos  ; $13
-$E6B8               A5 12    LDA  ypos_local  ; $12  ; y-pos of current ship
-$E6BA               4A       LSR
-$E6BB               4A       LSR
-$E6BC               4A       LSR  ; divide by 8
-$E6BD               85 14    STA  txt_y_pos  ; $14
-$E6BF               24 48    BIT  ships_xpos+3  ; $48
+    PHA
+    LDA  xpos_local  ; $11  ; x-pos of current ship
+    LSR
+    LSR  ; divide by 4
+    STA  txt_x_pos  ; $13
+    LDA  ypos_local  ; $12  ; y-pos of current ship
+    LSR
+    LSR
+    LSR  ; divide by 8
+    STA  txt_y_pos  ; $14
+    BIT  ships_xpos+3  ; $48
 
 adjust_scr_and_clr_ptr_locations:
 //-------------------------------
-  $E6C0               48       PHA  ; preserve A on stack
+      PHA  ; preserve A on stack
   ; (if falling through from prior function, the BIT will skip this line)
-$E6C1               8A       TXA
-$E6C2               48       PHA  ; preserve X on stack
-$E6C3               A6 14    LDX  $14
-$E6C5               BD DC ED LDA  scr_ptr_low,X  ; $EDDC,X
-$E6C8               18       CLC
-$E6C9               65 13    ADC  $13
-$E6CB               85 02    STA  scr_ptr_lo  ; $02
-$E6CD               85 04    STA  clr_ptr_lo  ; $04
-$E6CF               A0 00    LDY  #$00
-$E6D1               BD F5 ED LDA  scr_row_ptr_hi,x  ; $EDF5,X
-$E6D4               69 00    ADC  #$00
-$E6D6               85 03    STA  scr_ptr_hi  ; $03
-$E6D8               69 D4    ADC  #$D4
-$E6DA               85 05    STA  clr_ptr_hi  ; $05
-$E6DC               68       PLA
-$E6DD               AA       TAX  ; restore X from stack
-$E6DE               68       PLA  ; restore A from stack
-$E6DF               60       RTS
+    TXA
+    PHA  ; preserve X on stack
+    LDX  $14
+    LDA  scr_ptr_low,X  ; $EDDC,X
+    CLC
+    ADC  $13
+    STA  scr_ptr_lo  ; $02
+    STA  clr_ptr_lo  ; $04
+    LDY  #$00
+    LDA  scr_row_ptr_hi,x  ; $EDF5,X
+    ADC  #$00
+    STA  scr_ptr_hi  ; $03
+    ADC  #$D4
+    STA  clr_ptr_hi  ; $05
+    PLA
+    TAX  ; restore X from stack
+    PLA  ; restore A from stack
+    RTS
 
 add_points_to_score_then_update_high_score_and_reprint:
 //-----------------------------------------------------
-$E6E0               A4 16    LDY  real_game_mode_flag  ; $16  ; was set to #$ff in start_game
-$E6E2               D0 01    BNE  +skip_if_in_real_game_mode  ; $E6E5
+    LDY  real_game_mode_flag  ; $16  ; was set to #$ff in start_game
+    BNE  add_to_score_only_when_in_real_game_mode  ; $E6E5
 // if we are in attract mode, bail out early (we won't add anything to the score)
-$E6E4               60       RTS
-+skip_if_in_real_game_mode:
-$E6E5               F8       SED
-$E6E6               18       CLC
-$E6E7               75 1D    ADC  p1_score_lo,x  ; $1D,X
-$E6E9               95 1D    STA  p1_score_lo,x  ; $1D,X
-$E6EB               B5 1F    LDA  p1_score_hi,x  ; $1F,X
-$E6ED               69 00    ADC  #$00
-$E6EF               95 1F    STA  p1_score_hi,x ; $1F,X
-$E6F1               A5 21    LDA  high_score_lo  ; $21
-$E6F3               38       SEC
-$E6F4               F5 1D    SBC  p1_score_lo,x  ; $1D,X
-$E6F6               A5 22    LDA  high_score_hi  ; $22
-$E6F8               F5 1F    SBC  p1_score_hi,x  ; $1F,X
-$E6FA               B0 08    BCS  +skip_set_high_score  ; $E704  ; branch if we didn't beat high score
+    RTS
+add_to_score_only_when_in_real_game_mode:
+    SED
+    CLC
+    ADC  p1_score_lo,x  ; $1D,X
+    STA  p1_score_lo,x  ; $1D,X
+    LDA  p1_score_hi,x  ; $1F,X
+    ADC  #$00
+    STA  p1_score_hi,x ; $1F,X
+    LDA  high_score_lo  ; $21
+    SEC
+    SBC  p1_score_lo,x  ; $1D,X
+    LDA  high_score_hi  ; $22
+    SBC  p1_score_hi,x  ; $1F,X
+    BCS  skip_set_high_score  ; $E704  ; branch if we didn't beat high score
 set_high_score:
-$E6FC               B5 1D    LDA  p1_score_lo,x  ; $1D,X
-$E6FE               85 21    STA  high_score_lo  ; $21
-$E700               B5 1F    LDA  p1_score_hi,x  ; $1F,X
-$E702               85 22    STA  high_score_hi  ; $22
-+skip_set_high_score:
-$E704               D8       CLD
+    LDA  p1_score_lo,x  ; $1D,X
+    STA  high_score_lo  ; $21
+    LDA  p1_score_hi,x  ; $1F,X
+    STA  high_score_hi  ; $22
+skip_set_high_score:
+    CLD
 
 
 print_all_scores:
 //---------------
-$E705               A9 01    LDA  #$01
-$E707               85 14    STA  txt_y_pos  ; $14
-$E709               85 13    STA  txt_x_pos  ; $13
-$E70B               20 C0 E6 JSR  adjust_scr_and_clr_ptr_locations  ; $E6C0
+    LDA  #$01
+    STA  txt_y_pos  ; $14
+    STA  txt_x_pos  ; $13
+    JSR  adjust_scr_and_clr_ptr_locations  ; $E6C0
 
 print_player1_score:
-$E70E               A0 02    LDY  #$02  ; the x-location to start drawing digits from
-$E710               A5 1D    LDA  p1_score_lo  ; $1D
-$E712               A6 1F    LDX  p1_score_hi  ; $1F
-$E714               20 26 E7 JSR  print_two_digits_in_X_and_two_digits_in_A_and_two_trailing_zeroes  ; $E726
+    LDY  #$02  ; the x-location to start drawing digits from
+    LDA  p1_score_lo  ; $1D
+    LDX  p1_score_hi  ; $1F
+    JSR  print_two_digits_in_X_and_two_digits_in_A_and_two_trailing_zeroes  ; $E726
 
 print_high_score:
-$E717               A0 10    LDY  #$10
-$E719               A5 21    LDA  high_score_lo  ; $21
-$E71B               A6 22    LDX  high_score_hi  ; $22
-$E71D               20 26 E7 JSR  print_two_digits_in_X_and_two_digits_in_A_and_two_trailing_zeroes  ; $E726
+    LDY  #$10
+    LDA  high_score_lo  ; $21
+    LDX  high_score_hi  ; $22
+    JSR  print_two_digits_in_X_and_two_digits_in_A_and_two_trailing_zeroes  ; $E726
 
 print_player2_score:
-$E720               A0 1E    LDY  #$1E  ; (30) the x-location to start drawing digits from
-$E722               A5 1E    LDA  p2_score_lo  ; var6  ; $1E
-$E724               A6 20    LDX  p2_score_hi  ; var8  ; $20
+    LDY  #$1E  ; (30) the x-location to start drawing digits from
+    LDA  p2_score_lo  ; var6  ; $1E
+    LDX  p2_score_hi  ; var8  ; $20
 
 
 print_two_digits_in_X_and_two_digits_in_A_and_two_trailing_zeroes:
 //----------------------------------------------------------------
-$E726               20 31 E7 JSR  print_two_digits_in_X_and_two_digits_in_A  ; $E731
-$E729               A9 46    LDA  #$46  ; #$46 = '0' char
-$E72B               91 02    STA  ($02),Y
-$E72D               C8       INY
-$E72E               91 02    STA  ($02),Y  ; Is this to put two trailing '0' chars at the end of the score?
-$E730               60       RTS
+    JSR  print_two_digits_in_X_and_two_digits_in_A  ; $E731
+    ; add two trailing zeroes
+    LDA  #$46  ; #$46 = '0' char
+    STA  (scr_ptr_lo),Y
+    INY
+    STA  (scr_ptr_lo),Y  ; Is this to put two trailing '0' chars at the end of the score?
+    RTS
 
 
 print_two_digits_in_X_and_two_digits_in_A:
 ---------------------
-$E731               48       PHA
-$E732               A9 00    LDA  #$00
-$E734               85 08    STA  genvarB  ; $08
-$E736               8A       TXA
-$E737               20 3B E7 JSR  print_two_digits_in_A  ; $E73B
-$E73A               68       PLA
+    PHA
+    LDA  #$00
+    STA  genvarB  ; $08  ; $00 = hide any leading zero
+    TXA
+    JSR  print_two_digits_in_A  ; $E73B
+    PLA
 
 
 print_two_digits_in_A:
 ---------------------
-$E73B               48       PHA
-$E73C               4A       LSR
-$E73D               4A       LSR
-$E73E               4A       LSR
-$E73F               4A       LSR
-$E740               20 46 E7 JSR  +inner_jsr  ; $E746  ; print digit in high nibble first
-$E743               68       PLA
+; input: genvarB = 0 = hide any leading zeroes (when called from 'print_two_digits_in_X_and_two_digits_in_A' for printing scores)
+;                = 1 = show leading zeroes (when called from 'print_remaining_game_time' to show remaining seconds)
+    PHA
+    LSR
+    LSR
+    LSR
+    LSR
+    JSR  print_nibble  ; $E746  ; print digit in high nibble first
+    PLA
 print_lower_nibble_digit_in_A:
------------------------------
-$E744               29 0F    AND  #$0F  ; then print digit in lower nibble
-+inner_jsr:
-$E746               D0 08    BNE  +skip1  ; $E750
-$E748               A6 08    LDX  genvarB  ; $08
-$E74A               D0 04    BNE  +skip1  ; $E750
-$E74C               A9 26    LDA  #$26    ; #$26 = ' ' space char in char-map
-$E74E               D0 05    BNE  +skip2  ; $E755
-+skip1:
-$E750               18       CLC
-$E751               69 46    ADC  #$46  ; #$46 = '0' char in char-map  (so this could relate to printing score)
-$E753               E6 08    INC  $08
-+skip2:
-$E755               91 02    STA  ($02),Y
-$E757               C8       INY
-$E758               60       RTS
+    AND  #$0F  ; then print digit in lower nibble
+print_nibble:
+    BNE  adjust_a_to_corresponding_screen_code_char  ; $E750  ; always print non-zero nibbles
+    LDX  genvarB  ; $08
+    BNE  adjust_a_to_corresponding_screen_code_char  ; $E750  ; only print zero if genvarB is non-zero
+    LDA  #$26    ; #$26 = ' ' space char in char-map
+    BNE  print_char_to_screen  ; $E755
+adjust_a_to_corresponding_screen_code_char:
+    CLC
+    ADC  #$46  ; #$46 = '0' char in char-map  (so this could relate to printing score)
+    INC  genvarB
+print_char_to_screen:
+    STA  (scr_ptr_lo),Y
+    INY
+    RTS
 
 
 timer_loop:
 //---------
-$E759               AD 0E DC LDA  $DC0E  ; CIA Control Register A - bit0 = start(1)/stop(0) timer
-$E75C               4A       LSR
-$E75D               B0 FA    BCS  timer_loop  ;  $E759
-$E75F               EE 0E DC INC  $DC0E  ; after timer has stopped, restart it (turn bit0 back on)
-$E762               60       RTS
+    LDA  $DC0E  ; CIA Control Register A - bit0 = start(1)/stop(0) timer
+    LSR
+    BCS  timer_loop  ;  $E759
+    INC  $DC0E  ; after timer has stopped, restart it (turn bit0 back on)
+    RTS
 
 maybe_unused_function:
 //--------------------
 // or maybe time waster function?
-$E763               EA       NOP
-$E764               EA       NOP
-$E765               EA       NOP
-$E766               EA       NOP
-$E767               EA       NOP
-$E768               EA       NOP
-$E769               EA       NOP
-$E76A               EA       NOP
-$E76B               EA       NOP
-$E76C               EA       NOP
-$E76D               EA       NOP
-$E76E               EA       NOP
-$E76F               EA       NOP
-$E770               EA       NOP
-$E771               EA       NOP
-$E772               EA       NOP
-$E773               EA       NOP
-$E774               EA       NOP
-$E775               EA       NOP
-$E776               EA       NOP
-$E777               EA       NOP
-$E778               EA       NOP
-$E779               EA       NOP
-$E77A               EA       NOP
-$E77B               EA       NOP
-$E77C               EA       NOP
-$E77D               EA       NOP
-$E77E               EA       NOP
-$E77F               EA       NOP
-$E780               EA       NOP
-$E781               EA       NOP
-$E782               60       RTS
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    RTS
 
 
 read_paddle_fire_button:
 //----------------------
-$E783               AA       TAX  ; a = 0 always, so x = 0
-$E784               A9 FF    LDA  #$FF
-$E786               8D 00 DC STA  $DC00  ; Data Port A - Write Keyboard Column Values for keyboard scan
-                                         ; Setting to #$FF seems to disable the keyboard column scan, so that $DC01 will read its
-                                         ; alternate bitfields (and not row values)
-$E789               AD 01 DC LDA  $DC01  ; Data Port B - Read Keyboard Row Values for keyboard scan
-$E78C               3D 97 E7 AND  $E797,X  ; always pb E797 = #$04  (paddle fire button)
-$E78F               D0 03    BNE  $E794  ; if bit3 was 1 (i.e., paddle fire not pressed) then jump
-$E791               A9 FF    LDA  #$FF   ; bit3 was 0, so set A = FF to indicate paddle fire was pressed
-$E793               2C A9 00 BIT  $00A9
-  $E794               A9 00    LDA  #$00
-$E796               60       RTS  ; If paddle fire not pressed, return A = 0
-                                  ; If paddle fire is pressed, A = FF
+    TAX  ; a = 0 always, so x = 0
+    LDA  #$FF
+    STA  $DC00  ; Data Port A - Write Keyboard Column Values for keyboard scan
+                ; Setting to #$FF seems to disable the keyboard column scan, so that $DC01 will read its
+                ; alternate bitfields (and not row values)
+    LDA  $DC01  ; Data Port B - Read Keyboard Row Values for keyboard scan
+    AND  paddle_fire_bitfields,X  ; always pb E797 = #$04  (paddle fire button)
+    BNE  paddle_fire_not_pressed  ; if bit3 was 1 (i.e., paddle fire not pressed) then jump
+    LDA  #$FF   ; bit3 was 0, so set A = FF to indicate paddle fire was pressed
+    BIT  $00A9
+paddle_fire_not_pressed:
+      LDA  #$00
+    RTS  ; If paddle fire not pressed, return A = 0
+         ; If paddle fire is pressed, A = FF
 
- :000E797 04 08   | ..     ; 04 is used by $E797 for paddle 1 fire test
+paddle_fire_bitfields:
+    !byte $04, $08         ; 04 is used by $E797 for paddle 1 fire test
                            ; 08 is used by $E797 for paddle 2 fire test
 
 
-init_game_screen:
+// LOCATION: E799
+clear_screen_and_draw_scores:
 //---------------
-$E799               A2 00    LDX  #$00
--loop1:
-$E79B               A9 26    LDA  #$26  ; This is the space ' ' char in their charater map
-$E79D               9D 00 04 STA  $0400,X  ; clear the screen memory with space ' ' chars
-$E7A0               9D 00 05 STA  $0500,X
-$E7A3               9D 00 06 STA  $0600,X
-$E7A6               9D E8 06 STA  $06E8,X
-$E7A9               A9 01    LDA  #$01
-$E7AB               9D 00 D8 STA  $D800,X  ; set colour memory to all 1 (white) value
-$E7AE               9D 00 D9 STA  $D900,X
-$E7B1               9D 00 DA STA  $DA00,X
-$E7B4               9D E8 DA STA  $DAE8,X
-$E7B7               CA       DEX
-$E7B8               D0 E1    BNE  -loop1  ; $E79B
-$E7BA               86 14    STX  $14
-$E7BC               20 39 E8 JSR  draw_inline_text  ; $E839
- :000E7BF F8 26 26 36 32 27 3F 2B  38 26 47 26 26 26 26 26  | .&&62'?+8&G&&&&&
-                    P  L  A  Y  E   R     1               
- :000E7CF 2E 2F 2D 2E 26 39 29 35  38 2B 26 26 26 26 26 36  | ./-.&9)58+&&&&&6
-           H  I  G  H     S  C  O   R  E                 P
- :000E7DF 32 27 3F 2B 38 26 48 26  26 00 4C 05 E7 A9 00 85  | 2'?+8&H&&.L.....
-           L  A  Y  E  R     2        
-$E7E9               4C 05 E7 JMP  print_all_scores  ; $E705
+    LDX  #$00
+loop_clear_next_screen_char_and_color:
+    LDA  #$26  ; This is the space ' ' char in their charater map
+    STA  $0400,X  ; clear the screen memory with space ' ' chars
+    STA  $0500,X
+    STA  $0600,X
+    STA  $06E8,X
+    LDA  #$01
+    STA  $D800,X  ; set colour memory to all 1 (white) value
+    STA  $D900,X
+    STA  $DA00,X
+    STA  $DAE8,X
+    DEX
+    BNE  loop_clear_next_screen_char_and_color  ; $E79B
+    STX  txt_y_pos  ; (X=0 at this point, so txt_y_pos=0)
+    JSR  draw_inline_text  ; $E839
+    !byte $F8, $26, $26, $36, $32, $27, $3F, $2B,  $38, $26, $47, $26, $26, $26, $26, $26
+    //                P  L  A  Y  E   R     1               
+    !byte $2E, $2F, $2D, $2E, $26, $39, $29, $35,  $38, $2B, $26, $26, $26, $26, $26, $36
+    //       H  I  G  H     S  C  O   R  E                 P
+    !byte $32, $27, $3F, $2B, $38, $26, $48, $26,  $26, $00, $4C, $05, $E7, $A9, $00, $85
+    //       L  A  Y  E  R     2        
+    JMP  print_all_scores  ; $E705
 
 
 draw_text_to_screen:
 //------------------
-$E7EC               A9 00    LDA  #$00
-$E7EE               85 13    STA  txt_x_pos  ; $13
-$E7F0               20 C0 E6 JSR  adjust_scr_and_clr_ptr_locations  ; $E6C0
-$E7F3               A9 01    LDA  #$01  ; The current colour to draw the text in (defaults to white)
-$E7F5               48       PHA        ; this var is pushed onto the stack
-$E7F6               A0 00    LDY  #$00
-$E7F8               84 13    STY  $13
--loop1:
-$E7FA               B1 06    LDA  (ret_ptr_lo),y  ; ($06),Y  ; ptr to inline text
-$E7FC               F0 09    BEQ  +end_of_string  ; $E807  ; if null-ptr / end-of-string, then branch
-$E7FE               C9 F8    CMP  #$F8
-$E800               90 02    BCC  $E804
-$E802               E6 13    INC  $13
-$E804               C8       INY
-$E805               D0 F3    BNE  -loop1  ; $E7FA  ; branch until y increments back to zero (a max of 255 chars)
-+end_of_string:
-$E807               88       DEY  ; Y ought to equal the length of the string
-$E808               98       TYA  ; A = Y = length of string
-$E809               38       SEC
-$E80A               E5 13    SBC  $13  ; A = length of string minus the count of special F8 chars
-$E80C               4A       LSR       ; A = A / 2
-$E80D               85 13    STA  $13  ; Store half the length of the string in $13
-$E80F               A9 13    LDA  #$13  ; (19, half the screen width)
-$E811               38       SEC
-$E812               E5 13    SBC  $13  ; A = (half screen width) - (half string width)
-                                       ;   = the x-position to assure string is horizontally centred
-$E814               A8       TAY
+    LDA  #$00
+    STA  txt_x_pos  ; $13
+    JSR  adjust_scr_and_clr_ptr_locations  ; $E6C0
+    LDA  #$01  ; The current colour to draw the text in (defaults to white)
+    PHA        ; this var is pushed onto the stack
+    LDY  #$00
+    STY  txt_x_pos
+loop_count_number_of_special_chars:
+    LDA  (ret_ptr_lo),y  ; ($06),Y  ; ptr to inline text
+    BEQ  end_of_string  ; $E807  ; if null-ptr / end-of-string, then branch
+    CMP  #$F8
+    BCC  skip_x_pos_increment
+    INC  txt_x_pos   ; for now, txt_x_pos is storing the number of special chars
+skip_x_pos_increment:
+    INY
+    BNE  loop_count_number_of_special_chars  ; $E7FA  ; branch until y increments back to zero (a max of 255 chars)
+end_of_string:
+    DEY  ; Y ought to equal the length of the string
+    TYA  ; A = Y = length of string
+    SEC
+    SBC  txt_x_pos  ; A = length of string minus the count of special F8 chars
+    LSR       ; A = A / 2
+    STA  txt_x_pos  ; Store half the length of the string in $13
+    LDA  #$13  ; (19, half the screen width)
+    SEC
+    SBC  txt_x_pos  ; A = (half screen width) - (half string width)
+              ;   = the x-position to assure string is horizontally centred
+    TAY
 draw_char_loop:
-$E815               A2 00    LDX  #$00
-$E817               A1 06    LDA  ($06,X)   ; pw 06 = $EFCD  (x=0, out: a = 35 = 'O')
-$E819               F0 1C    BEQ  found_null ; $E837     ; A = null terminator?
-$E81B               C9 F8    CMP  #$F8
-$E81D               90 09    BCC  valid_char ; $E828   ; branch if A < #$f8
-$E81F               29 07    AND  #$07  ; and with %0000 0111
-$E821               BA       TSX  ; X = stack pointer low
-$E822               E8       INX
-$E823               9D 00 01 STA  $0100,X  ; A value of #$01 was pushed the stack earlier at $E7F3.
-                                           ; This will reset this stack value to new value of the special string char and $07
-$E826               B0 07    BCS  +skip1  ; $E82F  ; I think this always jumps, due to prior CMP#$F8 being true?
-valid_char:
-$E828               91 02    STA  (scr_ptr_lo),y  ; ($02),Y  ; pw 02 = 0478 , y = 4  (draw A char onto the screen)
-$E82A               68       PLA
-$E82B               48       PHA  ; aah, the stack var is the current colour to draw the text in
-$E82C               91 04    STA  (clr_ptr_lo),y  ; ($04),Y  ; pw 04 = d878
-$E82E               C8       INY
-+skip1:
-$E82F               E6 06    INC  ret_ptr_lo  ; $06  ; pb 06 = CD
-$E831               D0 E2    BNE  draw_char_loop  ; $E815
-$E833               E6 07    INC  ret_ptr_hi  ; $07  ; pb 07 = EF
-$E835               D0 DE    BNE  draw_char_loop ; $E815
+    LDX  #$00
+    LDA  (ret_ptr_lo,X)   ; pw 06 = $EFCD  (x=0, out: a = 35 = 'O')
+    BEQ  found_null ; $E837     ; A = null terminator?
+    CMP  #$F8
+    BCC  draw_valid_char ; $E828   ; branch if A < #$f8
+    AND  #$07  ; and with %0000 0111 (A = desired colour index for text that follows?)
+    TSX  ; X = stack pointer low
+    INX
+    STA  $0100,X  ; A value of #$01 (default text colour=white) was pushed the stack earlier at $E7F3.
+                  ; This will reset this stack value to new text colour specified by the special char
+    BCS  skip_draw_valid_char  ; $E82F  ; I think this always jumps, due to prior CMP#$F8 being true?
+draw_valid_char:
+    STA  (scr_ptr_lo),y  ; ($02),Y  ; pw 02 = 0478 , y = 4  (draw A char onto the screen)
+    PLA
+    PHA  ; aah, the stack var is the current colour to draw the text in
+    STA  (clr_ptr_lo),y  ; ($04),Y  ; pw 04 = d878
+    INY
+skip_draw_valid_char:
+    INC  ret_ptr_lo  ; $06  ; pb 06 = CD
+    BNE  draw_char_loop  ; $E815
+    INC  ret_ptr_hi  ; $07  ; pb 07 = EF
+    BNE  draw_char_loop ; $E815
 
 found_null:
-$E837               68       PLA  ; drop the stack var for current text colour
-$E838               60       RTS
+    PLA  ; drop the stack var for current text colour
+    RTS
 
 
 draw_inline_text:
@@ -2142,7 +2148,7 @@ $E879               85 14    STA  txt_y_pos  ; $14
 $E87B               20 C0 E6 JSR  adjust_scr_and_clr_ptr_locations  ; $E6C0
 $E87E               A0 00    LDY  #$00
 $E880               A9 01    LDA  #$01
-$E882               85 08    STA  genvarB  ; $08
+$E882               85 08    STA  genvarB  ; $08  ; $01 = show leading zeroes in 'print_lower_nibble_digit_in_A' call and later 'print_two_digits_in_A' call
 $E884               A5 28    LDA  minutes_left  ; $28
 $E886               20 44 E7 JSR  print_lower_nibble_digit_in_A  ; $E744
 $E889               A9 42    LDA  #$42  ; ':' char
@@ -2457,7 +2463,7 @@ $EA5B               20 58 EB JSR  game_loop  ; $EB58
 $EA5E               A8       TAY
 $EA5F               F0 AC    BEQ  jump_here_after_cold_start  ; $EA0D
 user_wants_to_start_game:
-$EA61               20 99 E7 JSR  init_game_screen  ; $E799
+$EA61               20 99 E7 JSR  clear_screen_and_draw_scores  ; $E799
 $EA64               A9 00    LDA  #$00
 $EA66               8D 15 D0 STA  $D015  ; sprite display enable (hide all sprites)
 $EA69               8D 0D D4 STA  $D40D  ; v2_env_gen sus/rel
