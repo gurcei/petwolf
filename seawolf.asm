@@ -22,13 +22,13 @@ curr_ship_mirror_state = $0a
 missile_chardata_row_iterator = $0e
 // iterator to write out the 8 bytes of small_missile_char_data_x_offset0/2 into genarrayA at a desired y-offset relating to missile position
 //
-//- in bullet_redraw_and_ship_assessment:
+//- in missile_redraw_assessment:
 //  - sta at $e4b0  ; (set it to #$08) 
 //  - dec at #e4be (index for loop_back_to_next_row loop)
 //
 offset_to_char_idx_of_2x2_missile_chars = $0f  // offset to char index of 2x2 missile chars
 //
-//- bullet_redraw_and_ship_assessment:
+//- missile_redraw_assessment:
 //  - sta at $e47c (multiply by 4  ; so now ship0 = 0, ship1 = 4, ship2 = 8, ... ship7 = 28)
 //    - reg A will equal one of the following, depending on which missile is referenced:
 //      ; p1_missile4 = #$00, p1_missile3 = #$04
@@ -176,8 +176,8 @@ genarrayA = $85  // $85-A4 [32]:
 //  - is used to store a list of existing ship indexes that are on the same ypos as the newly spawned ship
 //                  (these are sorted on their xpos, depending on the mirror/direction the ships are going)
 
-//- PURPOSE2: within 'bullet_redraw_and_ship_assessment:'
-//  - prepares the bullet chars needed for each player's missile custom char-based soft-sprites
+//- PURPOSE2: within 'missile_redraw_assessment:'
+//  - prepares the missile chars needed for each player's missile custom char-based soft-sprites
 //    - which is then copied down to vic-bank0 at $0300 - $03ff
 //    - I.e., vicbank0_missile_chars_for_player1/2
 //
@@ -1383,179 +1383,196 @@ sub_start_chars:
 //            (maybe intended for player2, possibly to give it a unique look?)
 
 
-bullet_redraw_and_ship_assessment:
-//--------------------------------
-$E45F               A9 07    LDA  #$07  ; iterator over all possible missiles (7-4 are for player2, 3-0 are for player1)
-$E461               85 23    STA  iterator_local  ; $23
--jumbo_loopback:
-$E463               A6 23    LDX  iterator_local  ; $23  ; missile iterator
-$E465               B5 75    LDA  torpedo_fire_ypos,x  ; $75,X  ; y-position of all torpedoes
-$E467               D0 03    BNE  +torpedo_ypos_is_nonzero  ; $E46C
-$E469               4C 2E E5 JMP  +jump_to_near_end  ; $E52E
-+torpedo_ypos_is_nonzero:
-$E46C               48       PHA  ; A=ypos of current torpedo (can be in range of dec0 to dec160)
-$E46D               4A       LSR
-$E46E               4A       LSR
-$E46F               4A       LSR
-$E470               4A       LSR  ; divide by 16 (decide which 2x2 block y-pos this torpedo will reside in?)
-$E471               A8       TAY  ; y-pos index of 2x2 block this torpedo/missile resides in
-                                  ; (range of dec0 to dec10)
-$E472               68       PLA  ; A=pure pixel ypos of current torpedo
-$E473               38       SEC
-$E474               F9 C0 EF SBC  missile_speed_at_indexed_2x2_ypos,y  ; $EFC0,Y
-                                  ; At the lower part of the screen, the missile moves faster, #$02 = 2 pixels per frame
-                                  ; At the mid and upper parts of the screen, the missile moves slower, #$01 = 1 pixel per frame
-                                  ; the #$03 speed seems unused
-$E477               85 08    STA  genvarB  ; $08  ; the next missile ypos (after decrementing missile speed value)
-$E479               8A       TXA  ; index to the current missile/torpedo being assessed in loop
-$E47A               0A       ASL
-$E47B               0A       ASL  ; multiply by 4  ; so now p1_missile4 = #$00, p1_missile3 = #$04
-                                                   ;        p1_missile2 = #$08, p1_missile1 = #$0c
-                                                   ;        p2_missile4 = #$10, p2_missile3 = #$14
-                                                   ;        p2_missile2 = #$18, p2_missile1 = #$1c
-$E47C               85 0F    STA  offset_to_char_idx_of_2x2_missile_chars  ; $0F  ; offset to char index of 2x2 missile chars
-$E47E               0A       ASL
-$E47F               0A       ASL
-$E480               0A       ASL  ; multiply by 8  ; so now p1_missile4 = #$00, p1_missile3 = #$20
-                                                   ;        p1_missile2 = #$40, p1_missile1 = #$60
-                                                   ;        p2_missile4 = #$80, p2_missile3 = #$a0
-                                                   ;        p2_missile2 = #$c0, p2_missile1 = #$e0
-$E481               85 10    STA  offset_to_char_data_addr_of_2x2_missile_chars  ; $10
-$E483               BD AC EF LDA  missiles_colour_table,x  ; $EFAC,X  ; a choice between yellow or light brown over idx0 to 7
-$E486               85 2E    STA  curr_missile_colour  ; $2E
-$E488               A0 1F    LDY  #$1F  ; dec31  ; index to char-data for curr missile (4 chars = 32 bytes)
-$E48A               A9 00    LDA  #$00
--loop_to_wipe_array:
-$E48C               99 85 00 STA  genarrayA,y  ; $0085,Y  ; reset entire genarrayA[32] to zeroes
-                                  ; NOTE: genarrayA aims to house the new 2x2 char representation the current missile
-$E48F               88       DEY
-$E490               10 FA    BPL  -loop_to_wipe_array  ; $E48C
-$E492               A5 08    LDA  genvarB  ; $08  ; the next missile ypos (after decrementing missile speed value)
-$E494               4A       LSR
-$E495               4A       LSR
-$E496               4A       LSR
-$E497               4A       LSR  ; divide by 16  ; will be in range dec0 to dec10
-$E498               A8       TAY
-$E499               B9 B4 EF LDA  map_2x2_ypos_to_chardata_offset_for_missile_size,y  ; $EFB4,Y  ; has values like #$00, #$40 and #$80 (over index0 to 11)
-                             ; this appears to be the offset into the missile-char-data to choose between:
-                             ; small(#$00), medium(#$40) or big(#$80) missiles (depending on which 2x2 char ypos missile is at)
-$E49C               85 09    STA  genvarA  ; $09 ; stores the missile-char-data offset for small/medium/big missiles
-$E49E               B5 6D    LDA  torpedo_fire_xpos,x  ; $6D,X  ; x-position of all torpedoes
-$E4A0               29 03    AND  #$03  ; xpos modulus to range 0-3
-                             ; I'm suspecting missile xpos are in two-pixel (pixel-pair) units too.
-                             ; So the MOD4 may have intended to see at which x-offset within the first char the missile is drawn
-$E4A2               0A       ASL
-$E4A3               0A       ASL
-$E4A4               0A       ASL
-$E4A5               0A       ASL ; multiply by 16  ; can be either #$00, #$10, #$20 or #$30
-$E4A6               05 09    ORA  genvarA  ; $09  ; could be value of either #$00 or #$40 or #$80
-                             ; genvarA holds the missile-char-data offset for small/medium/big missiles
-                             ; the ORA will adjust this offset to point to the correct missile x-offset chardata
-                             ; E.g.:
-                             ; if genvarA = #$00 and...
-                             ;   if A = #$00 then point to small_missile_char_data_x_offset0
-                             ;   if A = #$10 then point to small_missile_char_data_x_offset2
-                             ;   if A = #$20 then point to small_missile_char_data_x_offset4
-                             ;   if A = #$30 then point to small_missile_char_data_x_offset6
-                             ; if genvarA = #$40 and...
-                             ;   if A = #$00 then point to medium_missile_char_data_x_offset0
-                             ;   if A = #$10 then point to medium_missile_char_data_x_offset2
-                             ;   if A = #$20 then point to medium_missile_char_data_x_offset4
-                             ;   if A = #$30 then point to medium_missile_char_data_x_offset6
-                             ; if genvarA = #$80 and...
-                             ;   if A = #$00 then point to big_missile_char_data_x_offset0
-                             ;   if A = #$10 then point to big_missile_char_data_x_offset2
-                             ;   if A = #$20 then point to big_missile_char_data_x_offset4
-                             ;   if A = #$30 then point to big_missile_char_data_x_offset6
-$E4A8               A8       TAY  ; used as index in small_missile_char_data_x_offset0 later
-$E4A9               A5 08    LDA  genvarB  ; $08  ; the next missile ypos (after decrementing missile speed value)
-$E4AB               29 07    AND  #$07
-                             ; The MOD8 may have intended to see at which y-offset within first char the missile is drawn
-                             ; (I think this is in pixel units, and not in pixel-pair units)
-$E4AD               AA       TAX
-$E4AE               A9 08    LDA  #$08
-$E4B0               85 0E    STA  missile_chardata_row_iterator  ; $0E
--loop_back_to_next_row:
-                             ; Y = offset to desired missile_char_data (which factors in what x-offset we want to draw at)
-                             ; X = which y-offset we want to start drawing into 2x2 char block of genarrayA)
-$E4B2               B9 EC EE LDA  small_missile_char_data_x_offset0,y  ; $EEEC,Y  ; y-range = 0 to 7
-$E4B5               95 85    STA  genarrayA,x  ; $85,X
-$E4B7               B9 F4 EE LDA  small_missile_char_data_x_offset0+8,y  ; $EEF4,Y  ; y-range = 0 to 7
-$E4BA               95 95    STA  genarrayA+16,x  ; $95,X
-$E4BC               E8       INX
-$E4BD               C8       INY
-$E4BE               C6 0E    DEC  missile_chardata_row_iterator  ; $0E
-$E4C0               D0 F0    BNE  -loop_back_to_next_row  ; $E4B2
-$E4C2               A6 23    LDX  iterator_local  ; $23  ; missile iterator ; ought to be an index from 0 to 7
-$E4C4               B5 6D    LDA  torpedo_fire_xpos,x  ; $6D,X
-$E4C6               85 11    STA  xpos_local  ; $11  ; x-pos of current torpedo/missile
-$E4C8               B5 75    LDA  torpedo_fire_ypos,x  ; $75,X
-$E4CA               85 12    STA  ypos_local  ; $12  ; y-pos of current torpedo/missile
-$E4CC               20 B1 E6 JSR  set_scr_and_clr_ptr_locations_based_on_ship_xy_pos  ; $E6B1
-$E4CF               A2 03    LDX  #$03
+missile_redraw_assessment:
+//-----------------------
+    LDA  #$07  ; iterator over all possible missiles (7-4 are for player2, 3-0 are for player1)
+    STA  iterator_local  ; $23
+loop_next_missile:
+    LDX  iterator_local  ; $23  ; missile iterator
+    LDA  torpedo_fire_ypos,x  ; $75,X  ; y-position of all torpedoes
+    BNE  torpedo_is_active  ; $E46C  ; non-zero means torpedo is live/visible/active
+    JMP  skip_to_next_missile  ; $E52E
+torpedo_is_active:
+    PHA  ; A=ypos of current torpedo (can be in range of dec0 to dec160)
+    LSR
+    LSR
+    LSR
+    LSR  ; divide by 16 (decide which 2x2 block y-pos this torpedo will reside in?)
+    TAY  ; y-pos index of 2x2 block this torpedo/missile resides in
+         ; (range of dec0 to dec10)
+    PLA  ; A=pure pixel ypos of current torpedo
+    SEC
+    SBC  missile_speed_at_indexed_2x2_ypos,y  ; $EFC0,Y
+         ; At the lower part of the screen, the missile moves faster, #$02 = 2 pixels per frame
+         ; At the mid and upper parts of the screen, the missile moves slower, #$01 = 1 pixel per frame
+         ; the #$03 speed seems unused
+    STA  genvarB  ; $08  ; the next missile ypos (after decrementing missile speed value)
+    // prepare destination pointers to missile char-data relating to current missile
+    // -----------------------------------------------------------------------------
+    TXA  ; index to the current missile/torpedo being assessed in loop
+    ASL
+    ASL  ; multiply by 4  ; so now p1_missile4 = #$00, p1_missile3 = #$04
+                          ;        p1_missile2 = #$08, p1_missile1 = #$0c
+                          ;        p2_missile4 = #$10, p2_missile3 = #$14
+                          ;        p2_missile2 = #$18, p2_missile1 = #$1c
+    STA  offset_to_char_idx_of_2x2_missile_chars  ; $0F  ; offset to char index of 2x2 missile chars
+    ASL
+    ASL
+    ASL  ; multiply by 8  ; so now p1_missile4 = #$00, p1_missile3 = #$20
+                          ;        p1_missile2 = #$40, p1_missile1 = #$60
+                          ;        p2_missile4 = #$80, p2_missile3 = #$a0
+                          ;        p2_missile2 = #$c0, p2_missile1 = #$e0
+    STA  offset_to_char_data_addr_of_2x2_missile_chars  ; $10
+    LDA  missiles_colour_table,x  ; $EFAC,X  ; a choice between yellow or light brown over idx0 to 7
+    STA  curr_missile_colour  ; $2E
+    LDY  #$1F  ; dec31  ; index to char-data for curr missile (4 chars = 32 bytes)
+    LDA  #$00
+    // we prepare the next missile char-data in genarrayA (treated as a temporary 2x2 char block)
+    // ------------------------------------------------------------------------------------------
+    // - wipe any prior contents in it first
+loop_to_wipe_temp_2x2_char_block:
+    STA  genarrayA,y  ; $0085,Y  ; reset entire genarrayA[32] to zeroes
+         ; NOTE: genarrayA aims to house the new 2x2 char representation the current missile
+    DEY
+    BPL  loop_to_wipe_temp_2x2_char_block  ; $E48C
+    // assess missile y-pos and how it will impact needed char data (small/medium/big missile)
+    // ---------------------------------------------------------------------------------------
+    LDA  genvarB  ; $08  ; the next missile ypos (after decrementing missile speed value)
+    LSR
+    LSR
+    LSR
+    LSR  ; divide by 16  ; will be in range dec0 to dec10
+    TAY
+    LDA  map_2x2_ypos_to_chardata_offset_for_missile_size,y  ; $EFB4,Y  ; has values like #$00, #$40 and #$80 (over index0 to 11)
+    ; this appears to be the offset into the missile-char-data to choose between:
+    ; small(#$00), medium(#$40) or big(#$80) missiles (depending on which 2x2 char ypos missile is at)
+    STA  genvarA  ; $09 ; stores the missile-char-data offset for small/medium/big missiles
+    // assess missile x-pos and how it will impact needed char data (which x-offset to use)
+    // ------------------------------------------------------------------------------------
+    LDA  torpedo_fire_xpos,x  ; $6D,X  ; x-position of all torpedoes
+    AND  #$03  ; xpos modulus to range 0-3
+    ; missile xpos are in two-pixel (pixel-pair) units.
+    ; So the MOD4 may have intended to see at which x-offset within the first char the missile is drawn
+    ASL
+    ASL
+    ASL
+    ASL ; multiply by 16  ; can be either #$00, #$10, #$20 or #$30
+    ORA  genvarA  ; $09  ; could be value of either #$00 or #$40 or #$80
+                         ; i.e. decide which x-offset variant to use of either small/medium/big missiles
+    ; genvarA holds the missile-char-data offset for small/medium/big missiles
+    ; the ORA will adjust this offset to point to the correct missile x-offset chardata
+    ; E.g.:
+    ; if genvarA = #$00 and...
+    ;   if A = #$00 then point to small_missile_char_data_x_offset0
+    ;   if A = #$10 then point to small_missile_char_data_x_offset2
+    ;   if A = #$20 then point to small_missile_char_data_x_offset4
+    ;   if A = #$30 then point to small_missile_char_data_x_offset6
+    ; if genvarA = #$40 and...
+    ;   if A = #$00 then point to medium_missile_char_data_x_offset0
+    ;   if A = #$10 then point to medium_missile_char_data_x_offset2
+    ;   if A = #$20 then point to medium_missile_char_data_x_offset4
+    ;   if A = #$30 then point to medium_missile_char_data_x_offset6
+    ; if genvarA = #$80 and...
+    ;   if A = #$00 then point to big_missile_char_data_x_offset0
+    ;   if A = #$10 then point to big_missile_char_data_x_offset2
+    ;   if A = #$20 then point to big_missile_char_data_x_offset4
+    ;   if A = #$30 then point to big_missile_char_data_x_offset6
+    TAY  ; used as index in small_missile_char_data_x_offset0 later
+    LDA  genvarB  ; $08  ; the next missile ypos (after decrementing missile speed value)
+    AND  #$07
+    ; The MOD8 may have intended to see at which y-offset within first char the missile is drawn
+    ; (this is in pixel units, and not in pixel-pair units)
+    TAX
+    LDA  #$08
+    STA  missile_chardata_row_iterator  ; $0E
+    ; draw missile into temp 2x2 char block (genarrayA) at desired y-offset
+    ; ---------------------------------------------------------------------
+loop_draw_next_pixel_row_of_missile_char_data:
+    ; Y = offset to desired missile_char_data (which factors in what x-offset we want to draw at)
+    ; X = which y-offset we want to start drawing into 2x2 char block of genarrayA)
+    LDA  small_missile_char_data_x_offset0,y  ; $EEEC,Y  ; y-range = 0 to 7
+    STA  genarrayA,x  ; $85,X
+    LDA  small_missile_char_data_x_offset0+8,y  ; $EEF4,Y  ; y-range = 0 to 7
+    STA  genarrayA+16,x  ; $95,X
+    INX
+    INY
+    DEC  missile_chardata_row_iterator  ; $0E
+    BNE  loop_draw_next_pixel_row_of_missile_char_data  ; $E4B2
+    ; wipe out prior missile chars from screen
+    ; ----------------------------------------
+    LDX  iterator_local  ; $23  ; missile iterator ; ought to be an index from 0 to 7
+    LDA  torpedo_fire_xpos,x  ; $6D,X
+    STA  xpos_local  ; $11  ; x-pos of current torpedo/missile
+    LDA  torpedo_fire_ypos,x  ; $75,X
+    STA  ypos_local  ; $12  ; y-pos of current torpedo/missile
+    JSR  set_scr_and_clr_ptr_locations_based_on_ship_xy_pos  ; $E6B1
+    LDX  #$03
 ; wipe out prior chars of this missile from the screen
--retry_next_char_of_2x2_char_missile:
-$E4D1               BC 28 EE LDY  missile_char_offsets,x  ; $EE28,X
-$E4D4               B1 02    LDA  (scr_ptr_lo),y  ; ($02),Y  ; read the char at this screen location
-$E4D6               C9 60    CMP  #$60  ; first bullet char in group
-$E4D8               90 04    BCC  +less_than_range_of_bullet_chars  ; $E4DE
-$E4DA               A9 26    LDA  #$26  ; ' ' space char
-$E4DC               91 02    STA  (scr_ptr_lo),y  ; ($02),Y  ; draw ' ' space char over prior bullet
-+less_than_range_of_bullet_chars:
-$E4DE               CA       DEX
-$E4DF               10 F0    BPL  -retry_next_char_of_2x2_char_missile  ; $E4D1
-; check if missile reached top of screen (time to make it invisible?)
-$E4E1               A6 23    LDX  iterator_local  ; $23  (missile iterator)
-$E4E3               A5 08    LDA  genvarB  ; $08  ; the next missile ypos (after decrementing missile speed value)
-$E4E5               C9 10    CMP  #$10  ; dec16
-$E4E7               90 3F    BCC  +reset_missile_ypos_to_zero  ; $E528  ; branch if less than 16
-$E4E9               B4 7D    LDY  torpedo_fire_state,x  ; $7D,X
-$E4EB               D0 3B    BNE  +reset_missile_ypos_to_zero  ; $E528  ; branch if this torpedo is not currently visible on screen
-$E4ED               95 75    STA  torpedo_fire_ypos,x  ; $75,X  ; y-pos of all torpedoes
-$E4EF               85 12    STA  ypos_local  ; $12  ; y-pos of current ship
-$E4F1               20 B1 E6 JSR  set_scr_and_clr_ptr_locations_based_on_ship_xy_pos  ; $E6B1
-$E4F4               A4 10    LDY  offset_to_char_data_addr_of_2x2_missile_chars  ; $10
-$E4F6               A2 00    LDX  #$00
--loopback4:
-$E4F8               B5 85    LDA  genarrayA,x  ; $85,X
-$E4FA               99 00 03 STA  vicbank0_missile_chars_for_player1,y  ; $0300,Y
-$E4FD               C8       INY
-$E4FE               E8       INX
-$E4FF               E0 20    CPX  #$20  ; 32
-$E501               D0 F5    BNE  -loopback4  ; $E4F8
-$E503               A5 0F    LDA  offset_to_char_idx_of_2x2_missile_chars  ; $0F
-$E505               18       CLC
-$E506               69 63    ADC  #$63  ; dec99  ; start at the last char-idx for this 2x2 missile soft-sprite (e.g., #$63 to #$60)
-$E508               85 09    STA  genvarA  ; $09  ; could it relate to current paddle position?
-$E50A               A2 03    LDX  #$03
--big_loop1:
-$E50C               BC 28 EE LDY  missile_char_offsets,x  ; $EE28,X
-$E50F               B1 02    LDA  (scr_ptr_lo),y  ; ($02),Y
-$E511               C9 26    CMP  #$26  ; is it a ' ' space char?
-$E513               F0 04    BEQ  +branch_if_space_char  ; $E519
-$E515               C9 60    CMP  #$60  ; #$60 = first shot char in group
-
-$E517               90 08    BCC  +branch_if_less_than_shot_char  ; $E521
-+branch_if_space_char:
-$E519               A5 09    LDA  genvarA  ; $09
-$E51B               91 02    STA  (scr_ptr_lo),y  ; ($02),Y
-$E51D               A5 2E    LDA  curr_missile_colour  ; $2E  ; some colour choice between yellow or light-brown
-$E51F               91 04    STA  (clr_ptr_lo),y  ; ($04),Y
-+branch_if_less_than_shot_char:
-$E521               C6 09    DEC  genvarA  ; $09
-$E523               CA       DEX
-$E524               10 E6    BPL  -big_loop1  ; $E50C
-$E526               30 06    BMI  +jump_to_near_end  ; $E52E
-+reset_missile_ypos_to_zero:
-$E528               A6 23    LDX  iterator_local  ; $23
-$E52A               A9 00    LDA  #$00
-$E52C               95 75    STA  torpedo_fire_ypos,x  ; $75,X  ; y-pos of all torpedoes
-+jump_to_near_end:
-$E52E               C6 23    DEC  iterator_local  ; $23
-$E530               30 03    BMI  +skip_to_end  ; $E535
-$E532               4C 63 E4 JMP  -jumbo_loopback  ; $E463
-+skip_to_end:
-$E535               60       RTS
+loop_wipe_next_char_of_2x2_char_missile:
+    LDY  missile_char_offsets,x  ; $EE28,X
+    LDA  (scr_ptr_lo),y  ; ($02),Y  ; read the char at this screen location
+    CMP  #$60  ; first missile char in group
+    BCC  skip_wipe_if_less_than_range_of_missile_chars  ; $E4DE
+    LDA  #$26  ; ' ' space char
+    STA  (scr_ptr_lo),y  ; ($02),Y  ; draw ' ' space char over prior missile
+skip_wipe_if_less_than_range_of_missile_chars:
+    DEX
+    BPL  loop_wipe_next_char_of_2x2_char_missile  ; $E4D1
+    ; check if missile reached top of screen (time to make it invisible?)
+    ; --------------------------------------
+    LDX  iterator_local  ; $23  (missile iterator)
+    LDA  genvarB  ; $08  ; the next missile ypos (after decrementing missile speed value)
+    CMP  #$10  ; dec16
+    BCC  reset_missile_ypos_to_zero  ; $E528  ; branch if less than 16
+    LDY  torpedo_fire_state,x  ; $7D,X
+    BNE  reset_missile_ypos_to_zero  ; $E528  ; branch if this torpedo is not currently visible on screen
+    STA  torpedo_fire_ypos,x  ; $75,X  ; y-pos of all torpedoes
+    STA  ypos_local  ; $12  ; y-pos of current ship
+    JSR  set_scr_and_clr_ptr_locations_based_on_ship_xy_pos  ; $E6B1
+    LDY  offset_to_char_data_addr_of_2x2_missile_chars  ; $10
+    LDX  #$00
+loop_copy_next_temp_chardata_to_dest_chardata:
+    LDA  genarrayA,x  ; $85,X
+    STA  vicbank0_missile_chars_for_player1,y  ; $0300,Y
+    INY
+    INX
+    CPX  #$20  ; 32
+    BNE  loop_copy_next_temp_chardata_to_dest_chardata  ; $E4F8
+    ; now draw this missile's newly prepared chars onto the screen
+    ; ------------------------------------------------------------
+    LDA  offset_to_char_idx_of_2x2_missile_chars  ; $0F
+    CLC
+    ADC  #$63  ; dec99  ; start at the last char-idx for this 2x2 missile soft-sprite (e.g., #$63 to #$60)
+    STA  genvarA  ; $09  ; could it relate to current paddle position?
+    LDX  #$03
+loop_draw_next_missile_char_on_screen:
+    LDY  missile_char_offsets,x  ; $EE28,X
+    LDA  (scr_ptr_lo),y  ; ($02),Y
+    CMP  #$26  ; is it a ' ' space char?
+    BEQ  draw_current_missile_char  ; $E519  ; if there's a space char current, in this position, then branch and draw the current missile char
+    CMP  #$60  ; #$60 = first shot char in group
+    BCC  skip_drawing_this_missile_char  ; $E521  ; if there's some non-space (and non-missile) char here
+                                                  ; (perhaps attract-screen text), then don't draw this missile char
+draw_current_missile_char:
+    LDA  genvarA  ; $09
+    STA  (scr_ptr_lo),y  ; ($02),Y
+    LDA  curr_missile_colour  ; $2E  ; some colour choice between yellow or light-brown
+    STA  (clr_ptr_lo),y  ; ($04),Y
+skip_drawing_this_missile_char:
+    DEC  genvarA  ; $09
+    DEX
+    BPL  loop_draw_next_missile_char_on_screen  ; $E50C
+    BMI  skip_to_next_missile  ; $E52E
+reset_missile_ypos_to_zero:
+    LDX  iterator_local  ; $23
+    LDA  #$00
+    STA  torpedo_fire_ypos,x  ; $75,X  ; y-pos of all torpedoes
+skip_to_next_missile:
+    DEC  iterator_local  ; $23
+    BMI  exit_missile_redraw_assessment_routine  ; $E535
+    JMP  loop_next_missile  ; $E463
+exit_missile_redraw_assessment_routine:
+    RTS
 
 
 paddle_and_function_key_reading_routine:
@@ -2524,7 +2541,7 @@ $EB62               20 00 E0 JSR  ship_logic  ; $E000  ; has logic to spawn new 
 $EB65               20 C8 E1 JSR  buoy_logic  ; $E1C8
 $EB68               20 7D E2 JSR  handle_missile_firing_and_player_movement  ; $E27D
 $EB6B               20 CE E3 JSR  update_player_submarine_positions  ; $E3CE
-$EB6E               20 5F E4 JSR  bullet_redraw_and_ship_assessment  ; $E45F
+$EB6E               20 5F E4 JSR  missile_redraw_assessment  ; $E45F
 $EB71               A5 16    LDA  real_game_mode_flag  ; $16
 $EB73               F0 03    BEQ  +skip_if_in_attract_mode  ; $EB78
 $EB75               20 67 E9 JSR  assess_sound_states  ; $E967
