@@ -1,6 +1,15 @@
 // ====================
 // SEA WOLF DISASSEMBLY
 // ====================
+!to "seawolf.prg", cbm
+
+!macro bit_skip_1_byte {
+  !byte $24
+}
+
+!macro bit_skip_2_bytes {
+  !byte $2c
+}
 
 // ----------------
 // global variables
@@ -442,10 +451,10 @@ decide_new_ship_details:
     CMP  #$A0  ; dec160
     BCC  skip_to_lda_1  ; $E0FB  ; branch if A<160  ; else if under 160, let it be a cruiser
     LDA  #$00                     ; else it's a freighter (highest probability)
-    BIT  $01A9
+    +bit_skip_2_bytes
 skip_to_lda_1:
       LDA  #$01
-    BIT  $02A9
+    +bit_skip_2_bytes
 skip_to_lda_2:
       LDA  #$02
     STA  genvarA  ; $09  ; new ship-type of newly spawned ship
@@ -544,7 +553,7 @@ no_other_ships_on_row:
     BMI  skip_to_set_ship_mirrored  ; $E193  ; if neg-bit is on (i.e., range=128to255), then branch
          ; This is giving a 50/50 chance of the ship moving from left-to-right (normal) or right-to-left (mirrored)
     LDA  #$01  ; current ship = normal
-    BIT  $FFA9
+    +bit_skip_2_bytes
 skip_to_set_ship_mirrored:
       LDA  #$FF  ; current ship = mirrored
     STA  curr_ship_mirror_state  ; $0A  ; set curr ship to mirrored
@@ -566,7 +575,7 @@ skip_if_not_pt_boat:
     STA  ships_mirror_flag,x  ; $4D,X  ; mirror orientation of all ships
     BPL  skip_to_lda_00  ; $E1B9  ; branch if normal ship-orientation
     LDA  #$88  ; a = #$88 (dec136) (the right-edge xpos) for reversed ship-mirror orientation
-    BIT  $00A9
+    +bit_skip_2_bytes
 skip_to_lda_00:
       LDA  #$00  ; a = 0 (the left-edge xpos) for normal ship-mirror orientation
     STA  ships_xpos,x  ; $45,X  ; x-pos of all ships
@@ -1168,7 +1177,7 @@ buoy1_visible_and_buoy2_invisible:
     CMP  #$4C  ; dec76  ; 1st_buoy_xpos >= 76
     BCS  respawn_2nd_buoy_behind_1st  ; $E333
     ADC  #$44  ; dec68
-    BIT  $44E9
+    +bit_skip_2_bytes
 respawn_2nd_buoy_behind_1st:
       SBC  #$44  ; dec68
     STA  buoys_xpos+1,x  ; $62,X
@@ -1180,7 +1189,7 @@ buoy1_invisible_and_buoy2_visible:
     CMP  #$4C  ; dec76
     BCS  respawn_1st_buoy_behind_2nd  ; $E343 ; if A >= 76 then branch to spawn 1st buoy behind 2nd
     ADC  #$44  ; otherwise spawn 1st buoy (in pair) in front of 2nd by dec68
-    BIT  $44E9
+    +bit_skip_2_bytes
 respawn_1st_buoy_behind_2nd:
       SBC  #$44
     STA  buoys_xpos,x  ; $61,X
@@ -1209,7 +1218,7 @@ redraw_torpedo_amount_indicator:
     TXA
     BNE  still_have_missiles  ; $E368  ; if player still have missiles, redraw missile indicator area
     LDA  #$01
-    BIT  $1AA9
+    +bit_skip_2_bytes
 still_have_missiles:
       LDA  #$1A  ; dec26
     STA  txt_x_pos  ; $13
@@ -1255,7 +1264,7 @@ draw_reloading_message:
     LDY  #$32  ; dec50
 loop_for_next_char:
     LDA  time_to_load_msg,x  ; $E3B7,X
-    STA  scr_ptr_lo,y  ; ($02),Y
+    STA  (scr_ptr_lo),y  ; ($02),Y
     DEY
     CPY  #$28  ; dec40      ; did we finish the 2nd line, and are now on last char of 1st line?
     BNE  skip_if_still_on_2nd_line  ; $E3B3  ; if not, maintain usual loop behaviour 
@@ -1308,7 +1317,7 @@ assess_auto_travel_direction:
     BCS  travelling_right_to_left  ; $E3FE  ; if current player x-pos >= waypoint, then branch (for decrement)
 // otherwise player x-pos is less than waypoint (and we need to increment)
     INC  genvarA  ; $09  ; move paddle automatically to right
-    BIT  $09C6
+    +bit_skip_2_bytes
 travelling_right_to_left:
       DEC  genvarA ; $09  ; move paddle automatically to left
 jump_ahead:
@@ -1341,7 +1350,7 @@ loop_wipe_next_submarine_char:
     BNE  jump_if_player2  ; $E42C
     LDX  #$00  ; relative index for vic-bank0 chars describing current player1 submarine
                ; (absolute char idx range 55-59)
-    BIT  $28A2
+    +bit_skip_2_bytes
 jump_if_player2:
       LDX  #$28  ; dec40  ; relative index for vic-bank0 chars describing current player2 submarine
     LDA  #$28  ; dec40  ; index of loop from 40 to 0, in order to copy across 5 chars to define player's sub)
@@ -1601,7 +1610,8 @@ no_F3_pressed:
     AND  #$40  ; Check if F5 is pressed
     BNE  $E560  ; Jump if not pressed
     LDA  #$05
-    BIT  $00A9
+    +bit_skip_2_bytes
+no_F5_pressed:
       LDA  #$00
 finish_off_routine:
     LDX  #$7F
@@ -1657,7 +1667,7 @@ loop_next_char_colour_in_missile_indicator_region:
     DEX
     BPL  loop_next_char_colour_in_missile_indicator_region  ; $E599
     LDA  #$17  ; dec23
-    STA  ypos_local  ; $14  (curr. ship y-pos?)
+    STA  txt_y_pos  ; $14  (curr. ship y-pos)
     JSR  draw_inline_text  ; $E839
 
     !byte $3A, $2F, $33, $2B, $26, $32, $2B, $2C,  $3A, $00 
@@ -1713,9 +1723,9 @@ loop_set_xy_pos_for_title_sprites:
     STA  $D015  ; sprite display enable (only 1st 3 sprites visible)
     ; print mission text
     ; ------------------
-    LDA  #>mission_text1  ; #$CC
+    LDA  #<mission_text1  ; #$CC
     STA  ret_ptr_lo  ; $06
-    LDA  #<mission_text1  ; #$EF
+    LDA  #>mission_text1  ; #$EF
     STA  ret_ptr_hi  ; $07  ; note: no valid assembly exists at $EFCC
     LDA  #$03
     STA  txt_y_pos  ; $14
@@ -1728,8 +1738,8 @@ prepare_to_display_next_line_of_intro_text:
 
 write_line_routine:
     JSR  draw_text_to_screen  ; $E7EC
-    INC  ypos_local  ; $14
-    INC  ypos_local  ; $14
+    INC  txt_y_pos  ; $14
+    INC  txt_y_pos  ; $14
     INC  ret_ptr_lo  ; $06
     BNE  prepare_to_display_next_line_of_intro_text  ; $E635
     INC  ret_ptr_hi  ; $07
@@ -1749,7 +1759,7 @@ loop_wait_on_title_screen:
     DEC  genvarB  ; $08
     BNE  loop_wait_longer_on_title_screen  ; $E651
     LDA  #$00  ; if there was no user input till now, then it's time to jump to attract mode
-    BIT  $FFA9
+    +bit_skip_2_bytes
 exit_from_title_screen_due_to_paddle_fire:
       LDA  #$FF
     RTS
@@ -1813,7 +1823,7 @@ set_scr_and_clr_ptr_locations_based_on_ship_xy_pos:
     LSR
     LSR  ; divide by 8
     STA  txt_y_pos  ; $14
-    BIT  ships_xpos+3  ; $48
+    +bit_skip_1_byte
 
 adjust_scr_and_clr_ptr_locations:
 //-------------------------------
@@ -1821,8 +1831,8 @@ adjust_scr_and_clr_ptr_locations:
   ; (if falling through from prior function, the BIT will skip this line)
     TXA
     PHA  ; preserve X on stack
-    LDX  $14
-    LDA  scr_ptr_lo,X  ; $EDDC,X
+    LDX  txt_y_pos
+    LDA  scr_row_ptr_lo,X  ; $EDDC,X
     CLC
     ADC  $13
     STA  scr_ptr_lo  ; $02
@@ -1998,7 +2008,7 @@ read_paddle_fire_button:
     AND  paddle_fire_bitfields,X  ; always pb E797 = #$04  (paddle fire button)
     BNE  paddle_fire_not_pressed  ; if bit3 was 1 (i.e., paddle fire not pressed) then jump
     LDA  #$FF   ; bit3 was 0, so set A = FF to indicate paddle fire was pressed
-    BIT  $00A9
+    +bit_skip_2_bytes
 paddle_fire_not_pressed:
       LDA  #$00
     RTS  ; If paddle fire not pressed, return A = 0
@@ -2032,7 +2042,7 @@ loop_clear_next_screen_char_and_color:
     //                P  L  A  Y  E   R     1               
     !byte $2E, $2F, $2D, $2E, $26, $39, $29, $35,  $38, $2B, $26, $26, $26, $26, $26, $36
     //       H  I  G  H     S  C  O   R  E                 P
-    !byte $32, $27, $3F, $2B, $38, $26, $48, $26,  $26, $00, $4C, $05, $E7, $A9, $00, $85
+    !byte $32, $27, $3F, $2B, $38, $26, $48, $26,  $26, $00
     //       L  A  Y  E  R     2        
     JMP  print_all_scores  ; $E705
 
@@ -3151,7 +3161,7 @@ submarine_charset_idx:
 // These are #$40 apart
 
 small_missile_char_data_x_offset0:
-    !byte $00, $00, $40, $E0, $E0, $E0, $E0, $40,  $00, $00, $00, $00, $00, $00, $00, $00 
+    !byte $00, $00, $40, $E0, $E0, $E0, $E0, $40,  $00, $00, $00, $00, $00, $00, $00, $00
 ; +--------+--------+
 ; |        |        |
 ; |        |        |
@@ -3164,7 +3174,7 @@ small_missile_char_data_x_offset0:
 ; +--------+--------+
 
 small_missile_char_data_x_offset2:
-    !byte $00, $00, $10, $38, $38, $38, $38, $10
+    !byte $00, $00, $10, $38, $38, $38, $38, $10,  $00, $00, $00, $00, $00, $00, $00, $00
 ; +--------+--------+
 ; |        |        |
 ; |        |        |
@@ -3177,7 +3187,7 @@ small_missile_char_data_x_offset2:
 ; +--------+--------+
 
 small_missile_char_data_x_offset4:
-    !byte $00, $00, $04, $0E, $0E, $0E, $0E, $04   
+    !byte $00, $00, $04, $0E, $0E, $0E, $0E, $04,  $00, $00, $00, $00, $00, $00, $00, $00
 ; +--------+--------+
 ; |        |        |
 ; |        |        |
@@ -3190,7 +3200,7 @@ small_missile_char_data_x_offset4:
 ; +--------+--------+
 
 small_missile_char_data_x_offset6:
-    !byte $00, $00, $01, $03, $03, $03, $03, $01
+    !byte $00, $00, $01, $03, $03, $03, $03, $01,  $00, $00, $00, $80, $80, $80, $80, $00
 ; +--------+--------+
 ; |        |        |
 ; |        |        |
@@ -3203,7 +3213,7 @@ small_missile_char_data_x_offset6:
 ; +--------+--------+
 
 medium_missile_char_data_x_offset0:
-    !byte $60, $60, $F0, $F0, $F0, $F0, $F0, $60 
+    !byte $60, $60, $F0, $F0, $F0, $F0, $F0, $60,  $00, $00, $00, $00, $00, $00, $00, $00
 ; +--------+--------+
 ; | **     |        |
 ; | **     |        |
@@ -3216,7 +3226,7 @@ medium_missile_char_data_x_offset0:
 ; +--------+--------+
 
 medium_missile_char_data_x_offset2:
-    !byte $18, $18, $3C, $3C, $3C, $3C, $3C, $18
+    !byte $18, $18, $3C, $3C, $3C, $3C, $3C, $18,  $00, $00, $00, $00, $00, $00, $00, $00
 ; +--------+--------+
 ; |   **   |        |
 ; |   **   |        |
@@ -3229,7 +3239,7 @@ medium_missile_char_data_x_offset2:
 ; +--------+--------+
 
 medium_missile_char_data_x_offset4:
-    !byte $06, $06, $0F, $0F, $0F, $0F, $0F, $06
+    !byte $06, $06, $0F, $0F, $0F, $0F, $0F, $06,  $00, $00, $00, $00, $00, $00, $00, $00
 ; +--------+--------+
 ; |     ** |        |
 ; |     ** |        |
@@ -3242,7 +3252,7 @@ medium_missile_char_data_x_offset4:
 ; +--------+--------+
 
 medium_missile_char_data_x_offset6:
-    !byte $01, $01, $03, $03, $03, $03, $03, $01
+    !byte $01, $01, $03, $03, $03, $03, $03, $01,  $80, $80, $C0, $C0, $C0, $C0, $C0, $80
 ; +--------+--------+
 ; |       *|*       |
 ; |       *|*       |
@@ -3255,7 +3265,7 @@ medium_missile_char_data_x_offset6:
 ; +--------+--------+
 
 big_missile_char_data_x_offset0:
-    !byte $30, $78, $FC, $FC, $FC, $FC, $FC, $78
+    !byte $30, $78, $FC, $FC, $FC, $FC, $FC, $78,  $00, $00, $00, $00, $00, $00, $00, $00
 ; +--------+--------+
 ; |  **    |        |
 ; | ****   |        |
@@ -3268,7 +3278,7 @@ big_missile_char_data_x_offset0:
 ; +--------+--------+
 
 big_missile_char_data_x_offset2:
-    !byte $0C, $1E, $3F, $3F, $3F, $3F, $3F, $1E
+    !byte $0C, $1E, $3F, $3F, $3F, $3F, $3F, $1E,  $00, $00, $00, $00, $00, $00, $00, $00
 ; +--------+--------+
 ; |    **  |        |
 ; |   **** |        |
@@ -3281,7 +3291,7 @@ big_missile_char_data_x_offset2:
 ; +--------+--------+
 
 big_missile_char_data_x_offset4:
-    !byte $03, $07, $0F, $0F, $0F, $0F, $0F, $07
+    !byte $03, $07, $0F, $0F, $0F, $0F, $0F, $07,  $00, $80, $C0, $C0, $C0, $C0, $C0, $80
 ; +--------+--------+
 ; |      **|        |
 ; |     ***|*       |
@@ -3294,7 +3304,7 @@ big_missile_char_data_x_offset4:
 ; +--------+--------+
 
 big_missile_char_data_x_offset6:
-    !byte $00, $01, $03, $03, $03, $03, $03, $01
+    !byte $00, $01, $03, $03, $03, $03, $03, $01,  $C0, $E0, $F0, $F0, $F0, $F0, $F0, $E0
 ; +--------+--------+
 ; |        |**      |
 ; |       *|***     |
