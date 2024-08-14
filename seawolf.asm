@@ -74,14 +74,14 @@ idx_to_v1_ptboat_beep_beep_freq_array = $2a
 //  - The array is v1_ptboat_beep_beep_freq_array
 //  - Some entries in the array are #$0000 (silence), while others are the beep frequency, #$4EE8
 //
-whatis3 = $2b 
+v2_missile_fire_snd_counter = $2b 
   // - sta at $e955 (set to #$03)
-whatis4 = $2c 
+v3_explosion_snd_counter = $2c 
   // - lda at $e97f
-whatis5 = $2d 
+general_sound_timer = $2d 
 //
 //- lda at $e967
-//- dec at $e96b (only if whatis5 is not yet zero)
+//- dec at $e96b (only if general_sound_timer is not yet zero)
 //- sta at $e970 (if it was previousy zero, it will be now set to #$03)
 //
 curr_missile_colour = $2e 
@@ -2098,93 +2098,93 @@ found_null:
 
 draw_inline_text:
 //---------------
-$E839               68       PLA
-$E83A               18       CLC
-$E83B               69 01    ADC  #$01
-$E83D               85 06    STA  ret_ptr_lo  ; $06
-$E83F               68       PLA
-$E840               69 00    ADC  #$00
-$E842               85 07    STA  ret_ptr_hi  ; $07   ; seems to be pulling the return from jsr address into pw $06
-$E844               20 EC E7 JSR  draw_text_to_screen  ; $E7EC
+    PLA
+    CLC
+    ADC  #$01
+    STA  ret_ptr_lo  ; $06
+    PLA
+    ADC  #$00
+    STA  ret_ptr_hi  ; $07   ; seems to be pulling the return from jsr address into pw $06
+    JSR  draw_text_to_screen  ; $E7EC
 
-$E847               A5 07    LDA  ret_ptr_hi  ; $07  ; push the modified return location back onto the stack
-$E849               48       PHA
-$E84A               A5 06    LDA  ret_ptr_lo  ; $06
-$E84C               48       PHA
-$E84D               60       RTS
+    LDA  ret_ptr_hi  ; $07  ; push the modified return location back onto the stack
+    PHA
+    LDA  ret_ptr_lo  ; $06
+    PHA
+    RTS
 
 
 update_game_time_left:
 //--------------------
-$E84E               A5 27    LDA  decimal_secs_in_minutes_left  ; $27
-$E850               05 28    ORA  minutes_left  ; $28
-$E852               F0 1F    BEQ  print_remaining_game_time  ; $E873
-$E854               C6 26    DEC  secs_in_minute_left  ; $26
-$E856               10 1B    BPL  print_remaining_game_time  ; $E873
-$E858               A9 3B    LDA  #$3B  ; dec59  ; (reset seconds in minute countdown?)
-$E85A               85 26    STA  secs_in_minute_left  ; $26
-$E85C               F8       SED
-$E85D               A5 27    LDA  decimal_secs_in_minutes_left  ; $27
-$E85F               38       SEC
-$E860               E9 01    SBC  #$01
-$E862               D8       CLD
-$E863               85 27    STA  decimal_secs_in_minutes_left  ; $27
-$E865               B0 0C    BCS  print_remaining_game_time  ; $E873
-$E867               A9 59    LDA  #$59  ; value is used in 'decimal mode'
-$E869               85 27    STA  decimal_secs_in_minutes_left  ; $27
-$E86B               A5 28    LDA  game_time  ; $28
-$E86D               F8       SED
-$E86E               E9 00    SBC  #$00
-$E870               D8       CLD
-$E871               85 28    STA  game_time  ; $28
+    LDA  decimal_secs_in_minutes_left  ; $27
+    ORA  minutes_left  ; $28
+    BEQ  print_remaining_game_time  ; $E873
+    DEC  secs_in_minute_left  ; $26
+    BPL  print_remaining_game_time  ; $E873
+    LDA  #$3B  ; dec59  ; (reset seconds in minute countdown?)
+    STA  secs_in_minute_left  ; $26
+    SED
+    LDA  decimal_secs_in_minutes_left  ; $27
+    SEC
+    SBC  #$01
+    CLD
+    STA  decimal_secs_in_minutes_left  ; $27
+    BCS  print_remaining_game_time  ; $E873
+    LDA  #$59  ; value is used in 'decimal mode'
+    STA  decimal_secs_in_minutes_left  ; $27
+    LDA  game_time  ; $28
+    SED
+    SBC  #$00
+    CLD
+    STA  game_time  ; $28
 
 
 print_remaining_game_time:
 //------------------------
-$E873               A9 12    LDA  #$12  ; (18)
-$E875               85 13    STA  txt_x_pos  ; $13
-$E877               A9 18    LDA  #$18  ; (24)
-$E879               85 14    STA  txt_y_pos  ; $14
-$E87B               20 C0 E6 JSR  adjust_scr_and_clr_ptr_locations  ; $E6C0
-$E87E               A0 00    LDY  #$00
-$E880               A9 01    LDA  #$01
-$E882               85 08    STA  genvarB  ; $08  ; $01 = show leading zeroes in 'print_lower_nibble_digit_in_A' call and later 'print_two_digits_in_A' call
-$E884               A5 28    LDA  minutes_left  ; $28
-$E886               20 44 E7 JSR  print_lower_nibble_digit_in_A  ; $E744
-$E889               A9 42    LDA  #$42  ; ':' char
-$E88B               91 02    STA  (scr_ptr_lo),y  ; ($02),Y
-$E88D               C8       INY
-$E88E               A5 27    LDA  decimal_secs_in_minutes_left  ; $27
-$E890               4C 3B E7 JMP  print_two_digits_in_A  ; $E73B
+    LDA  #$12  ; (18)
+    STA  txt_x_pos  ; $13
+    LDA  #$18  ; (24)
+    STA  txt_y_pos  ; $14
+    JSR  adjust_scr_and_clr_ptr_locations  ; $E6C0
+    LDY  #$00
+    LDA  #$01
+    STA  genvarB  ; $08  ; $01 = show leading zeroes in 'print_lower_nibble_digit_in_A' call and later 'print_two_digits_in_A' call
+    LDA  minutes_left  ; $28
+    JSR  print_lower_nibble_digit_in_A  ; $E744
+    LDA  #$42  ; ':' char
+    STA  (scr_ptr_lo),y  ; ($02),Y
+    INY
+    LDA  decimal_secs_in_minutes_left  ; $27
+    JMP  print_two_digits_in_A  ; $E73B
 
 
 random_num_gen_into_A:
 ---------------------
 // NOTE: randomval_lsb is constantly incremented inside the game_loop routine on every frame/iteration
 //       (perhaps to improve the randomness provided by this routine)
-$E893               8A       TXA  ; ship-index?
-$E894               48       PHA
-$E895               A2 0B    LDX  #$0B  ; dec11  ; loop over 10 times
--retry:
-$E897               06 1B    ASL  randomval_lsb  ; $1B
-$E899               26 1C    ROL  randomval_msb  ; $1C  ; treat randomval_lsb+randomval_msb like a 16-bit number we rol to the left (multiply by 2)
-$E89B               2A       ROL  ; rol whatever was left in Areg (usually some index/iterator value, usually ranging 0-7?)
-$E89C               2A       ROL  ; i.e., multiply this 'random-ish' value by 4
-$E89D               45 1B    EOR  randomval_lsb  ; $1B  ; flip some bits in the lsb of this 16-bit value
-$E89F               2A       ROL  ; multiply this 'random-ish' A value by 2
-$E8A0               45 1B    EOR  randomval_lsb  ; $1B  ; flip some more bits in the lsb of this 16-bit value
-$E8A2               4A       LSR
-$E8A3               4A       LSR  ; divide 'random-ish' A value by 4
-$E8A4               49 FF    EOR  #$FF  ; flip all the bits in 'random-ish' A
-$E8A6               29 01    AND  #$01  ; at this point, a=0 or 1  (only care about bit0 of regA)
-$E8A8               05 1B    ORA  randomval_lsb  ; $1B  ; this could 'potentially' set bit0 of lsb of 16-bit value
-$E8AA               85 1B    STA  randomval_lsb  ; $1B  ; so maybe it's a way to assure some balance between odd & even numbers?
-$E8AC               CA       DEX
-$E8AD               D0 E8    BNE  -retry  ; $E897  ; loop from 11 to 1  ; repeat this randomizing recipe 10 times
-$E8AF               68       PLA
-$E8B0               AA       TAX  ; restore prior regX value
-$E8B1               A5 1B    LDA  randomval_lsb  ; $1B  ; we return regA as our 'random' result
-$E8B3               60       RTS
+    TXA  ; ship-index?
+    PHA
+    LDX  #$0B  ; dec11  ; loop over 10 times
+loop_next_shift_left_and_bit0_insertion:
+    ASL  randomval_lsb  ; $1B
+    ROL  randomval_msb  ; $1C  ; treat randomval_lsb+randomval_msb like a 16-bit number we rol to the left (multiply by 2)
+    ROL  ; rol whatever was left in Areg (usually some index/iterator value, usually ranging 0-7?)
+    ROL  ; i.e., multiply this 'random-ish' value by 4
+    EOR  randomval_lsb  ; $1B  ; flip some bits in the lsb of this 16-bit value
+    ROL  ; multiply this 'random-ish' A value by 2
+    EOR  randomval_lsb  ; $1B  ; flip some more bits in the lsb of this 16-bit value
+    LSR
+    LSR  ; divide 'random-ish' A value by 4
+    EOR  #$FF  ; flip all the bits in 'random-ish' A
+    AND  #$01  ; at this point, a=0 or 1  (only care about bit0 of regA)
+    ORA  randomval_lsb  ; $1B  ; this could 'potentially' set bit0 of lsb of 16-bit value
+    STA  randomval_lsb  ; $1B  ; so maybe it's a way to assure some balance between odd & even numbers?
+    DEX
+    BNE  loop_next_shift_left_and_bit0_insertion  ; $E897  ; loop from 11 to 1  ; repeat this randomizing recipe 10 times
+    PLA
+    TAX  ; restore prior regX value
+    LDA  randomval_lsb  ; $1B  ; we return regA as our 'random' result
+    RTS
 
 
 set_sprite_position:
@@ -2194,408 +2194,421 @@ set_sprite_position:
 //   - buoys are from sprite index 4-7
 // xpos_local = curr ship/buoy xpos
 // ypos_local = curr ship/buoy ypos
-$E8B4               AA       TAX
-$E8B5               0A       ASL  ; multiply by 2
-$E8B6               A8       TAY
-$E8B7               A5 11    LDA  xpos_local  ; $11
-$E8B9               18       CLC
-$E8BA               69 0C    ADC  #$0C  ; add 12
-$E8BC               0A       ASL
-$E8BD               99 00 D0 STA  $D000,Y  ; store in sprite x-pos of desired sprite
-$E8C0               B0 09    BCS  +skip1  ; $E8CB
-$E8C2               BD 40 EE LDA  and_bitfields,x  ; $EE40,X
-$E8C5               2D 10 D0 AND  $D010  ; sprite 0-7 xpos msb  ; turn off sprite xpos msb
-$E8C8               4C D1 E8 JMP  +skip2  ; $E8D1
-+skip1:
-$E8CB               BD 38 EE LDA  or_bitfields  ; $EE38,X  ; turn on sprite xpos msb
-$E8CE               0D 10 D0 ORA  $D010
-+skip2:
-$E8D1               8D 10 D0 STA  $D010  ; set sprite xpos msb to desired value (either on/off)
-$E8D4               A5 12    LDA  ypos_local  ; $12
-$E8D6               18       CLC
-$E8D7               69 32    ADC  #$32  ; dec50  ; adjust ship y-pos to absolute sprite coordinates
-$E8D9               99 01 D0 STA  $D001,Y  ; set sprite ypos
-$E8DC               60       RTS
+    TAX
+    ASL  ; multiply by 2
+    TAY
+    LDA  xpos_local  ; $11
+    CLC
+    ADC  #$0C  ; add 12
+    ASL
+    STA  $D000,Y  ; store in sprite x-pos of desired sprite
+    BCS  turn_on_msb_for_this_sprite  ; $E8CB
+    ; turn off msb for this sprite
+    ; ----------------------------
+    LDA  and_bitfields,x  ; $EE40,X
+    AND  $D010  ; sprite 0-7 xpos msb  ; turn off sprite xpos msb
+    JMP  skip_turn_on_msb_for_this_sprite  ; $E8D1
+turn_on_msb_for_this_sprite:
+    LDA  or_bitfields,x  ; $EE38,X  ; turn on sprite xpos msb
+    ORA  $D010
+skip_turn_on_msb_for_this_sprite:
+    STA  $D010  ; set sprite xpos msb to desired value (either on/off)
+    LDA  ypos_local  ; $12
+    CLC
+    ADC  #$32  ; dec50  ; adjust ship y-pos to absolute sprite coordinates
+    STA  $D001,Y  ; set sprite ypos
+    RTS
 
 
 turn_on_sprite_A:
 ----------------
-$E8DD               AA       TAX
-$E8DE               BD 38 EE LDA  or_bitfields,x  ; $EE38,X
-$E8E1               0D 15 D0 ORA  $D015
-$E8E4               8D 15 D0 STA  $D015  ; sprite display enable
-$E8E7               60       RTS
+    TAX
+    LDA  or_bitfields,x  ; $EE38,X
+    ORA  $D015
+    STA  $D015  ; sprite display enable
+    RTS
 
 
 turn_off_sprite_A:
 -----------------
-$E8E8               AA       TAX
-$E8E9               BD 40 EE LDA  and_bitfields,x  ; $EE40,X
-$E8EC               2D 15 D0 AND  $D015
-$E8EF               8D 15 D0 STA  $D015  ; sprite display disable
-$E8F2               60       RTS
+    TAX
+    LDA  and_bitfields,x  ; $EE40,X
+    AND  $D015
+    STA  $D015  ; sprite display disable
+    RTS
 
 allow_interrupts:
 ----------------
-$E8F3               58       CLI
-$E8F4               60       RTS
+    CLI
+    RTS
 
 interrupt_precursor:
 -------------------
-$E8F5               78       SEI
-$E8F6               A9 00    LDA  #$00
-$E8F8               8D 21 D0 STA  $D021
-$E8FB               8D 20 D0 STA  $D020
-$E8FE               A9 00    LDA  #$00
-$E900               8D 15 D0 STA  $D015  ; sprite display enable (hide them all?)
-$E903               60       RTS
+    SEI
+    LDA  #$00
+    STA  $D021
+    STA  $D020
+    LDA  #$00
+    STA  $D015  ; sprite display enable (hide them all?)
+    RTS
 
 interrupt_routine:
 -----------------
-$E904               48       PHA
-$E905               8A       TXA
-$E906               48       PHA
-$E907               A6 1A    LDX  $1A
-$E909               BD 28 E9 LDA  raster_colours,x  ; $E928,X
-$E90C               8D 21 D0 STA  $D021
-$E90F               8D 20 D0 STA  $D020
-$E912               BD 2C E9 LDA  raster_locations,x  ; $E92C,X
-$E915               8D 12 D0 STA  $D012  ; read/write raster value for compare irq
-$E918               E8       INX
-$E919               8A       TXA
-$E91A               29 03    AND  #$03
-$E91C               85 1A    STA  $1A
-$E91E               AD 19 D0 LDA  $D019  ; vic interrupt flag register
-$E921               8D 19 D0 STA  $D019
-$E924               68       PLA
-$E925               AA       TAX
-$E926               68       PLA
-$E927               40       RTI
+    PHA
+    TXA
+    PHA
+    LDX  $1A
+    LDA  raster_colours,x  ; $E928,X
+    STA  $D021
+    STA  $D020
+    LDA  raster_locations,x  ; $E92C,X
+    STA  $D012  ; read/write raster value for compare irq
+    INX
+    TXA
+    AND  #$03
+    STA  $1A
+    LDA  $D019  ; vic interrupt flag register
+    STA  $D019
+    PLA
+    TAX
+    PLA
+    RTI
 
 raster_colours:
 // used within interrupt routine
- :000E928 03 0E 06 00
-  - [0] = 03 (cyan)
-  - [1] = 0e (light blue)
-  - [2] = 06 (blue)
-  - [3] = 00 (black)
+    !byte $03, $0E, $06, $00
+//  - [0] = 03 (cyan)
+//  - [1] = 0e (light blue)
+//  - [2] = 06 (blue)
+//  - [3] = 00 (black)
 
 
 raster_locations:
- :000E92C 46 8A DA 14                                       | F...
+    !byte $46, $8A, $DA, $14
 
 ---------------------
 
 init_sid:
 --------
-$E930               A2 18    LDX  #$18  ; (24)
-$E932               BD DC EB LDA  sid_init_values,x  ; $EBDC,X
-$E935               9D 00 D4 STA  $D400,X
-$E938               CA       DEX
-$E939               10 F7    BPL  $E932
-$E93B               60       RTS
+    LDX  #$18  ; (24)
+loop_init_sid_values:
+    LDA  sid_init_values,x  ; $EBDC,X
+    STA  $D400,X
+    DEX
+    BPL  loop_init_sid_values
+    RTS
 
 
 v1_reset_and_gate_off:
 ---------------------
 // we've spawned a pt boat, so turn off prior ocean sound (to make way for pt boat beep-beep later)
-$E93C               A9 06    LDA  #$06
-$E93E               85 2A    STA  idx_to_v1_ptboat_beep_beep_freq_array  ; $2A
-$E940               A9 00    LDA  #$00
-$E942               8D 00 D4 STA  $D400  ; v1_freq_lo
-$E945               8D 01 D4 STA  $D401  ; v1_freq_hi
-$E948               A9 50    LDA  #$50   ; %0101 0000
-$E94A               8D 06 D4 STA  $D406  ; v1_env_sus_rel
-$E94D               A9 40    LDA  #$40   ; %0100 0000
-$E94F               8D 04 D4 STA  $D404  ; v1_ctrl_reg  (select pulse, gate off)
-$E952               60       RTS
+    LDA  #$06
+    STA  idx_to_v1_ptboat_beep_beep_freq_array  ; $2A
+    LDA  #$00
+    STA  $D400  ; v1_freq_lo
+    STA  $D401  ; v1_freq_hi
+    LDA  #$50   ; %0101 0000
+    STA  $D406  ; v1_env_sus_rel
+    LDA  #$40   ; %0100 0000
+    STA  $D404  ; v1_ctrl_reg  (select pulse, gate off)
+    RTS
 
 
 play_fire_shoot_sound_on_v2:
 //--------------------------
-$E953               A9 03    LDA  #$03
-$E955               85 2B    STA  whatis3  ; $2B
-$E957               A9 81    LDA  #$81  ; %1000 0001
-$E959               8D 0B D4 STA  $D40B  ; v2_ctrl_reg  (noise wave, gate on)
-$E95C               60       RTS
+    LDA  #$03
+    STA  v2_missile_fire_snd_counter  ; $2B
+    LDA  #$81  ; %1000 0001
+    STA  $D40B  ; v2_ctrl_reg  (noise wave, gate on)
+    RTS
 
 trigger_voice3_sound:
 //-------------------
-$E95D               A9 03    LDA  #$03
-$E95F               85 2C    STA  whatis4  ; $2C
-$E961               A9 81    LDA  #$81  ; %1000 0001
-$E963               8D 12 D4 STA  $D412  ; This is turning gate on for voice3  (perhaps to trigger explosion sound?)
-$E966               60       RTS
+    LDA  #$03
+    STA  v3_explosion_snd_counter  ; $2C
+    LDA  #$81  ; %1000 0001
+    STA  $D412  ; This is turning gate on for voice3  (perhaps to trigger explosion sound?)
+    RTS
 
 assess_sound_states:
 -------------------
-  ' assesses whether to turn off any player fire/shot or ship explosion sounds
-  ' also assesses whether to switch v1 to play the beep-beep of the P.T. boat
-$E967               A5 2D    LDA  whatis5  ; $2D
-$E969               F0 03    BEQ  +skip1  ; $E96E
-$E96B               C6 2D    DEC  whatis5  ; $2D
-$E96D               60       RTS
-+skip1:
-$E96E               A9 03    LDA  #$03
-$E970               85 2D    STA  whatis5  ; $2D
-$E972               A5 2B    LDA  whatis3  ; $2B
-$E974               F0 09    BEQ  +skip2  ; $E97F
-$E976               C6 2B    DEC  whatis3  ; $2B
-$E978               D0 05    BNE  +skip3  ; $E97F
-$E97A               A9 80    LDA  #$80  ; %1000 0000
-$E97C               8D 0B D4 STA  $D40B  ; v2_ctrl_reg  (noise wave, gate off)  ; turn off player fire/shoot sound?
-+skip2:
-$E97F               A5 2C    LDA  whatis4  ; $2C
-+skip3:
-$E981               F0 09    BEQ  +skip4  ; $E98C
-$E983               C6 2C    DEC  whatis4  ; $2C
-$E985               D0 05    BNE  +skip4  ; $E98C
-$E987               A9 80    LDA  #$80  ; %1000 0000
-$E989               8D 12 D4 STA  $D412  ; v3_ctrl_reg  (noise wave, gate off)  ; turn off explosion sound?
-+skip4:
-$E98C               A2 03    LDX  #$03
--loop1:
-$E98E               B5 39    LDA  ships_visibility,x  ; $39,X
-$E990               F0 08    BEQ  +skip5  ; $E99A
-$E992               30 06    BMI  +skip5  ; $E99A
-$E994               B5 51    LDA  ships_type,x  ; $51,X  ; possibly index to the type of ship on screen
-$E996               C9 02    CMP  #$02
-$E998               F0 0F    BEQ  +skip6  ; $E9A9
-+skip5:
-$E99A               CA       DEX
-$E99B               10 F1    BPL  -loop1  ; $E98E
-$E99D               A2 06    LDX  #$06
--loop2:
-$E99F               BD DC EB LDA  sid_init_values,x  ; $EBDC,X
-$E9A2               9D 00 D4 STA  $D400,X  ; reset sid voice1 values (ocean sound?)
-$E9A5               CA       DEX
-$E9A6               10 F7    BPL  -loop2  ; $E99F
-$E9A8               60       RTS
-+skip6:
-$E9A9               C6 2A    DEC  idx_to_v1_ptboat_beep_beep_freq_array  ; $2A
-$E9AB               10 04    BPL  +skip7  ; $E9B1
-$E9AD               A9 05    LDA  #$05
-$E9AF               85 2A    STA  idx_to_v1_ptboat_beep_beep_freq_array  ; $2A
-+skip7:
-$E9B1               A5 2A    LDA  idx_to_v1_ptboat_beep_beep_freq_array  ; $2A
-$E9B3               0A       ASL  multiply by 2
-$E9B4               AA       TAX
-$E9B5               BD 2C EE LDA  v1_ptboat_beep_beep_freq_array,x  ; $EE2C,X
-$E9B8               8D 00 D4 STA  $D400  ; v1_freq_lo
-$E9BB               BD 2D EE LDA  v1_ptboat_beep_beep_freq_array+1,x  ; $EE2D,X
-$E9BE               8D 01 D4 STA  $D401  ; v1_freq_hi
-$E9C1               A9 41    LDA  #$41  ; %0100 0001
-$E9C3               8D 04 D4 STA  $D404  ; v1_ctrl_reg  ; (pulse wave, gate on)  ; seems like the beep-beep of the P.T. boat
-$E9C6               60       RTS
+  ; assesses whether to turn off any player fire/shot or ship explosion sounds
+  ; also assesses whether to switch v1 to play the beep-beep of the P.T. boat
+    LDA  general_sound_timer  ; $2D  ; this timer counts down from 3 to 0, then resets back to 3 and repeats this
+    BEQ  reset_general_sound_timer  ; $E96E
+    DEC  general_sound_timer  ; $2D
+    RTS
+reset_general_sound_timer:
+    LDA  #$03
+    STA  general_sound_timer  ; $2D
+    ; assess if it's time to turn off v2 missile fire sound
+    ; -----------------------------------------------------
+    LDA  v2_missile_fire_snd_counter  ; $2B
+    BEQ  assess_if_v3_explosion_snd_counter_has_expired  ; $E97F  ; if missile-fire sound timer already expired, then branch to check of v3 sound
+    DEC  v2_missile_fire_snd_counter  ; $2B
+    BNE  assess_if_v3_explosion_snd_counter_has_expired  ; $E97F
+    ; if we have decremented timer to zero, then it's time to turn off the sound
+    ; --------------------------------------------------------------------------
+    LDA  #$80  ; %1000 0000
+    STA  $D40B  ; v2_ctrl_reg  (noise wave, gate off)  ; turn off player fire/shoot sound?
+
+assess_if_v3_explosion_snd_counter_has_expired:
+    LDA  v3_explosion_snd_counter  ; $2C
+    BEQ  check_if_any_ptboats_visible  ; $E98C
+    DEC  v3_explosion_snd_counter  ; $2C
+    BNE  check_if_any_ptboats_visible  ; $E98C
+    LDA  #$80  ; %1000 0000
+    STA  $D412  ; v3_ctrl_reg  (noise wave, gate off)  ; turn off explosion sound?
+
+check_if_any_ptboats_visible:
+    LDX  #$03
+loop_next_ship_is_ptboat_check:
+    LDA  ships_visibility,x  ; $39,X
+    BEQ  skip_to_next_ship_check  ; $E99A   ; if ship is invisible, branch
+    BMI  skip_to_next_ship_check  ; $E99A   ; if ship is exploding, branch
+    LDA  ships_type,x  ; $51,X  ; possibly index to the type of ship on screen
+    CMP  #$02
+    BEQ  assess_ptboat_beep_beep_sound_state  ; $E9A9
+skip_to_next_ship_check:
+    DEX
+    BPL  loop_next_ship_is_ptboat_check  ; $E98E
+    LDX  #$06
+loop_reset_sid_v1_to_ocean_sound:
+    LDA  sid_init_values,x  ; $EBDC,X
+    STA  $D400,X  ; reset sid voice1 values (ocean sound?)
+    DEX
+    BPL  loop_reset_sid_v1_to_ocean_sound  ; $E99F
+    RTS
+
+assess_ptboat_beep_beep_sound_state:
+    DEC  idx_to_v1_ptboat_beep_beep_freq_array  ; $2A
+    BPL  skip_ptboat_reset_state  ; $E9B1
+    ; reset ptboat beep-beep state (so that the sound pattern repeats)
+    ; ----------------------------
+    LDA  #$05
+    STA  idx_to_v1_ptboat_beep_beep_freq_array  ; $2A
+skip_ptboat_reset_state:
+    LDA  idx_to_v1_ptboat_beep_beep_freq_array  ; $2A
+    ASL  ; multiply by 2
+    TAX
+    LDA  v1_ptboat_beep_beep_freq_array,x  ; $EE2C,X
+    STA  $D400  ; v1_freq_lo
+    LDA  v1_ptboat_beep_beep_freq_array+1,x  ; $EE2D,X
+    STA  $D401  ; v1_freq_hi
+    LDA  #$41  ; %0100 0001
+    STA  $D404  ; v1_ctrl_reg  ; (pulse wave, gate on)  ; seems like the beep-beep of the P.T. boat
+    RTS
 
 
 start_game:
 //---------
-$E9C7               20 93 EB JSR  init_game_vars  ; $EB93
-$E9CA               A9 FF    LDA  #$FF  ; turn on flag to say we are in real game (and not in attract mode)
-$E9CC               85 16    STA  real_game_mode_flag  ; $16
-$E9CE               A5 17    LDA  initial_game_time  ; $17
-$E9D0               85 28    STA  minutes_left  ; $28
-$E9D2               85 33    STA  last_paddle_fire_state  ; $33
-$E9D4               85 34    STA  last_paddle_fire_state+1  ; $34
-$E9D6               A9 00    LDA  #$00
-$E9D8               85 1D    STA  p1_score_lo  ; $1D
-$E9DA               85 1E    STA  p2_score_lo  ; $1E
-$E9DC               85 1F    STA  p1_score_hi  ; $1F
-$E9DE               85 20    STA  p2_score_hi  ; $20
-$E9E0               20 7D E5 JSR  prepare_game_screen ; $E57D
-$E9E3               20 30 E9 JSR  init_sid  ; $E930
-$E9E6               A9 3F    LDA  #$3F  ; %0011 1111
-$E9E8               8D 18 D4 STA  $D418 ; filter bandpass+low-pass, volume = 15
-$E9EB               20 58 EB JSR  game_loop  ; $EB58
-$E9EE               A9 00    LDA  #$00   ; (no filter, zero volume)
-$E9F0               8D 18 D4 STA  $D418  ; sid_sel_filter_and_vol
-$E9F3               A9 0A    LDA  #$0A
-$E9F5               85 14    STA  txt_y_pos  ; $14
-$E9F7               20 39 E8 JSR  draw_inline_text  ; $E839
+    JSR  init_game_vars  ; $EB93
+    LDA  #$FF  ; turn on flag to say we are in real game (and not in attract mode)
+    STA  real_game_mode_flag  ; $16
+    LDA  initial_game_time  ; $17
+    STA  minutes_left  ; $28
+    STA  last_paddle_fire_state  ; $33
+    STA  last_paddle_fire_state+1  ; $34
+    LDA  #$00
+    STA  p1_score_lo  ; $1D
+    STA  p2_score_lo  ; $1E
+    STA  p1_score_hi  ; $1F
+    STA  p2_score_hi  ; $20
+    JSR  prepare_game_screen ; $E57D
+    JSR  init_sid  ; $E930
+    LDA  #$3F  ; %0011 1111
+    STA  $D418 ; filter bandpass+low-pass, volume = 15
+    JSR  game_loop  ; $EB58
+    LDA  #$00   ; (no filter, zero volume)
+    STA  $D418  ; sid_sel_filter_and_vol
+    LDA  #$0A
+    STA  txt_y_pos  ; $14
+    JSR  draw_inline_text  ; $E839
 
- :000E9FA 2D 27 33 2B 26 26 35 3C  2B 38 00 
-           G  A  M  E        O  V   E  R
+    !byte $2D, $27, $33, $2B, $26, $26, $35, $3C,  $2B, $38, $00 
+    //       G  A  M  E        O  V   E  R
 
-$EA05               A2 96    LDX  #$96
-$EA07               20 59 E7 JSR  timer_loop  ; $E759
-$EA0A               CA       DEX
-$EA0B               D0 FA    BNE  $EA07
-jump_here_after_cold_start:
-$EA0D               A9 00    LDA  #$00  ; turn off flag to say we are in attract mode game (and not in real game mode)
-$EA0F               85 16    STA  real_game_mode_flag  ; $16
-$EA11               20 CD E5 JSR  show_intro_screen  ; $E5CD
-$EA14               A8       TAY
-$EA15               D0 4A    BNE  user_wants_to_start_game  ; user pressed F1 or paddle fire to start game?
+    LDX  #$96
+    JSR  timer_loop  ; $E759
+    DEX
+    BNE  $EA07
+turn_off_attract_mode_and_show_intro_screen:
+    LDA  #$00  ; turn off flag to say we are in attract mode game (and not in real game mode)
+    STA  real_game_mode_flag  ; $16
+    JSR  show_intro_screen  ; $E5CD
+    TAY  ; (A=$ff if user pressed F1 or paddle-fire during intro screen, else A=0)
+    BNE  user_wants_to_start_game  ; user pressed F1 or paddle fire to start game?
 ; ATTRACT MODE
 ; ------------
-$EA17               20 93 EB JSR  init_game_vars  ; $EB93
-$EA1A               A9 20    LDA  #$20
-$EA1C               85 27    STA  decimal_secs_in_minutes_left  ; $27
-$EA1E               A2 01    LDX  #$01  ; player index (1=player2, 0=player1)
+    JSR  init_game_vars  ; $EB93
+    LDA  #$20
+    STA  decimal_secs_in_minutes_left  ; $27
+    LDX  #$01  ; player index (1=player2, 0=player1)
 retry_random_num_for_initial_player_sub_position_in_attract_mode:
-$EA20               20 93 E8 JSR  random_num_gen_into_A  ; $E893
-$EA23               C9 28    CMP  #$28  ; dec40
-$EA25               B0 F9    BCS  retry_random_num_for_initial_player_sub_position_in_attract_mode  ; if a >= 40 then loop
-$EA27               95 35    STA  players_xpos,x  ; $35,X  ; place both player subs at some random 0-39 char xpos
-$EA29               CA       DEX  ; switch index from player2 to player1
-$EA2A               10 F4    BPL  retry_random_num_for_initial_player_sub_position_in_attract_mode
-$EA2C               20 7D E5 JSR  prepare_game_screen  ; $E57D
-$EA2F               A9 0A    LDA  #$0A  ; dec10
-$EA31               85 14    STA  txt_y_pos  ; $14
-$EA33               20 39 E8 JSR  draw_inline_text  ; $E839
+    JSR  random_num_gen_into_A  ; $E893
+    CMP  #$28  ; dec40
+    BCS  retry_random_num_for_initial_player_sub_position_in_attract_mode  ; if a >= 40 then loop
+    STA  players_xpos,x  ; $35,X  ; place both player subs at some random 0-39 char xpos
+    DEX  ; switch index from player2 to player1
+    BPL  retry_random_num_for_initial_player_sub_position_in_attract_mode
+    JSR  prepare_game_screen  ; $E57D
+    LDA  #$0A  ; dec10
+    STA  txt_y_pos  ; $14
+    JSR  draw_inline_text  ; $E839
 
 ; this is overlay text shown in attract mode during gameplay
 
     !byte $2D, $27, $33, $2B, $26, $26, $35, $3C,  $2B, $38, $00
     //       G  A  M  E        O  V   E  R
 
-$EA41               A9 0F    LDA  #$0F
-$EA43               85 14    STA  txt_y_pos  ; $14
-$EA45               20 39 E8 JSR  draw_inline_text  ; $E839
+    LDA  #$0F
+    STA  txt_y_pos  ; $14
+    JSR  draw_inline_text  ; $E839
 
- :000EA48 36 3B 39 2E 26 43 2C 47  43 26 3A 35 26 28 2B 2D  | 6;9.&C,GC&:5&(+-
-           P  U  S  H     -  F  1   -     T  O     B  E  G
- :000EA58 2F 34 00
-           I  N
+    !byte $36, $3B, $39, $2E, $26, $43, $2C, $47,  $43, $26, $3A, $35, $26, $28, $2B, $2D
+    //       P  U  S  H     -  F  1   -     T  O     B  E  G
+    !byte $2F, $34, $00
+    //       I  N
 
-$EA5B               20 58 EB JSR  game_loop  ; $EB58
-$EA5E               A8       TAY
-$EA5F               F0 AC    BEQ  jump_here_after_cold_start  ; $EA0D
+    JSR  game_loop  ; $EB58  ; run game-loop for attract mode
+    TAY  ; A = 1 only it we have pressed paddle fire while in attract mode
+    BEQ  turn_off_attract_mode_and_show_intro_screen  ; $EA0D
 user_wants_to_start_game:
-$EA61               20 99 E7 JSR  clear_screen_and_draw_scores  ; $E799
-$EA64               A9 00    LDA  #$00
-$EA66               8D 15 D0 STA  $D015  ; sprite display enable (hide all sprites)
-$EA69               8D 0D D4 STA  $D40D  ; v2_env_gen sus/rel
-$EA6C               8D 14 D4 STA  $D414  ; v3_env_gen sus/rel
-$EA6F               20 F3 E8 JSR  allow_interrupts  ; $E8F3
-$EA72               A9 01    LDA  #$01
-$EA74               85 14    STA  txt_y_pos  ; $14
-$EA76               20 39 E8 JSR  draw_inline_text  ; $E839
+; draw game-time selection screen
+; -------------------------------
+    JSR  clear_screen_and_draw_scores  ; $E799
+    LDA  #$00
+    STA  $D015  ; sprite display enable (hide all sprites)
+    STA  $D40D  ; v2_env_gen sus/rel
+    STA  $D414  ; v3_env_gen sus/rel
+    JSR  allow_interrupts  ; $E8F3
+    LDA  #$01
+    STA  txt_y_pos  ; $14
+    JSR  draw_inline_text  ; $E839
 
 // trailing two zeroes of p1 score + highscore + p2 score
 // ------------------------------------------------------
- :000EA79 F8 26 26 26 26 46 46 26  26 26 26 26 26 26 26 26  | .&&&&FF&&&&&&&&&
-                          0  0                            
- :000EA89 26 26 26 46 46 26 26 26  26 26 26 26 26 26 26 26  | &&&FF&&&&&&&&&&&
-                    0  0                                  
- :000EA99 26 46 46 00
-              0  0
+    !byte $F8, $26, $26, $26, $26, $46, $46, $26,  $26, $26, $26, $26, $26, $26, $26, $26
+    //                      0  0                            
+    !byte $26, $26, $26, $46, $46, $26, $26, $26,  $26, $26, $26, $26, $26, $26, $26, $26
+    //                0  0                                  
+    !byte $26, $46, $46, $00
+    //          0  0
 
-$EA9D               A9 05    LDA  #$05
-$EA9F               85 14    STA  txt_y_pos  ; $14
-$EAA1               20 39 E8 JSR  draw_inline_text  ; $E839
+    LDA  #$05
+    STA  txt_y_pos  ; $14
+    JSR  draw_inline_text  ; $E839
 
- :000EAA4 43 26 36 3B 39 2E 26 43  00 
-           -     P  U  S  H     -
+    !byte $43, $26, $36, $3B, $39, $2E, $26, $43,  $00 
+    //       -     P  U  S  H     -
 
-$EAAD               E6 14    INC  txt_y_pos  ; $14
-$EAAF               E6 14    INC  txt_y_pos  ; $14
-$EAB1               E6 14    INC  txt_y_pos  ; $14
-$EAB3               20 39 E8 JSR  draw_inline_text  ; $E839
+    INC  txt_y_pos  ; $14
+    INC  txt_y_pos  ; $14
+    INC  txt_y_pos  ; $14
+    JSR  draw_inline_text  ; $E839
 
- :000EAB6 2C 47 26 3A 35 26 39 3A  27 38 3A 26 2D 27 33 2B  | ,G&:5&9:'8:&-'3+
-           F  1     T  O     S  T   A  R  T     G  A  M  E
- :000EAC6 41 00
-           .
+    !byte $2C, $47, $26, $3A, $35, $26, $39, $3A,  $27, $38, $3A, $26, $2D, $27, $33, $2B
+    //       F  1     T  O     S  T   A  R  T     G  A  M  E
+    !byte $41, $00
+    //       .
 
-$EAC8               E6 14    INC  txt_y_pos  ; $14
-$EACA               E6 14    INC  txt_y_pos  ; $14
-$EACC               E6 14    INC  txt_y_pos  ; $14
-$EACE               20 39 E8 JSR  draw_inline_text  ; $E839
+    INC  txt_y_pos  ; $14
+    INC  txt_y_pos  ; $14
+    INC  txt_y_pos  ; $14
+    JSR  draw_inline_text  ; $E839
 
- :000EAD1 2C 49 26 3A 35 26 26 2F  34 29 38 2B 27 39 2B 26  | ,I&:5&&/4)8+'9+&
-           F  3     T  O        I   N  C  R  E  A  S  E  
- :000EAE1 00
+    !byte $2C, $49, $26, $3A, $35, $26, $26, $2F,  $34, $29, $38, $2B, $27, $39, $2B, $26
+    //       F  3     T  O        I   N  C  R  E  A  S  E  
+    !byte $00
 
-$EAE2               E6 14    INC  txt_y_pos  ; $14
-$EAE4               E6 14    INC  txt_y_pos  ; $14
-$EAE6               20 39 E8 JSR  draw_inline_text  ; $E839
+    INC  txt_y_pos  ; $14
+    INC  txt_y_pos  ; $14
+    JSR  draw_inline_text  ; $E839
 
- :000EAE9 26 2C 4B 26 3A 35 26 26  2A 2B 29 38 2B 27 39 2B  | &,K&:5&&*+)8+'9+
-              F  5     T  O         D  E  C  R  E  A  S  E
- :000EAF9 26 00
+    !byte $26, $2C, $4B, $26, $3A, $35, $26, $26,  $2A, $2B, $29, $38, $2B, $27, $39, $2B
+    //          F  5     T  O         D  E  C  R  E  A  S  E
+    !byte $26, $00
 
-$EAFB               E6 14    INC  txt_y_pos  ; $14
-$EAFD               E6 14    INC  txt_y_pos  ; $14
-$EAFF               20 39 E8 JSR  draw_inline_text  ; $E839
+    INC  txt_y_pos  ; $14
+    INC  txt_y_pos  ; $14
+    JSR  draw_inline_text  ; $E839
 
- :000EB02 26 36 32 27 3F 2F 34 2D  26 3A 2F 33 2B 41 00
-              P  L  A  Y  I  N  G      T  I  M  E  .
+    !byte $26, $36, $32, $27, $3F, $2F, $34, $2D,  $26, $3A, $2F, $33, $2B, $41, $00
+    //          P  L  A  Y  I  N  G      T  I  M  E  .
 
-$EB11               A9 00    LDA  #$00
-$EB13               85 27    STA  decimal_secs_in_minutes_left  ; $27
-$EB15               A9 17    LDA  #$17  ; dec23
-$EB17               85 14    STA  txt_y_pos  ; $14
-$EB19               20 39 E8 JSR  draw_inline_text  ; $E839
+    LDA  #$00
+    STA  decimal_secs_in_minutes_left  ; $27
+    LDA  #$17  ; dec23
+    STA  txt_y_pos  ; $14
+    JSR  draw_inline_text  ; $E839
 
- :000EB1C 36 32 27 3F 2F 34 2D 26  3A 2F 33 2B 00
-           P  L  A  Y  I  N  G      T  I  M  E
+    !byte $36, $32, $27, $3F, $2F, $34, $2D, $26,  $3A, $2F, $33, $2B, $00
+    //       P  L  A  Y  I  N  G      T  I  M  E
 
-$EB29               A5 17    LDA  initial_game_time  ; $17
-$EB2B               85 28    STA  minutes_left  ; $28
--retry_loop1:
-$EB2D               20 73 E8 JSR  print_remaining_game_time  ; $E873
--retry_loop2:
-$EB30               20 68 E5 JSR  parent_routine_that_does_key_paddle_input  ; $E568
-$EB33               C9 01    CMP  #$01   ; was paddle-fire or F1 pressed?
-$EB35               D0 03    BNE  skippy  ; $EB3A  ; if not, branch
-$EB37               4C C7 E9 JMP  start_game  ; $E9C7
-+skippy:
-$EB3A               C9 03    CMP  #$03  ; was F3 pressed? (increase time)
-$EB3C               D0 0D    BNE  +skip_next  ; $EB4B  ; if not, branch
-$EB3E               A5 28    LDA  $28
-$EB40               C9 09    CMP  #$09
-$EB42               F0 EC    BEQ  -retry_loop2  ; $EB30  ; if already 9 minutes, can't increase further, branch back
-$EB44               E6 17    INC  initial_game_time  ; $17
-$EB46               E6 28    INC  minutes_left  ; $28
-$EB48               4C 2D EB JMP  -retry_loop1  ; $EB2D
-+skip_next:
-                 ; we're assuming if it's not paddle-fire, F1 or F3, then at this point, it must be F5 (decrease time)
-$EB4B               A5 28    LDA  minutes_left  ; $28
-$EB4D               C9 01    CMP  #$01
-$EB4F               F0 DF    BEQ  -retry_loop2  ; $EB30
-$EB51               C6 17    DEC  initial_game_time  ; $17
-$EB53               C6 28    DEC  minutes_left  ; $28
-$EB55               4C 2D EB JMP  -retry_loop1  ; $EB2D
+    LDA  initial_game_time  ; $17
+    STA  minutes_left  ; $28
+retry_print_game_time_choice:
+    JSR  print_remaining_game_time  ; $E873
+retry_read_user_input:
+    JSR  parent_routine_that_does_key_paddle_input  ; $E568
+    CMP  #$01   ; was paddle-fire or F1 pressed?
+    BNE  assess_F3_key_press  ; $EB3A  ; if not, branch
+    JMP  start_game  ; $E9C7
+assess_F3_key_press:
+    CMP  #$03  ; was F3 pressed? (increase time)
+    BNE  handle_F5_key_press  ; $EB4B  ; if not, branch
+    LDA  minutes_left  ; $28
+    CMP  #$09
+    BEQ  retry_read_user_input  ; $EB30  ; if already 9 minutes, can't increase further, branch back
+    INC  initial_game_time  ; $17
+    INC  minutes_left  ; $28
+    JMP  retry_print_game_time_choice  ; $EB2D
+handle_F5_key_press:
+    ; we're assuming if it's not paddle-fire, F1 or F3, then at this point, it must be F5 (decrease time)
+    LDA  minutes_left  ; $28
+    CMP  #$01
+    BEQ  retry_read_user_input  ; $EB30
+    DEC  initial_game_time  ; $17
+    DEC  minutes_left  ; $28
+    JMP  retry_print_game_time_choice  ; $EB2D
 
 
 game_loop:
 //--------
--loopback:
-$EB58               AD 1E D0 LDA  $D01E  ; sprite-to-sprite collision detect
-$EB5B               85 18    STA  buff_spr2spr_coll  ; $18
-$EB5D               AD 1F D0 LDA  $D01F  ; sprite-to-background collision detect
-$EB60               85 19    STA  buff_spr2back_coll  ; $19
-$EB62               20 00 E0 JSR  ship_logic  ; $E000  ; has logic to spawn new ships when needed
-$EB65               20 C8 E1 JSR  buoy_logic  ; $E1C8
-$EB68               20 7D E2 JSR  handle_missile_firing_and_player_movement  ; $E27D
-$EB6B               20 CE E3 JSR  update_player_submarine_positions  ; $E3CE
-$EB6E               20 5F E4 JSR  missile_redraw_assessment  ; $E45F
-$EB71               A5 16    LDA  real_game_mode_flag  ; $16
-$EB73               F0 03    BEQ  +skip_if_in_attract_mode  ; $EB78
-$EB75               20 67 E9 JSR  assess_sound_states  ; $E967
-+skip_if_in_attract_mode:
-$EB78               20 4E E8 JSR  update_game_time_left  ; $E84E
-$EB7B               20 59 E7 JSR  timer_loop  ; $E759
-$EB7E               A5 16    LDA  real_game_mode_flag  ; $16
-$EB80               D0 0A    BNE  +if_in_real_game_then_skip_exit_attract_check  ; $EB8C
+loopback:
+    LDA  $D01E  ; sprite-to-sprite collision detect
+    STA  buff_spr2spr_coll  ; $18
+    LDA  $D01F  ; sprite-to-background collision detect
+    STA  buff_spr2back_coll  ; $19
+    JSR  ship_logic  ; $E000  ; has logic to spawn new ships when needed
+    JSR  buoy_logic  ; $E1C8
+    JSR  handle_missile_firing_and_player_movement  ; $E27D
+    JSR  update_player_submarine_positions  ; $E3CE
+    JSR  missile_redraw_assessment  ; $E45F
+    LDA  real_game_mode_flag  ; $16
+    BEQ  skip_if_in_attract_mode  ; $EB78
+    JSR  assess_sound_states  ; $E967
+skip_if_in_attract_mode:
+    JSR  update_game_time_left  ; $E84E
+    JSR  timer_loop  ; $E759
+    LDA  real_game_mode_flag  ; $16
+    BNE  skip_exit_attract_check  ; $EB8C
 exit_attract_check:
-$EB82               E6 1B    INC  randomval_lsb  ; $1B
-$EB84               20 36 E5 JSR  paddle_and_function_key_reading_routine  ; $E536
-$EB87               A8       TAY
-$EB88               C9 01    CMP  #$01
-$EB8A               F0 06    BEQ  +skip_to_end  ; $EB92  ; was paddle-fire or F1 pressed?
-+if_in_real_game_then_skip_exit_attract_check:
-$EB8C               A5 28    LDA  minutes_left  ; $28
-$EB8E               05 27    ORA  decimal_secs_in_minutes_left  ; $27
-$EB90               D0 C6    BNE  -loopback  ; $EB58
-+skip_to_end:
-$EB92               60       RTS
+    INC  randomval_lsb  ; $1B
+    JSR  paddle_and_function_key_reading_routine  ; $E536
+    TAY
+    CMP  #$01
+    BEQ  exit_game_loop_routine  ; $EB92  ; was paddle-fire or F1 pressed?
+skip_exit_attract_check:
+    LDA  minutes_left  ; $28
+    ORA  decimal_secs_in_minutes_left  ; $27
+    BNE  loopback  ; $EB58
+exit_game_loop_routine:
+    RTS
 
 
 init_game_vars:
-//--------------
+//-------------
 $EB93               A2 82    LDX  #$82
 $EB95               A9 00    LDA  #$00
 $EB97               8D 15 D0 STA  $D015  ; sprite display enable/disable  (this will disable them all)
@@ -2808,7 +2821,7 @@ $EC50               BD D4 EC LDA  char_data_group2,x  ; $ECD4,X
 $EC53               9D A8 01 STA  $01A8,X  ; copy across charset to vicii-bank 0, starting at charidx $35 (letter 'O')
 $EC56               E8       INX
 $EC57               D0 F1    BNE  $EC4A
-$EC59               4C 0D EA JMP  jump_here_after_cold_start  ; $EA0D
+$EC59               4C 0D EA JMP  turn_off_attract_mode_and_show_intro_screen  ; $EA0D
 
 char_data_group1:
 //---------------
