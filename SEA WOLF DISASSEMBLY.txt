@@ -1,3 +1,19 @@
+NOTE:
+====
+- This is an old version of this disassembly attempt
+- A NEWER VERSION can be found here:
+
+  - https://github.com/gurcei/petwolf/blob/main/seawolf.asm
+
+- This version can be compiled with acme compiler, using "make seawolf.prg"
+- It will produce two files:
+  - "seawolf.bin": The exact contents of the original 8kb rom
+  - "seawolf.prg": A version with a basic-stub to copy across the 8kb rom into the required memory location at $E000-$FFFF
+
+NOTE2:
+=====
+I still keep this old disassembly as I still sometimes find it handy to look back on
+
 ====================
 SEA WOLF DISASSEMBLY
 ====================
