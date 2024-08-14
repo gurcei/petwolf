@@ -2609,33 +2609,34 @@ exit_game_loop_routine:
 
 init_game_vars:
 //-------------
-$EB93               A2 82    LDX  #$82
-$EB95               A9 00    LDA  #$00
-$EB97               8D 15 D0 STA  $D015  ; sprite display enable/disable  (this will disable them all)
--loop1:
-$EB9A               95 22    STA  $22,X  ; reset vars in range of $22 to $A4 to zero
-$EB9C               CA       DEX
-$EB9D               D0 FB    BNE  -loop1  ; $EB9A
-$EB9F               A9 04    LDA  #$04
-$EBA1               85 31    STA  p1_num_missiles  ; $31
-$EBA3               85 32    STA  p2_num_missiles  ; $32
-$EBA5               A9 00    LDA  #$00
-$EBA7               85 61    STA  buoys_xpos  ; $61
-$EBA9               A9 44    LDA  #$44
-$EBAB               85 62    STA  buoys_xpos+1  ; $62
-$EBAD               A9 60    LDA  #$60
-$EBAF               85 65    STA  buoys_ypos  ; $65
-$EBB1               85 66    STA  buoys_ypos+1  ; $66
-$EBB3               A9 01    LDA  #$01
-$EBB5               85 5D    STA  buoys_visibility  ; $5D
-$EBB7               85 5E    STA  buoys_visibility+1  ; $5E
-$EBB9               A9 3B    LDA  #$3B  ; dec59
-$EBBB               85 26    STA  secs_in_minute_left  ; $26
-$EBBD               60       RTS
+    LDX  #$82
+    LDA  #$00
+    STA  $D015  ; sprite display enable/disable  (this will disable them all)
+loop_next_var_to_reset:
+    STA  $22,X  ; reset vars in range of $22 to $A4 to zero
+    DEX
+    BNE  loop_next_var_to_reset  ; $EB9A
+    LDA  #$04
+    STA  p1_num_missiles  ; $31
+    STA  p2_num_missiles  ; $32
+    LDA  #$00
+    STA  buoys_xpos  ; $61
+    LDA  #$44
+    STA  buoys_xpos+1  ; $62
+    LDA  #$60
+    STA  buoys_ypos  ; $65
+    STA  buoys_ypos+1  ; $66
+    LDA  #$01
+    STA  buoys_visibility  ; $5D
+    STA  buoys_visibility+1  ; $5E
+    LDA  #$3B  ; dec59
+    STA  secs_in_minute_left  ; $26
+    RTS
 
 vic_init_values:
- :000EBBE 1B 00 00 00 00 08 00 10  FF 00 FF 00 0F 00 00 03  | ................
- :000EBCE 00 00 00 00 00 00 00 00  00 00 00 00 00 00        | ..............
+    !byte $1B, $00, $00, $00, $00, $08, $00, $10,  $FF, $00, $FF, $00, $0F, $00, $00, $03
+    !byte $00, $00, $00, $00, $00, $00, $00, $00,  $00, $00, $00, $00, $00, $00
+
 // $d011 = vic_ctrl_reg = 1B = %0001 1011
 //     bit7 = raster_compare
 //     bit6 = extended colour text (0=disable)
@@ -2667,7 +2668,7 @@ vic_init_values:
 // $d01b = sprite-to-background priority display = FF (1 = sprite)
 // $d01c = sprite 0-7 multi-colour mode = 00 (0 = disable)
 // $d01d = sprite 0-7 expand 2x horizontal = $0F = %0000 1111
-          (i.e., expand sprites 0-3 horz - for the ships)
+//          (i.e., expand sprites 0-3 horz - for the ships)
 // $d01e = sprite-to-sprite collision detect = 00
 // $d01f = sprite-to-background collision detect = 00
 // $d020 = border colour = 03 (cyan?)
@@ -2687,8 +2688,8 @@ vic_init_values:
 // $d02e = sprite 6 colour = 00
 
 sid_init_values:
- :000EBDC 88 13 00 08 81 00 21 98  3A 00 08 80 8C 4B B0 04  | ......!.:....K..
- :000EBEC 00 08 80 00 FA 00 96 F4  30                       | ........0
+    !byte $88, $13, $00, $08, $81, $00, $21, $98,  $3A, $00, $08, $80, $8C, $4B, $B0, $04
+    !byte $00, $08, $80, $00, $FA, $00, $96, $F4,  $30
 
 // VOICE1  (ocean sound?)
 // ------
@@ -2775,371 +2776,374 @@ sid_init_values:
 
 cold_start_handler:
 //-----------------
-$EBF5               78       SEI
-$EBF6               D8       CLD
-$EBF7               A2 2F    LDX  #$2F
-$EBF9               9A       TXS  ; Why stack pointer so low? Aah, to make room for char-data copied into $0130 and onwards at $EC5C
-$EBFA               A2 1D    LDX  #$1D
-$EBFC               BD BE EB LDA  vic_init_values,x  ; $EBBE,X
-$EBFF               9D 11 D0 STA  $D011,X
-$EC02               CA       DEX
-$EC03               10 F7    BPL  $EBFC
-$EC05               AD 1E D0 LDA  $D01E  ; sprite-to-sprite collision detect (read it to reset the value)
-$EC08               AD 1F D0 LDA  $D01F  ; sprite-to-background collision detect (read it to reset the value)
-$EC0B               20 30 E9 JSR  init_sid  ; $E930
-$EC0E               A9 7F    LDA  #$7F   ; %0111 1111
-$EC10               8D 0D DC STA  $DC0D  ; cia_irq_ctrl_reg (only allow IRQ, not others)
-$EC13               A9 00    LDA  #$00   ; %0000 0000
-$EC15               8D 0F DC STA  $DC0F  ; cia_ctrl_reg_B (use clk, timer b count system 2 clks, continuous, pulse, no, stop)
-$EC18               A2 00    LDX  #$00
-$EC1A               8E 03 DC STX  $DC03  ; ddr_port_b
-$EC1D               CA       DEX
-$EC1E               8E 02 DC STX  $DC02  ; ddr_port_a
-$EC21               A9 E5    LDA  #$E5   ; %1110 0101
-$EC23               85 01    STA  $01    ; (cassette-motor=off, cassette-switch=closed, char-rom-in=no, kernal-rom=off, basic-rom=on)
-$EC25               A9 2F    LDA  #$2F   ; %0010 1111
-$EC27               85 00    STA  $00    ; mos 6510 ddr (1=output, 0=input)
-$EC29               A9 06    LDA  #$06
-$EC2B               8D 04 DC STA  $DC04  ; timer_a_low_byte
-$EC2E               A9 47    LDA  #$47
-$EC30               8D 05 DC STA  $DC05  ; timer_a_high_byte
-$EC33               A9 18    LDA  #$18   ; %0001 1000
-$EC35               8D 0E DC STA  $DC0E  ; cia_ctrl_reg_a (todclk=60Hz, serialio=input, tmracnt=system2clk, forceloadtmra=yes
-                                         ;                 tmramode=oneshot, tmraoutputmode=pulse, outonpb6=no, startstoptmra=stop)
-$EC38               A9 01    LDA  #$01
-$EC3A               8D 1A D0 STA  $D01A  ; irq_mask_reg (raster_compare_irq = enabled)
-$EC3D               A2 02    LDX  #$02
-$EC3F               A9 00    LDA  #$00   ; initialise-to-zero all global variables in zero-page
-$EC41               95 00    STA  $00,X
-$EC43               E8       INX
-$EC44               D0 FB    BNE  $EC41
-$EC46               A9 03    LDA  #$03
-$EC48               85 17    STA  initial_game_time  ; $17
-$EC4A               BD 5C EC LDA  char_data_group1,x  ; $EC5C,X
-$EC4D               9D 30 01 STA  $0130,X  ; copy across charset to vicii-bank 0, starting at charidx $26 (' ' space char)
-$EC50               BD D4 EC LDA  char_data_group2,x  ; $ECD4,X
-$EC53               9D A8 01 STA  $01A8,X  ; copy across charset to vicii-bank 0, starting at charidx $35 (letter 'O')
-$EC56               E8       INX
-$EC57               D0 F1    BNE  $EC4A
-$EC59               4C 0D EA JMP  turn_off_attract_mode_and_show_intro_screen  ; $EA0D
+    SEI
+    CLD
+    LDX  #$2F
+    TXS  ; Why stack pointer so low? Aah, to make room for char-data copied into $0130 and onwards at $EC5C
+    LDX  #$1D
+    LDA  vic_init_values,x  ; $EBBE,X
+    STA  $D011,X
+    DEX
+    BPL  $EBFC
+    LDA  $D01E  ; sprite-to-sprite collision detect (read it to reset the value)
+    LDA  $D01F  ; sprite-to-background collision detect (read it to reset the value)
+    JSR  init_sid  ; $E930
+    LDA  #$7F   ; %0111 1111
+    STA  $DC0D  ; cia_irq_ctrl_reg (only allow IRQ, not others)
+    LDA  #$00   ; %0000 0000
+    STA  $DC0F  ; cia_ctrl_reg_B (use clk, timer b count system 2 clks, continuous, pulse, no, stop)
+    LDX  #$00
+    STX  $DC03  ; ddr_port_b
+    DEX
+    STX  $DC02  ; ddr_port_a
+    LDA  #$E5   ; %1110 0101
+    STA  $01    ; (cassette-motor=off, cassette-switch=closed, char-rom-in=no, kernal-rom=off, basic-rom=on)
+    LDA  #$2F   ; %0010 1111
+    STA  $00    ; mos 6510 ddr (1=output, 0=input)
+    LDA  #$06
+    STA  $DC04  ; timer_a_low_byte
+    LDA  #$47
+    STA  $DC05  ; timer_a_high_byte
+    LDA  #$18   ; %0001 1000
+    STA  $DC0E  ; cia_ctrl_reg_a (todclk=60Hz, serialio=input, tmracnt=system2clk, forceloadtmra=yes
+                ;                 tmramode=oneshot, tmraoutputmode=pulse, outonpb6=no, startstoptmra=stop)
+    LDA  #$01
+    STA  $D01A  ; irq_mask_reg (raster_compare_irq = enabled)
+    LDX  #$02
+    LDA  #$00   ; initialise-to-zero all global variables in zero-page
+loop_next_zp_var_to_reset:
+    STA  $00,X
+    INX
+    BNE  loop_next_zp_var_to_reset
+    LDA  #$03
+    STA  initial_game_time  ; $17
+loop_next_charset_data_to_copy_across:
+    LDA  char_data_group1,x  ; $EC5C,X
+    STA  $0130,X  ; copy across charset to vicii-bank 0, starting at charidx $26 (' ' space char)
+    LDA  char_data_group2,x  ; $ECD4,X
+    STA  $01A8,X  ; copy across charset to vicii-bank 0, starting at charidx $35 (letter 'O')
+    INX
+    BNE  loop_next_charset_data_to_copy_across
+    JMP  turn_off_attract_mode_and_show_intro_screen  ; $EA0D
 
 char_data_group1:
 //---------------
-  - starting at chridx $26
- :000EC5C 00 00 00 00 00 00 00 00  38 6C C6 C6 FE C6 C6 00  | ........8l......
- :000EC6C FC 66 66 7C 66 66 FC 00  3C 66 C0 C0 C0 66 3C 00  | .ff|ff..<f...f<.
- :000EC7C F8 64 66 66 66 64 F8 00  FE 60 60 7C 60 60 FE 00  | .dfffd...``|``..
- :000EC8C FE 60 60 7C 60 60 F0 00  3C 66 C0 DE C6 66 3C 00  | .``|``..<f...f<.
-char idx $26 address: $0130
-+--------+--------+--------+--------+--------+--------+--------+--------+
-|        |  ***   |******  |  ****  |*****   |******* |******* |  ****  |
-|        | ** **  | **  ** | **  ** | **  *  | **     | **     | **  ** |
-|        |**   ** | **  ** |**      | **  ** | **     | **     |**      |
-|        |**   ** | *****  |**      | **  ** | *****  | *****  |** **** |
-|        |******* | **  ** |**      | **  ** | **     | **     |**   ** |
-|        |**   ** | **  ** | **  ** | **  *  | **     | **     | **  ** |
-|        |**   ** |******  |  ****  |*****   |******* |****    |  ****  |
-|        |        |        |        |        |        |        |        |
-+--------+--------+--------+--------+--------+--------+--------+--------+
+//  - starting at chridx $26
+    !byte $00, $00, $00, $00, $00, $00, $00, $00,  $38, $6C, $C6, $C6, $FE, $C6, $C6, $00
+    !byte $FC, $66, $66, $7C, $66, $66, $FC, $00,  $3C, $66, $C0, $C0, $C0, $66, $3C, $00
+    !byte $F8, $64, $66, $66, $66, $64, $F8, $00,  $FE, $60, $60, $7C, $60, $60, $FE, $00
+    !byte $FE, $60, $60, $7C, $60, $60, $F0, $00,  $3C, $66, $C0, $DE, $C6, $66, $3C, $00
+// char idx $26 address: $0130
+// +--------+--------+--------+--------+--------+--------+--------+--------+
+// |        |  ***   |******  |  ****  |*****   |******* |******* |  ****  |
+// |        | ** **  | **  ** | **  ** | **  *  | **     | **     | **  ** |
+// |        |**   ** | **  ** |**      | **  ** | **     | **     |**      |
+// |        |**   ** | *****  |**      | **  ** | *****  | *****  |** **** |
+// |        |******* | **  ** |**      | **  ** | **     | **     |**   ** |
+// |        |**   ** | **  ** | **  ** | **  *  | **     | **     | **  ** |
+// |        |**   ** |******  |  ****  |*****   |******* |****    |  ****  |
+// |        |        |        |        |        |        |        |        |
+// +--------+--------+--------+--------+--------+--------+--------+--------+
 
- :000EC9C C6 C6 C6 FE C6 C6 C6 00  3C 18 18 18 18 18 3C 00  | ........<.....<.
- :000ECAC 1E 0C 0C 0C CC CC 78 00  C6 CC D8 F0 D8 CC C6 00  | ......x.........
- :000ECBC F0 60 60 60 60 60 FE 00  C6 EE FE D6 C6 C6 C6 00  | .`````..........
- :000ECCC C6 E6 F6 DE CE C6 C6 00                           | ........
-char idx $2E address: $0170
-+--------+--------+--------+--------+--------+--------+--------+
-|**   ** |  ****  |   **** |**   ** |****    |**   ** |**   ** |
-|**   ** |   **   |    **  |**  **  | **     |*** *** |***  ** |
-|**   ** |   **   |    **  |** **   | **     |******* |**** ** |
-|******* |   **   |    **  |****    | **     |** * ** |** **** |
-|**   ** |   **   |**  **  |** **   | **     |**   ** |**  *** |
-|**   ** |   **   |**  **  |**  **  | **     |**   ** |**   ** |
-|**   ** |  ****  | ****   |**   ** |******* |**   ** |**   ** |
-|        |        |        |        |        |        |        |
-+--------+--------+--------+--------+--------+--------+--------+
+    !byte $C6, $C6, $C6, $FE, $C6, $C6, $C6, $00,  $3C, $18, $18, $18, $18, $18, $3C, $00
+    !byte $1E, $0C, $0C, $0C, $CC, $CC, $78, $00,  $C6, $CC, $D8, $F0, $D8, $CC, $C6, $00
+    !byte $F0, $60, $60, $60, $60, $60, $FE, $00,  $C6, $EE, $FE, $D6, $C6, $C6, $C6, $00
+    !byte $C6, $E6, $F6, $DE, $CE, $C6, $C6, $00
+// char idx $2E address: $0170
+// +--------+--------+--------+--------+--------+--------+--------+
+// |**   ** |  ****  |   **** |**   ** |****    |**   ** |**   ** |
+// |**   ** |   **   |    **  |**  **  | **     |*** *** |***  ** |
+// |**   ** |   **   |    **  |** **   | **     |******* |**** ** |
+// |******* |   **   |    **  |****    | **     |** * ** |** **** |
+// |**   ** |   **   |**  **  |** **   | **     |**   ** |**  *** |
+// |**   ** |   **   |**  **  |**  **  | **     |**   ** |**   ** |
+// |**   ** |  ****  | ****   |**   ** |******* |**   ** |**   ** |
+// |        |        |        |        |        |        |        |
+// +--------+--------+--------+--------+--------+--------+--------+
 
 char_data_group2:
 //---------------
- :000ECD4 7C EE C6 C6 C6 EE 7C 00  FC 66 66 7C 60 60 F0 00  | |.....|..ff|``..
- :000ECE4 38 64 C2 C2 CA 64 3A 00  FC C6 C6 FC D8 CC C6 00  | 8d...d:.........
- :000ECF4 7C C6 C0 7C 06 C6 7C 00  7E 18 18 18 18 18 3C 00  | |..|..|.~.....<.
- :000ED04 C6 C6 C6 C6 C6 C6 7C 00  C6 C6 C6 6C 6C 38 38 00  | ......|....ll88.
-char idx $35 address: $01A8
-+--------+--------+--------+--------+--------+--------+--------+--------+
-| *****  |******  |  ***   |******  | *****  | ****** |**   ** |**   ** |
-|*** *** | **  ** | **  *  |**   ** |**   ** |   **   |**   ** |**   ** |
-|**   ** | **  ** |**    * |**   ** |**      |   **   |**   ** |**   ** |
-|**   ** | *****  |**    * |******  | *****  |   **   |**   ** | ** **  |
-|**   ** | **     |**  * * |** **   |     ** |   **   |**   ** | ** **  |
-|*** *** | **     | **  *  |**  **  |**   ** |   **   |**   ** |  ***   |
-| *****  |****    |  *** * |**   ** | *****  |  ****  | *****  |  ***   |
-|        |        |        |        |        |        |        |        |
-+--------+--------+--------+--------+--------+--------+--------+--------+
+    !byte $7C, $EE, $C6, $C6, $C6, $EE, $7C, $00,  $FC, $66, $66, $7C, $60, $60, $F0, $00
+    !byte $38, $64, $C2, $C2, $CA, $64, $3A, $00,  $FC, $C6, $C6, $FC, $D8, $CC, $C6, $00
+    !byte $7C, $C6, $C0, $7C, $06, $C6, $7C, $00,  $7E, $18, $18, $18, $18, $18, $3C, $00
+    !byte $C6, $C6, $C6, $C6, $C6, $C6, $7C, $00,  $C6, $C6, $C6, $6C, $6C, $38, $38, $00
+// char idx $35 address: $01A8
+// +--------+--------+--------+--------+--------+--------+--------+--------+
+// | *****  |******  |  ***   |******  | *****  | ****** |**   ** |**   ** |
+// |*** *** | **  ** | **  *  |**   ** |**   ** |   **   |**   ** |**   ** |
+// |**   ** | **  ** |**    * |**   ** |**      |   **   |**   ** |**   ** |
+// |**   ** | *****  |**    * |******  | *****  |   **   |**   ** | ** **  |
+// |**   ** | **     |**  * * |** **   |     ** |   **   |**   ** | ** **  |
+// |*** *** | **     | **  *  |**  **  |**   ** |   **   |**   ** |  ***   |
+// | *****  |****    |  *** * |**   ** | *****  |  ****  | *****  |  ***   |
+// |        |        |        |        |        |        |        |        |
+// +--------+--------+--------+--------+--------+--------+--------+--------+
 
- :000ED14 C6 C6 C6 D6 D6 FE 6C 00  C6 C6 6C 38 6C C6 C6 00  | ......l...l8l...
- :000ED24 C6 C6 6C 7C 38 38 38 00  FE C6 0C 38 60 C6 FE 00  | ..l|888....8`...
- :000ED34 00 00 00 00 18 18 00 00  00 18 18 00 18 18 00 00  | ................
- :000ED44 00 00 00 7E 7E 00 00 00  0C 18 30 30 30 18 0C 00  | ...~~.....000...
-char idx $3D address: $01E8
-+--------+--------+--------+--------+--------+--------+--------+--------+
-|**   ** |**   ** |**   ** |******* |        |        |        |    **  |
-|**   ** |**   ** |**   ** |**   ** |        |   **   |        |   **   |
-|**   ** | ** **  | ** **  |    **  |        |   **   |        |  **    |
-|** * ** |  ***   | *****  |  ***   |        |        | ****** |  **    |
-|** * ** | ** **  |  ***   | **     |   **   |   **   | ****** |  **    |
-|******* |**   ** |  ***   |**   ** |   **   |   **   |        |   **   |
-| ** **  |**   ** |  ***   |******* |        |        |        |    **  |
-|        |        |        |        |        |        |        |        |
-+--------+--------+--------+--------+--------+--------+--------+--------+
+    !byte $C6, $C6, $C6, $D6, $D6, $FE, $6C, $00,  $C6, $C6, $6C, $38, $6C, $C6, $C6, $00
+    !byte $C6, $C6, $6C, $7C, $38, $38, $38, $00,  $FE, $C6, $0C, $38, $60, $C6, $FE, $00
+    !byte $00, $00, $00, $00, $18, $18, $00, $00,  $00, $18, $18, $00, $18, $18, $00, $00
+    !byte $00, $00, $00, $7E, $7E, $00, $00, $00,  $0C, $18, $30, $30, $30, $18, $0C, $00
+// char idx $3D address: $01E8
+// +--------+--------+--------+--------+--------+--------+--------+--------+
+// |**   ** |**   ** |**   ** |******* |        |        |        |    **  |
+// |**   ** |**   ** |**   ** |**   ** |        |   **   |        |   **   |
+// |**   ** | ** **  | ** **  |    **  |        |   **   |        |  **    |
+// |** * ** |  ***   | *****  |  ***   |        |        | ****** |  **    |
+// |** * ** | ** **  |  ***   | **     |   **   |   **   | ****** |  **    |
+// |******* |**   ** |  ***   |**   ** |   **   |   **   |        |   **   |
+// | ** **  |**   ** |  ***   |******* |        |        |        |    **  |
+// |        |        |        |        |        |        |        |        |
+// +--------+--------+--------+--------+--------+--------+--------+--------+
 
- :000ED54 30 18 0C 0C 0C 18 30 00  7C C6 CE D6 E6 C6 7C 00  | 0.....0.|.....|.
- :000ED64 18 38 18 18 18 18 3C 00  7C C6 C6 0C 38 E0 FE 00  | .8....<.|...8...
- :000ED74 7C C6 06 1C 06 C6 7C 00  0C 1C 2C 4C FE 0C 0C 00  | |.....|...,L....
- :000ED84 FE C0 C0 FC 06 C6 7C 00  1C 30 60 FC C6 C6 7C 00  | ......|..0`...|.
-char idx $45 address: $0228
-+--------+--------+--------+--------+--------+--------+--------+--------+
-|  **    | *****  |   **   | *****  | *****  |    **  |******* |   ***  |
-|   **   |**   ** |  ***   |**   ** |**   ** |   ***  |**      |  **    |
-|    **  |**  *** |   **   |**   ** |     ** |  * **  |**      | **     |
-|    **  |** * ** |   **   |    **  |   ***  | *  **  |******  |******  |
-|    **  |***  ** |   **   |  ***   |     ** |******* |     ** |**   ** |
-|   **   |**   ** |   **   |***     |**   ** |    **  |**   ** |**   ** |
-|  **    | *****  |  ****  |******* | *****  |    **  | *****  | *****  |
-|        |        |        |        |        |        |        |        |
-+--------+--------+--------+--------+--------+--------+--------+--------+
+    !byte $30, $18, $0C, $0C, $0C, $18, $30, $00,  $7C, $C6, $CE, $D6, $E6, $C6, $7C, $00
+    !byte $18, $38, $18, $18, $18, $18, $3C, $00,  $7C, $C6, $C6, $0C, $38, $E0, $FE, $00
+    !byte $7C, $C6, $06, $1C, $06, $C6, $7C, $00,  $0C, $1C, $2C, $4C, $FE, $0C, $0C, $00
+    !byte $FE, $C0, $C0, $FC, $06, $C6, $7C, $00,  $1C, $30, $60, $FC, $C6, $C6, $7C, $00
+// char idx $45 address: $0228
+// +--------+--------+--------+--------+--------+--------+--------+--------+
+// |  **    | *****  |   **   | *****  | *****  |    **  |******* |   ***  |
+// |   **   |**   ** |  ***   |**   ** |**   ** |   ***  |**      |  **    |
+// |    **  |**  *** |   **   |**   ** |     ** |  * **  |**      | **     |
+// |    **  |** * ** |   **   |    **  |   ***  | *  **  |******  |******  |
+// |    **  |***  ** |   **   |  ***   |     ** |******* |     ** |**   ** |
+// |   **   |**   ** |   **   |***     |**   ** |    **  |**   ** |**   ** |
+// |  **    | *****  |  ****  |******* | *****  |    **  | *****  | *****  |
+// |        |        |        |        |        |        |        |        |
+// +--------+--------+--------+--------+--------+--------+--------+--------+
 
- :000ED94 7E C6 0C 18 18 18 18 00  7C C6 C6 7C C6 C6 7C 00  | ~.......|..|..|.
- :000EDA4 7C C6 C6 7E 06 0C 38 00  00 3F 7F FF FF 7F 3F 00  | |..~..8..?....?.
- :000EDB4 00 FF FF FF FF FF FF 00  00 FF FF FF FF FF FF 00  | ................
- :000EDC4 00 8C CC FF FF CC 8C 00  60 80 40 29 CF 09 09 09  | ........`.@)....
-char idx $4D address: $0268
-+--------+--------+--------+--------+--------+--------+--------+--------+
-| ****** | *****  | *****  |        |        |        |        | **     |
-|**   ** |**   ** |**   ** |  ******|********|********|*   **  |*       |
-|    **  |**   ** |**   ** | *******|********|********|**  **  | *      |
-|   **   | *****  | ****** |********|********|********|********|  * *  *|
-|   **   |**   ** |     ** |********|********|********|********|**  ****|
-|   **   |**   ** |    **  | *******|********|********|**  **  |    *  *|
-|   **   | *****  |  ***   |  ******|********|********|*   **  |    *  *|
-|        |        |        |        |        |        |        |    *  *|
-+--------+--------+--------+--------+--------+--------+--------+--------+
+    !byte $7E, $C6, $0C, $18, $18, $18, $18, $00,  $7C, $C6, $C6, $7C, $C6, $C6, $7C, $00
+    !byte $7C, $C6, $C6, $7E, $06, $0C, $38, $00,  $00, $3F, $7F, $FF, $FF, $7F, $3F, $00
+    !byte $00, $FF, $FF, $FF, $FF, $FF, $FF, $00,  $00, $FF, $FF, $FF, $FF, $FF, $FF, $00
+    !byte $00, $8C, $CC, $FF, $FF, $CC, $8C, $00,  $60, $80, $40, $29, $CF, $09, $09, $09
+// char idx $4D address: $0268
+// +--------+--------+--------+--------+--------+--------+--------+--------+
+// | ****** | *****  | *****  |        |        |        |        | **     |
+// |**   ** |**   ** |**   ** |  ******|********|********|*   **  |*       |
+// |    **  |**   ** |**   ** | *******|********|********|**  **  | *      |
+// |   **   | *****  | ****** |********|********|********|********|  * *  *|
+// |   **   |**   ** |     ** |********|********|********|********|**  ****|
+// |   **   |**   ** |    **  | *******|********|********|**  **  |    *  *|
+// |   **   | *****  |  ***   |  ******|********|********|*   **  |    *  *|
+// |        |        |        |        |        |        |        |    *  *|
+// +--------+--------+--------+--------+--------+--------+--------+--------+
 
 some_unused_char_maybe:
 //---------------------
-  - This looks like HAL (HAL Laboratories?)
- :000EDD4 A4 EE AA 00 20 20 38 00                           | ....  8.
-+--------+
-|* *  *  |
-|*** *** |
-|* * * * |
-|        |
-|  *     |
-|  *     |
-|  ***   |
-|        |
-+--------+
+//  - This looks like HAL (HAL Laboratories?)
+    !byte $A4, $EE, $AA, $00, $20, $20, $38, $00
+// char idx $55
+// +--------+
+// |* *  *  |
+// |*** *** |
+// |* * * * |
+// |        |
+// |  *     |
+// |  *     |
+// |  ***   |
+// |        |
+// +--------+
 
 scr_row_ptr_lo:
 //-------------
- :000EDDC 00 28 50 78 A0 C8 F0 18  40 68 90 B8 E0 08 30 58  | .(Px....@h....0X
- :000EDEC 80 A8 D0 F8 20 48 70 98  C0                       | .... Hp..
+    !byte $00, $28, $50, $78, $A0, $C8, $F0, $18,  $40, $68, $90, $B8, $E0, $08, $30, $58
+    !byte $80, $A8, $D0, $F8, $20, $48, $70, $98,  $C0
 
 scr_row_ptr_hi:
 //-------------
- :000EDF5 04 04 04 04 04 04 04 05  05 05 05 05 05 06 06 06  | ................
- :000EE05 06 06 06 06 07 07 07 07  07                       | .........
+    !byte $04, $04, $04, $04, $04, $04, $04, $05,  $05, $05, $05, $05, $05, $06, $06, $06
+    !byte $06, $06, $06, $06, $07, $07, $07, $07,  $07
 
-    E.g., taking the same index of each array gets you:
-        scr_row_ptr[0] = $0400
-        scr_row_ptr[1] = $0428
-        scr_row_ptr[2] = $0450
-        scr_row_ptr[3] = $0478
-        scr_row_ptr[4] = $04A0
-        scr_row_ptr[5] = $04C8
-        scr_row_ptr[6] = $04F0
-        scr_row_ptr[7] = $0518
-        scr_row_ptr[8] = $0540
-        scr_row_ptr[9] = $0568
-        scr_row_ptr[10] = $0590
-        scr_row_ptr[11] = $05B8
-        scr_row_ptr[12] = $05E0
-        scr_row_ptr[13] = $0608
-        scr_row_ptr[14] = $0630
-        scr_row_ptr[15] = $0658
-        scr_row_ptr[16] = $0680
-        scr_row_ptr[17] = $06A8
-        scr_row_ptr[18] = $06D0
-        scr_row_ptr[19] = $06F8
-        scr_row_ptr[20] = $0720
-        scr_row_ptr[21] = $0748
-        scr_row_ptr[22] = $0770
-        scr_row_ptr[23] = $0798
-        scr_row_ptr[24] = $07C0
+;    E.g., taking the same index of each array gets you:
+;        scr_row_ptr[0] = $0400
+;        scr_row_ptr[1] = $0428
+;        scr_row_ptr[2] = $0450
+;        scr_row_ptr[3] = $0478
+;        scr_row_ptr[4] = $04A0
+;        scr_row_ptr[5] = $04C8
+;        scr_row_ptr[6] = $04F0
+;        scr_row_ptr[7] = $0518
+;        scr_row_ptr[8] = $0540
+;        scr_row_ptr[9] = $0568
+;        scr_row_ptr[10] = $0590
+;        scr_row_ptr[11] = $05B8
+;        scr_row_ptr[12] = $05E0
+;        scr_row_ptr[13] = $0608
+;        scr_row_ptr[14] = $0630
+;        scr_row_ptr[15] = $0658
+;        scr_row_ptr[16] = $0680
+;        scr_row_ptr[17] = $06A8
+;        scr_row_ptr[18] = $06D0
+;        scr_row_ptr[19] = $06F8
+;        scr_row_ptr[20] = $0720
+;        scr_row_ptr[21] = $0748
+;        scr_row_ptr[22] = $0770
+;        scr_row_ptr[23] = $0798
+;        scr_row_ptr[24] = $07C0
 
-ship_type_widths:  (used by ADC at $e091 and compared against #$a0 = 160)
- :000EE0E 18 18 10 
-  - dec: 24, 24, 16
-    [0] = 24 (width of freighter)
-    [1] = 24 (width of cruiser)
-    [2] = 16 (width of pt-boat)
+ship_type_widths:  ; (used by ADC at $e091 and compared against #$a0 = 160)
+    !byte $18, $18, $10
+;   - dec: 24, 24, 16
+;     [0] = 24 (width of freighter)
+;     [1] = 24 (width of cruiser)
+;     [2] = 16 (width of pt-boat)
 
 unknown_data:
- :000EE11 00 0A                                             | ..
+    !byte $00, $0A
 
-map_gap_from_existing_ship_to_new_ship:  (used by lda at $e181)
- :000EE13 20 46 68 20 24 58 20 24  30 
-  - groups of 3 (relating to ship-type of existing ship closest to spawn edge)
-  - i.e., map[3][3], where:
-    - 1st idx is existing_ship_type
-    - 2nd idx is newly_spawned_ship_type
-  - The rough gist is, if the existing nearest ship is slow, and the new ship is faster, then we'll need a bigger gap?
-    - [0] = 20 46 68  (if existing ship was a freighter, use this group)
-        - #$20 (32) = gap needed if newly spawned ship is a freighter and nearest existing ship is freighter
-        - #$46 (70) = gap needed if newly spawned ship is a cruiser and nearest existing ship is freighter
-                        - since cruiser is slightly faster than freighter, we need a slightly bigger gap
-        - #$68 (104) = gap needed if newly spawned ship is a pt-boat and nearest existing ship is freighter
-                        - since pt-boat is much faster than freighter, we need an even bigger gap
-    - [1] = 20 24 58  (if existing ship was a cruiser, use this group)
-        - #$20 (32) = gap needed if newly spawned ship is a freighter and nearest existing ship is a cruiser
-        - #$24 (36) = gap needed if newly spawned ship is a cruiser and nearest existing ship is a cruiser
-        - #$58 (88) = gap needed if newly spawned ship is a pt-boat and nearest existing ship is a cruiser
-    - [2] = 20 24 30  (if existing ship was a pt-boat, use this group)
-        - #$20 (32) = gap needed if newly spawned ship is a freighter and nearest existing ship is a pt-boat
-        - #$24 (36) = gap needed if newly spawned ship is a cruiser and nearest existing ship is a pt-boat
-        - #$30 (48) = gap needed if newly spawned ship is a pt-boat and nearest existing ship is a pt-boat
+map_gap_from_existing_ship_to_new_ship:  ; (used by lda at $e181)
+    !byte $20, $46, $68, $20, $24, $58, $20, $24,  $30
+;   - groups of 3 (relating to ship-type of existing ship closest to spawn edge)
+;   - i.e., map[3][3], where:
+;     - 1st idx is existing_ship_type
+;     - 2nd idx is newly_spawned_ship_type
+;   - The rough gist is, if the existing nearest ship is slow, and the new ship is faster, then we'll need a bigger gap?
+;     - [0] = 20 46 68  (if existing ship was a freighter, use this group)
+;         - #$20 (32) = gap needed if newly spawned ship is a freighter and nearest existing ship is freighter
+;         - #$46 (70) = gap needed if newly spawned ship is a cruiser and nearest existing ship is freighter
+;                         - since cruiser is slightly faster than freighter, we need a slightly bigger gap
+;         - #$68 (104) = gap needed if newly spawned ship is a pt-boat and nearest existing ship is freighter
+;                         - since pt-boat is much faster than freighter, we need an even bigger gap
+;     - [1] = 20 24 58  (if existing ship was a cruiser, use this group)
+;         - #$20 (32) = gap needed if newly spawned ship is a freighter and nearest existing ship is a cruiser
+;         - #$24 (36) = gap needed if newly spawned ship is a cruiser and nearest existing ship is a cruiser
+;         - #$58 (88) = gap needed if newly spawned ship is a pt-boat and nearest existing ship is a cruiser
+;     - [2] = 20 24 30  (if existing ship was a pt-boat, use this group)
+;         - #$20 (32) = gap needed if newly spawned ship is a freighter and nearest existing ship is a pt-boat
+;         - #$24 (36) = gap needed if newly spawned ship is a cruiser and nearest existing ship is a pt-boat
+;         - #$30 (48) = gap needed if newly spawned ship is a pt-boat and nearest existing ship is a pt-boat
 
 ships_movement_delay:
- :000EE1C 02 01 00 
-  - [0] = 02 (move freighter along every 3 frames - slow)
-  - [1] = 01 (move cruiser along every 2 frames - faster)
-  - [2] = 00 (move pt-boat along every 1 frame - fastest)
+    !byte $02, $01, $00
+;   - [0] = 02 (move freighter along every 3 frames - slow)
+;   - [1] = 01 (move cruiser along every 2 frames - faster)
+;   - [2] = 00 (move pt-boat along every 1 frame - fastest)
 
 ship_scores:
- :000EE1F 02 05 0A
+    !byte $02, $05, $0A
     ; Freighter = 200 points
     ;   Cruiser = 500 points
     ; P.T. boat = 1000 points
 
 possible_buoy_y_positions:
- :000EE22 60 80                                             | `.
+    !byte $60, $80
 
-    $60 = 96
-    $80 = 128
+;     $60 = 96
+;     $80 = 128
 
 screen_offsets_for_each_missile_indicator:
 // (in the indicator group of 4 per player)
- :000EE24 2F 07 2A 02
+    !byte $2F, $07, $2A, $02
 
-    $2F = 47
-    $07 = 7
-    $2A = 42
-    $02 = 2
+;     $2F = 47
+;     $07 = 7
+;     $2A = 42
+;     $02 = 2
 
 missile_char_offsets:
 // as each missile is drawn with custom-chars in a 2x2 group, these relative screen offsets
 // can quickly refer to each char offset of the 2x2 group
- :000EE28 00 28 01 29
-  - $00 = 0
-  - $28 = 40
-  - $01 = 1
-  - $29 = 41
+    !byte $00, $28, $01, $29
+;   - $00 = 0
+;   - $28 = 40
+;   - $01 = 1
+;   - $29 = 41
 
 v1_ptboat_beep_beep_freq_array:
- :000EE2C 00 00 E8 4E 00 00 00 00  00 00 E8 4E
-  - [0] = $0000
-  - [1] = $4EE8
-  - [2] = $0000
-  - [3] = $0000
-  - [4] = $0000
-  - [5] = $4EE8
+    !byte $00, $00, $E8, $4E, $00, $00, $00, $00,  $00, $00, $E8, $4E
+;   - [0] = $0000
+;   - [1] = $4EE8
+;   - [2] = $0000
+;   - [3] = $0000
+;   - [4] = $0000
+;   - [5] = $4EE8
 
 
 or_bitfields:
- :000EE38 01 02 04 08 10 20 40 80
-   - $01 = %0000 0001
-   - $02 = %0000 0010
-   - $04 = %0000 0100
-   - $08 = %0000 1000
-   - $10 = %0001 0000
-   - $20 = %0010 0000
-   - $40 = %0100 0000
-   - $80 = %1000 0000
+    !byte $01, $02, $04, $08, $10, $20, $40, $80
+;    - $01 = %0000 0001
+;    - $02 = %0000 0010
+;    - $04 = %0000 0100
+;    - $08 = %0000 1000
+;    - $10 = %0001 0000
+;    - $20 = %0010 0000
+;    - $40 = %0100 0000
+;    - $80 = %1000 0000
 
 and_bitfields:
- :000EE40 FE FD FB F7 EF DF BF 7F
-   - $FE = %1111 1110
-   - $FD = %1111 1101
-   - $FB = %1111 1011
-   - $F7 = %1111 0111
-   - $EF = %1110 1111
-   - $DF = %1101 1111
-   - $BF = %1011 1111
-   - $7F = %0111 1111
+    !byte $FE, $FD, $FB, $F7, $EF, $DF, $BF, $7F
+;    - $FE = %1111 1110
+;    - $FD = %1111 1101
+;    - $FB = %1111 1011
+;    - $F7 = %1111 0111
+;    - $EF = %1110 1111
+;    - $DF = %1101 1111
+;    - $BF = %1011 1111
+;    - $7F = %0111 1111
 
 
 submarine_charset1:
- :000EE48 00 00 00 3F FF FF 3F 00  01 07 07 FF FF FF FF 00  | ...?..?.........
- :000EE58 80 E0 E0 FF FF FF FF 00  00 00 00 FC FF FF FC 00  | ................
- :000EE68 00 00 00 00 00 00 00 00
-+--------+--------+--------+--------+--------+
-|        |       *|*       |        |        |
-|        |     ***|***     |        |        |
-|        |     ***|***     |        |        |
-|  ******|********|********|******  |        |
-|********|********|********|********|        |
-|********|********|********|********|        |
-|  ******|********|********|******  |        |
-|        |        |        |        |        |
-+--------+--------+--------+--------+--------+
+    !byte $00, $00, $00, $3F, $FF, $FF, $3F, $00,  $01, $07, $07, $FF, $FF, $FF, $FF, $00
+    !byte $80, $E0, $E0, $FF, $FF, $FF, $FF, $00,  $00, $00, $00, $FC, $FF, $FF, $FC, $00
+    !byte $00, $00, $00, $00, $00, $00, $00, $00
+; +--------+--------+--------+--------+--------+
+; |        |       *|*       |        |        |
+; |        |     ***|***     |        |        |
+; |        |     ***|***     |        |        |
+; |  ******|********|********|******  |        |
+; |********|********|********|********|        |
+; |********|********|********|********|        |
+; |  ******|********|********|******  |        |
+; |        |        |        |        |        |
+; +--------+--------+--------+--------+--------+
 
 submarine_charset2:
- :000EE70                          00 00 00 0F 3F 3F 0F 00  | ............??..
- :000EE78 00 01 01 FF FF FF FF 00  60 F8 F8 FF FF FF FF 00  | ........`.......
- :000EE88 00 00 00 FF FF FF FF 00  00 00 00 00 C0 C0 00 00  | ................
-+--------+--------+--------+--------+--------+
-|        |        | **     |        |        |
-|        |       *|*****   |        |        |
-|        |       *|*****   |        |        |
-|    ****|********|********|********|        |
-|  ******|********|********|********|**      |
-|  ******|********|********|********|**      |
-|    ****|********|********|********|        |
-|        |        |        |        |        |
-+--------+--------+--------+--------+--------+
+    !byte                                          $00, $00, $00, $0F, $3F, $3F, $0F, $00
+    !byte $00, $01, $01, $FF, $FF, $FF, $FF, $00,  $60, $F8, $F8, $FF, $FF, $FF, $FF, $00
+    !byte $00, $00, $00, $FF, $FF, $FF, $FF, $00,  $00, $00, $00, $00, $C0, $C0, $00, $00
+; +--------+--------+--------+--------+--------+
+; |        |        | **     |        |        |
+; |        |       *|*****   |        |        |
+; |        |       *|*****   |        |        |
+; |    ****|********|********|********|        |
+; |  ******|********|********|********|**      |
+; |  ******|********|********|********|**      |
+; |    ****|********|********|********|        |
+; |        |        |        |        |        |
+; +--------+--------+--------+--------+--------+
 
 submarine_charset3:
- :000EE98 00 00 00 03 0F 0F 03 00  00 00 00 FF FF FF FF 00  | ................
- :000EEA8 18 7E 7E FF FF FF FF 00  00 00 00 FF FF FF FF 00  | .~~.............
- :000EEB8 00 00 00 C0 F0 F0 C0 00  
-+--------+--------+--------+--------+--------+
-|        |        |   **   |        |        |
-|        |        | ****** |        |        |
-|        |        | ****** |        |        |
-|      **|********|********|********|**      |
-|    ****|********|********|********|****    |
-|    ****|********|********|********|****    |
-|      **|********|********|********|**      |
-|        |        |        |        |        |
-+--------+--------+--------+--------+--------+
+    !byte $00, $00, $00, $03, $0F, $0F, $03, $00,  $00, $00, $00, $FF, $FF, $FF, $FF, $00
+    !byte $18, $7E, $7E, $FF, $FF, $FF, $FF, $00,  $00, $00, $00, $FF, $FF, $FF, $FF, $00
+    !byte $00, $00, $00, $C0, $F0, $F0, $C0, $00  
+; +--------+--------+--------+--------+--------+
+; |        |        |   **   |        |        |
+; |        |        | ****** |        |        |
+; |        |        | ****** |        |        |
+; |      **|********|********|********|**      |
+; |    ****|********|********|********|****    |
+; |    ****|********|********|********|****    |
+; |      **|********|********|********|**      |
+; |        |        |        |        |        |
+; +--------+--------+--------+--------+--------+
 
 submarine_charset4:
- :000EEC0                          00 00 00 00 03 03 00 00  | ................
- :000EEC8 00 00 00 FF FF FF FF 00  06 1F 1F FF FF FF FF 00  | ................
- :000EED8 00 80 80 FF FF FF FF 00  00 00 00 F0 FC FC F0 00  | ................
-+--------+--------+--------+--------+--------+
-|        |        |     ** |        |        |
-|        |        |   *****|*       |        |
-|        |        |   *****|*       |        |
-|        |********|********|********|****    |
-|      **|********|********|********|******  |
-|      **|********|********|********|******  |
-|        |********|********|********|****    |
-|        |        |        |        |        |
-+--------+--------+--------+--------+--------+
+    !byte                                          $00, $00, $00, $00, $03, $03, $00, $00
+    !byte $00, $00, $00, $FF, $FF, $FF, $FF, $00,  $06, $1F, $1F, $FF, $FF, $FF, $FF, $00
+    !byte $00, $80, $80, $FF, $FF, $FF, $FF, $00,  $00, $00, $00, $F0, $FC, $FC, $F0, $00
+; +--------+--------+--------+--------+--------+
+; |        |        |     ** |        |        |
+; |        |        |   *****|*       |        |
+; |        |        |   *****|*       |        |
+; |        |********|********|********|****    |
+; |      **|********|********|********|******  |
+; |      **|********|********|********|******  |
+; |        |********|********|********|****    |
+; |        |        |        |        |        |
+; +--------+--------+--------+--------+--------+
 
 submarine_charset_idx:
 // choose between submarine_charset1/2/3/4
- :000EEE8 00 28 50 78
+    !byte $00, $28, $50, $78
 
 // small_missile_char_data_start  = EEEC
 // medium_missile_char_data_start = EF2C 
@@ -3147,249 +3151,246 @@ submarine_charset_idx:
 // These are #$40 apart
 
 small_missile_char_data_x_offset0:
- :000EEEC 00 00 40 E0 E0 E0 E0 40  00 00 00 00 00 00 00 00 
-+--------+--------+
-|        |        |
-|        |        |
-| *      |        |
-|***     |        |
-|***     |        |
-|***     |        |
-|***     |        |
-| *      |        |
-+--------+--------+
+    !byte $00, $00, $40, $E0, $E0, $E0, $E0, $40,  $00, $00, $00, $00, $00, $00, $00, $00 
+; +--------+--------+
+; |        |        |
+; |        |        |
+; | *      |        |
+; |***     |        |
+; |***     |        |
+; |***     |        |
+; |***     |        |
+; | *      |        |
+; +--------+--------+
 
 small_missile_char_data_x_offset2:
- :000EEFC 00 00 10 38 38 38 38 10
-+--------+--------+
-|        |        |
-|        |        |
-|   *    |        |
-|  ***   |        |
-|  ***   |        |
-|  ***   |        |
-|  ***   |        |
-|   *    |        |
-+--------+--------+
+    !byte $00, $00, $10, $38, $38, $38, $38, $10
+; +--------+--------+
+; |        |        |
+; |        |        |
+; |   *    |        |
+; |  ***   |        |
+; |  ***   |        |
+; |  ***   |        |
+; |  ***   |        |
+; |   *    |        |
+; +--------+--------+
 
 small_missile_char_data_x_offset4:
- :000EF0C 00 00 04 0E 0E 0E 0E 04   
-+--------+--------+
-|        |        |
-|        |        |
-|     *  |        |
-|    *** |        |
-|    *** |        |
-|    *** |        |
-|    *** |        |
-|     *  |        |
-+--------+--------+
+    !byte $00, $00, $04, $0E, $0E, $0E, $0E, $04   
+; +--------+--------+
+; |        |        |
+; |        |        |
+; |     *  |        |
+; |    *** |        |
+; |    *** |        |
+; |    *** |        |
+; |    *** |        |
+; |     *  |        |
+; +--------+--------+
 
 small_missile_char_data_x_offset6:
- :000EF1C 00 00 01 03 03 03 03 01
-+--------+--------+
-|        |        |
-|        |        |
-|       *|        |
-|      **|*       |
-|      **|*       |
-|      **|*       |
-|      **|*       |
-|       *|        |
-+--------+--------+
+    !byte $00, $00, $01, $03, $03, $03, $03, $01
+; +--------+--------+
+; |        |        |
+; |        |        |
+; |       *|        |
+; |      **|*       |
+; |      **|*       |
+; |      **|*       |
+; |      **|*       |
+; |       *|        |
+; +--------+--------+
 
 medium_missile_char_data_x_offset0:
- :000EF2C 60 60 F0 F0 F0 F0 F0 60 
-+--------+--------+
-| **     |        |
-| **     |        |
-|****    |        |
-|****    |        |
-|****    |        |
-|****    |        |
-|****    |        |
-| **     |        |
-+--------+--------+
+    !byte $60, $60, $F0, $F0, $F0, $F0, $F0, $60 
+; +--------+--------+
+; | **     |        |
+; | **     |        |
+; |****    |        |
+; |****    |        |
+; |****    |        |
+; |****    |        |
+; |****    |        |
+; | **     |        |
+; +--------+--------+
 
 medium_missile_char_data_x_offset2:
- :000EF3C 18 18 3C 3C 3C 3C 3C 18
-+--------+--------+
-|   **   |        |
-|   **   |        |
-|  ****  |        |
-|  ****  |        |
-|  ****  |        |
-|  ****  |        |
-|  ****  |        |
-|   **   |        |
-+--------+--------+
+    !byte $18, $18, $3C, $3C, $3C, $3C, $3C, $18
+; +--------+--------+
+; |   **   |        |
+; |   **   |        |
+; |  ****  |        |
+; |  ****  |        |
+; |  ****  |        |
+; |  ****  |        |
+; |  ****  |        |
+; |   **   |        |
+; +--------+--------+
 
 medium_missile_char_data_x_offset4:
- :000EF4C 06 06 0F 0F 0F 0F 0F 06
-+--------+--------+
-|     ** |        |
-|     ** |        |
-|    ****|        |
-|    ****|        |
-|    ****|        |
-|    ****|        |
-|    ****|        |
-|     ** |        |
-+--------+--------+
+    !byte $06, $06, $0F, $0F, $0F, $0F, $0F, $06
+; +--------+--------+
+; |     ** |        |
+; |     ** |        |
+; |    ****|        |
+; |    ****|        |
+; |    ****|        |
+; |    ****|        |
+; |    ****|        |
+; |     ** |        |
+; +--------+--------+
 
 medium_missile_char_data_x_offset6:
- :000EF5C 01 01 03 03 03 03 03 01
-+--------+--------+
-|       *|*       |
-|       *|*       |
-|      **|**      |
-|      **|**      |
-|      **|**      |
-|      **|**      |
-|      **|**      |
-|       *|*       |
-+--------+--------+
+    !byte $01, $01, $03, $03, $03, $03, $03, $01
+; +--------+--------+
+; |       *|*       |
+; |       *|*       |
+; |      **|**      |
+; |      **|**      |
+; |      **|**      |
+; |      **|**      |
+; |      **|**      |
+; |       *|*       |
+; +--------+--------+
 
 big_missile_char_data_x_offset0:
- :000EF6C 30 78 FC FC FC FC FC 78
-+--------+--------+
-|  **    |        |
-| ****   |        |
-|******  |        |
-|******  |        |
-|******  |        |
-|******  |        |
-|******  |        |
-| ****   |        |
-+--------+--------+
+    !byte $30, $78, $FC, $FC, $FC, $FC, $FC, $78
+; +--------+--------+
+; |  **    |        |
+; | ****   |        |
+; |******  |        |
+; |******  |        |
+; |******  |        |
+; |******  |        |
+; |******  |        |
+; | ****   |        |
+; +--------+--------+
 
 big_missile_char_data_x_offset2:
- :000EF7C 0C 1E 3F 3F 3F 3F 3F 1E
-+--------+--------+
-|    **  |        |
-|   **** |        |
-|  ******|        |
-|  ******|        |
-|  ******|        |
-|  ******|        |
-|  ******|        |
-|   **** |        |
-+--------+--------+
+    !byte $0C, $1E, $3F, $3F, $3F, $3F, $3F, $1E
+; +--------+--------+
+; |    **  |        |
+; |   **** |        |
+; |  ******|        |
+; |  ******|        |
+; |  ******|        |
+; |  ******|        |
+; |  ******|        |
+; |   **** |        |
+; +--------+--------+
 
 big_missile_char_data_x_offset4:
- :000EF8C 03 07 0F 0F 0F 0F 0F 07
-+--------+--------+
-|      **|        |
-|     ***|*       |
-|    ****|**      |
-|    ****|**      |
-|    ****|**      |
-|    ****|**      |
-|    ****|**      |
-|     ***|*       |
-+--------+--------+
+    !byte $03, $07, $0F, $0F, $0F, $0F, $0F, $07
+; +--------+--------+
+; |      **|        |
+; |     ***|*       |
+; |    ****|**      |
+; |    ****|**      |
+; |    ****|**      |
+; |    ****|**      |
+; |    ****|**      |
+; |     ***|*       |
+; +--------+--------+
 
 big_missile_char_data_x_offset6:
- :000EF9C 00 01 03 03 03 03 03 01
-+--------+--------+
-|        |**      |
-|       *|***     |
-|      **|****    |
-|      **|****    |
-|      **|****    |
-|      **|****    |
-|      **|****    |
-|       *|***     |
-+--------+--------+
+    !byte $00, $01, $03, $03, $03, $03, $03, $01
+; +--------+--------+
+; |        |**      |
+; |       *|***     |
+; |      **|****    |
+; |      **|****    |
+; |      **|****    |
+; |      **|****    |
+; |      **|****    |
+; |       *|***     |
+; +--------+--------+
 
 
 missiles_colour_table:
- :000EFAC 07 07 07 07 08 08 08 08                           | ........
-  - a choice between yellow or light brown, with index from 0-7
-  - player1's 4 missiles will all be yellow
-  - player2's 4 missiles will all be light brown
+    !byte $07, $07, $07, $07, $08, $08, $08, $08
+;   - a choice between yellow or light brown, with index from 0-7
+;   - player1's 4 missiles will all be yellow
+;   - player2's 4 missiles will all be light brown
 
 map_2x2_ypos_to_chardata_offset_for_missile_size:
 // the offset into the missile char data to reference either small (#$00), medium (#$40) or big (#$80) missiles
- :000EFB4 00 00 00 00 00 40 40 40  80 80 80 80
+    !byte $00, $00, $00, $00, $00, $40, $40, $40,  $80, $80, $80, $80
 
 missile_speed_at_indexed_2x2_ypos:
 // At the lower part of the screen, the missile moves faster, #$02 = 2 pixels per frame
 // At the mid and upper parts of the screen, the missile moves slower, #$01 = 1 pixel per frame
 // the #$03 speed seems unused
- :000EFC0 01 01 01 01 01 01 02 02  02 02 03 03
+    !byte $01, $01, $01, $01, $01, $01, $02, $02,  $02, $02, $03, $03
 
 mission_text1:
- :000EFCC 3F 35 3B 38 26 33 2F 39  39 2F 35 34 26 2F 39 26  | ?5;8&3/99/54&/9&
-           Y  O  U  R     M  I  S   S  I  O  N     I  S  
- :000EFDC 3A 35 26 2A 2B 39 3A 38  35 3F 26 27 39 26 33 27  | :5&*+9:85?&'9&3'
-           T  O     D  E  S  T  R   O  Y     A  S     M  A
- :000EFEC 34 3F 00                                          | 4?.
-           N  Y
+    !byte $3F, $35, $3B, $38, $26, $33, $2F, $39,  $39, $2F, $35, $34, $26, $2F, $39, $26
+    //       Y  O  U  R     M  I  S   S  I  O  N     I  S  
+    !byte $3A, $35, $26, $2A, $2B, $39, $3A, $38,  $35, $3F, $26, $27, $39, $26, $33, $27
+    //       T  O     D  E  S  T  R   O  Y     A  S     M  A
+    !byte $34, $3F, $00
+    //       N  Y
 
 mission_text2:
- :000EFEF 2B 34 2B 33 3F 26 39 2E  2F 36 39 26 27 39 26 36  | +4+3?&9./69&'9&6
-           E  N  E  M  Y     S  H   I  P  S     A  S     P
- :000EFFF 35 39 39 2F 28 32 2B 26  28 2B 2C 35 38 2B 26 3A  | 599/(2+&(+,58+&:
-           O  S  S  I  B  L  E      B  E  F  O  R  E     T
- :000F00F 2F 33 2B 26 38 3B 34 39  00                       | /3+&8;49.
-           I  M  E     R  U  N  S
+    !byte $2B, $34, $2B, $33, $3F, $26, $39, $2E,  $2F, $36, $39, $26, $27, $39, $26, $36
+    //       E  N  E  M  Y     S  H   I  P  S     A  S     P
+    !byte $35, $39, $39, $2F, $28, $32, $2B, $26,  $28, $2B, $2C, $35, $38, $2B, $26, $3A
+    //       O  S  S  I  B  L  E      B  E  F  O  R  E     T
+    !byte $2F, $33, $2B, $26, $38, $3B, $34, $39,  $00
+    //       I  M  E     R  U  N  S
 
 mission_text3:
-
- :000F018 35 3B 3A 41 26 2C 2F 38  2B 26 3A 35 38 36 2B 2A  | 5;:A&,/8+&:586+*
-           O  U  T  .     F  I  R   E     T  O  R  P  E  D
- :000F028 35 2B 39 26 28 3F 26 36  38 2B 39 39 2F 34 2D 26  | 5+9&(?&68+99/4-&
-           O  E  S     B  Y     P   R  E  S  S  I  N  G  
- :000F038 3A 2E 2B 00                                       | :.+.
-           T  H  E
+    !byte $35, $3B, $3A, $41, $26, $2C, $2F, $38,  $2B, $26, $3A, $35, $38, $36, $2B, $2A
+    //       O  U  T  .     F  I  R   E     T  O  R  P  E  D
+    !byte $35, $2B, $39, $26, $28, $3F, $26, $36,  $38, $2B, $39, $39, $2F, $34, $2D, $26
+    //       O  E  S     B  Y     P   R  E  S  S  I  N  G  
+    !byte $3A, $2E, $2B, $00
+    //       T  H  E
 
 mission_text4:
-
- :000F03C 28 3B 3A 3A 35 34 26 35  34 26 3A 2E 2B 26 36 27  | (;::54&54&:.+&6'
-           B  U  T  T  O  N     O   N     T  H  E     P  A
- :000F04C 2A 2A 32 2B 41 26 2F 3A  26 3A 27 31 2B 39 26 49  | **2+A&/:&:'1+9&I
-           D  D  L  E  .     I  T      T  A  K  E  S     3
- :000F05C 26 39 2B 29 35 34 2A 39  00                       | &9+)54*9.
-              S  E  C  O  N  D  S
+    !byte $28, $3B, $3A, $3A, $35, $34, $26, $35,  $34, $26, $3A, $2E, $2B, $26, $36, $27
+    //       B  U  T  T  O  N     O   N     T  H  E     P  A
+    !byte $2A, $2A, $32, $2B, $41, $26, $2F, $3A,  $26, $3A, $27, $31, $2B, $39, $26, $49
+    //       D  D  L  E  .     I  T      T  A  K  E  S     3
+    !byte $26, $39, $2B, $29, $35, $34, $2A, $39,  $00
+    //          S  E  C  O  N  D  S
 
 mission_text5:
-
- :000F065 2C 35 38 26 2B 27 29 2E  26 3A 35 38 36 2B 2A 35  | ,58&+').&:586+*5
-           F  O  R     E  A  C  H      T  O  R  P  E  D  O
- :000F075 26 32 35 27 2A 41 00
-              L  O  A  D  .
+    !byte $2C, $35, $38, $26, $2B, $27, $29, $2E,  $26, $3A, $35, $38, $36, $2B, $2A, $35
+    //       F  O  R     E  A  C  H      T  O  R  P  E  D  O
+    !byte $26, $32, $35, $27, $2A, $41, $00
+    //          L  O  A  D  .
 
 mission_text6:
- :000F07C 26 00                                             | &.
-          <emptyline>
+    !byte $26, $00
+    //      <emptyline>
 
 mission_text7:
- :000F07E FF 26 26 26 26 26 26 26  26 26 43 26 26 2C 38 2B  | .&&&&&&&&&C&&,8+
-    <yellow>                              -        F  R  E
- :000F08E 2F 2D 2E 3A 2B 38 42 26  26 48 46 46 26 36 35 2F  | /-.:+8B&&HFF&65/
-           I  G  H  T  E  R  :         2  0  0     P  O  I
- :000F09E 34 3A 39 00                                       | 4:9.
-           N  T  S
+    !byte $FF, $26, $26, $26, $26, $26, $26, $26,  $26, $26, $43, $26, $26, $2C, $38, $2B
+    // <yellow>                              -        F  R  E
+    !byte $2F, $2D, $2E, $3A, $2B, $38, $42, $26,  $26, $48, $46, $46, $26, $36, $35, $2F
+    //        I  G  H  T  E  R  :         2  0  0     P  O  I
+    !byte $34, $3A, $39, $00
+    //        N  T  S
 
 mission_text8:
- :000F0A2 FB 26 26 26 26 26 26 26  26 26 43 26 26 29 38 3B  | .&&&&&&&&&C&&)8;
-      <cyan>                              -        C  R  U
- :000F0B2 2F 39 2B 38 26 26 42 26  26 4B 46 46 26 36 35 2F  | /9+8&&B&&KFF&65/
-           I  S  E  R        :         5  0  0     P  O  I
- :000F0C2 34 3A 39 00                                       | 4:9.
-           N  T  S
+    !byte $FB, $26, $26, $26, $26, $26, $26, $26,  $26, $26, $43, $26, $26, $29, $38, $3B
+    //  <cyan>                              -        C  R  U
+    !byte $2F, $39, $2B, $38, $26, $26, $42, $26,  $26, $4B, $46, $46, $26, $36, $35, $2F
+    //       I  S  E  R        :         5  0  0     P  O  I
+    !byte $34, $3A, $39, $00
+    //       N  T  S
 
 mission_text9:
- :000F0C6 FD 26 26 26 26 26 26 26  26 26 43 26 26 36 41 3A  | .&&&&&&&&&C&&6A:
-     <green>                              -        P  .  T
- :000F0D6 41 26 28 35 27 3A 42 26  47 46 46 46 26 36 35 2F  | A&(5':B&GFFF&65/
-           .     B  O  A  T  :      1  0  0  0     P  O  I
- :000F0E6 34 3A 39 00 00 ; NOTE: Two null terminators indicate end of all intro text lines
-           N  T  S
+    !byte $FD, $26, $26, $26, $26, $26, $26, $26,  $26, $26, $43, $26, $26, $36, $41, $3A
+    // <green>                              -        P  .  T
+    !byte $41, $26, $28, $35, $27, $3A, $42, $26,  $47, $46, $46, $46, $26, $36, $35, $2F
+    //       .     B  O  A  T  :      1  0  0  0     P  O  I
+    !byte $34, $3A, $39, $00, $00  ; NOTE: Two null terminators indicate end of all intro text lines
+    //       N  T  S
 
 no_idea_yet:
- :000F0EB FF FF FF FF FF
+    !byte $FF, $FF, $FF, $FF, $FF
 
 read_paddle_position:
 --------------------
