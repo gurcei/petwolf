@@ -1767,9 +1767,9 @@ $E61F               A9 00    LDA  #$00
 $E621               8D 10 D0 STA  $D010  ; sprites 0-7 xpos msb
 $E624               A9 07    LDA  #$07   ; %0000 0111
 $E626               8D 15 D0 STA  $D015  ; sprite display enable (only 1st 3 sprites visible)
-$E629               A9 CC    LDA  #>mission_text1  ; #$CC
+$E629               A9 CC    LDA  #<mission_text1  ; #$CC
 $E62B               85 06    STA  ret_ptr_lo  ; $06
-$E62D               A9 EF    LDA  #<mission_text1  ; #$EF
+$E62D               A9 EF    LDA  #>mission_text1  ; #$EF
 $E62F               85 07    STA  ret_ptr_hi  ; $07  ; note: no valid assembly exists at $EFCC
 $E631               A9 03    LDA  #$03
 $E633               85 14    STA  txt_y_pos  ; $14
@@ -2079,7 +2079,7 @@ $E7BC               20 39 E8 JSR  draw_inline_text  ; $E839
                     P  L  A  Y  E   R     1               
  :000E7CF 2E 2F 2D 2E 26 39 29 35  38 2B 26 26 26 26 26 36  | ./-.&9)58+&&&&&6
            H  I  G  H     S  C  O   R  E                 P
- :000E7DF 32 27 3F 2B 38 26 48 26  26 00 4C 05 E7 A9 00 85  | 2'?+8&H&&.L.....
+ :000E7DF 32 27 3F 2B 38 26 48 26  26 00 
            L  A  Y  E  R     2        
 $E7E9               4C 05 E7 JMP  print_all_scores  ; $E705
 
@@ -3187,7 +3187,7 @@ small_missile_char_data_x_offset0:
 +--------+--------+
 
 small_missile_char_data_x_offset2:
- :000EEFC 00 00 10 38 38 38 38 10
+ :000EEFC 00 00 10 38 38 38 38 10  00 00 00 00 00 00 00 00 
 +--------+--------+
 |        |        |
 |        |        |
@@ -3200,7 +3200,7 @@ small_missile_char_data_x_offset2:
 +--------+--------+
 
 small_missile_char_data_x_offset4:
- :000EF0C 00 00 04 0E 0E 0E 0E 04   
+ :000EF0C 00 00 04 0E 0E 0E 0E 04  00 00 00 00 00 00 00 00 
 +--------+--------+
 |        |        |
 |        |        |
@@ -3213,7 +3213,7 @@ small_missile_char_data_x_offset4:
 +--------+--------+
 
 small_missile_char_data_x_offset6:
- :000EF1C 00 00 01 03 03 03 03 01
+ :000EF1C 00 00 01 03 03 03 03 01  00 00 00 80 80 80 80 00
 +--------+--------+
 |        |        |
 |        |        |
@@ -3226,7 +3226,7 @@ small_missile_char_data_x_offset6:
 +--------+--------+
 
 medium_missile_char_data_x_offset0:
- :000EF2C 60 60 F0 F0 F0 F0 F0 60 
+ :000EF2C 60 60 F0 F0 F0 F0 F0 60   00 00 00 00 00 00 00 00 
 +--------+--------+
 | **     |        |
 | **     |        |
@@ -3239,7 +3239,7 @@ medium_missile_char_data_x_offset0:
 +--------+--------+
 
 medium_missile_char_data_x_offset2:
- :000EF3C 18 18 3C 3C 3C 3C 3C 18
+ :000EF3C 18 18 3C 3C 3C 3C 3C 18  00 00 00 00 00 00 00 00 
 +--------+--------+
 |   **   |        |
 |   **   |        |
@@ -3252,7 +3252,7 @@ medium_missile_char_data_x_offset2:
 +--------+--------+
 
 medium_missile_char_data_x_offset4:
- :000EF4C 06 06 0F 0F 0F 0F 0F 06
+ :000EF4C 06 06 0F 0F 0F 0F 0F 06  00 00 00 00 00 00 00 00 
 +--------+--------+
 |     ** |        |
 |     ** |        |
@@ -3265,7 +3265,7 @@ medium_missile_char_data_x_offset4:
 +--------+--------+
 
 medium_missile_char_data_x_offset6:
- :000EF5C 01 01 03 03 03 03 03 01
+ :000EF5C 01 01 03 03 03 03 03 01  80 80 C0 C0 C0 C0 C0 80
 +--------+--------+
 |       *|*       |
 |       *|*       |
@@ -3278,7 +3278,7 @@ medium_missile_char_data_x_offset6:
 +--------+--------+
 
 big_missile_char_data_x_offset0:
- :000EF6C 30 78 FC FC FC FC FC 78
+ :000EF6C 30 78 FC FC FC FC FC 78  00 00 00 00 00 00 00 00 
 +--------+--------+
 |  **    |        |
 | ****   |        |
@@ -3291,7 +3291,7 @@ big_missile_char_data_x_offset0:
 +--------+--------+
 
 big_missile_char_data_x_offset2:
- :000EF7C 0C 1E 3F 3F 3F 3F 3F 1E
+ :000EF7C 0C 1E 3F 3F 3F 3F 3F 1E  00 00 00 00 00 00 00 00 
 +--------+--------+
 |    **  |        |
 |   **** |        |
@@ -3304,7 +3304,7 @@ big_missile_char_data_x_offset2:
 +--------+--------+
 
 big_missile_char_data_x_offset4:
- :000EF8C 03 07 0F 0F 0F 0F 0F 07
+ :000EF8C 03 07 0F 0F 0F 0F 0F 07  00 80 C0 C0 C0 C0 C0 80
 +--------+--------+
 |      **|        |
 |     ***|*       |
@@ -3317,7 +3317,7 @@ big_missile_char_data_x_offset4:
 +--------+--------+
 
 big_missile_char_data_x_offset6:
- :000EF9C 00 01 03 03 03 03 03 01
+ :000EF9C 00 01 03 03 03 03 03 01  C0 E0 F0 F0 F0 F0 F0 E0
 +--------+--------+
 |        |**      |
 |       *|***     |
