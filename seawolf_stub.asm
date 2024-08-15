@@ -65,6 +65,9 @@ initialise:
 
     jsr copy_chunk
 
+    ; assure any prior CIA IRQ is cleared (so no endless loops)
+    LDA  $DC0D  ; prevent some endless irq quirk I saw in vice
+
     ; now start up the cartridge!
     ; --------------------------
     jmp ($FFFC)   ; cold start handler
