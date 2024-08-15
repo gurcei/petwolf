@@ -1367,6 +1367,57 @@ loop_draw_next_submarine_char:
     INY
     DEX
     BNE  loop_draw_next_submarine_char
+gurce_debug_stuff:
+    lda #$ff
+    sta vicbank0_sub_chars_for_player1
+    sta vicbank0_sub_chars_for_player1 + 8 * 1
+    sta vicbank0_sub_chars_for_player1 + 8 * 2
+    sta vicbank0_sub_chars_for_player1 + 8 * 3
+    sta vicbank0_sub_chars_for_player1 + 8 * 4
+    sta vicbank0_sub_chars_for_player1 + 7
+    sta vicbank0_sub_chars_for_player1 + 7 + 8 * 1
+    sta vicbank0_sub_chars_for_player1 + 7 + 8 * 2
+    sta vicbank0_sub_chars_for_player1 + 7 + 8 * 3
+    sta vicbank0_sub_chars_for_player1 + 7 + 8 * 4
+
+    lda vicbank0_sub_chars_for_player1 + 1
+    ora #$80
+    sta vicbank0_sub_chars_for_player1 + 1
+    lda vicbank0_sub_chars_for_player1 + 2
+    ora #$80
+    sta vicbank0_sub_chars_for_player1 + 2
+    lda vicbank0_sub_chars_for_player1 + 3
+    ora #$80
+    sta vicbank0_sub_chars_for_player1 + 3
+    lda vicbank0_sub_chars_for_player1 + 4
+    ora #$80
+    sta vicbank0_sub_chars_for_player1 + 4
+    lda vicbank0_sub_chars_for_player1 + 5
+    ora #$80
+    sta vicbank0_sub_chars_for_player1 + 5
+    lda vicbank0_sub_chars_for_player1 + 6
+    ora #$80
+    sta vicbank0_sub_chars_for_player1 + 6
+
+
+    lda vicbank0_sub_chars_for_player1 + 1 + 8 *4
+    ora #$01
+    sta vicbank0_sub_chars_for_player1 + 1 + 8 *4
+    lda vicbank0_sub_chars_for_player1 + 2 + 8 *4
+    ora #$01
+    sta vicbank0_sub_chars_for_player1 + 2 + 8 *4
+    lda vicbank0_sub_chars_for_player1 + 3 + 8 *4
+    ora #$01
+    sta vicbank0_sub_chars_for_player1 + 3 + 8 *4
+    lda vicbank0_sub_chars_for_player1 + 4 + 8 *4
+    ora #$01
+    sta vicbank0_sub_chars_for_player1 + 4 + 8 *4
+    lda vicbank0_sub_chars_for_player1 + 5 + 8 *4
+    ora #$01
+    sta vicbank0_sub_chars_for_player1 + 5 + 8 *4
+    lda vicbank0_sub_chars_for_player1 + 6 + 8 *4
+    ora #$01
+    sta vicbank0_sub_chars_for_player1 + 6 + 8 *4
 
     DEC  iterator_local  ; $23
     BMI  exit_update_player_submarine_positions_routine
@@ -1382,6 +1433,106 @@ sub_start_chars:
 //    5A = start char of 2nd variation of submarine chars (though both variations look quite similar)
 //            (maybe intended for player2, possibly to give it a unique look?)
 
+add_gurce_debug_to_missile:
+    lda #$ff
+    sta genarrayA
+    sta genarrayA + 8 * 2
+
+    sta genarrayA + 7 + 8 * 1
+    sta genarrayA + 7 + 8 * 3
+
+    lda genarrayA + 1
+    ora #$80
+    sta genarrayA + 1
+    lda genarrayA + 2
+    ora #$80
+    sta genarrayA + 2
+    lda genarrayA + 3
+    ora #$80
+    sta genarrayA + 3
+    lda genarrayA + 4
+    ora #$80
+    sta genarrayA + 4
+    lda genarrayA + 5
+    ora #$80
+    sta genarrayA + 5
+    lda genarrayA + 6
+    ora #$80
+    sta genarrayA + 6
+    lda genarrayA + 7
+    ora #$80
+    sta genarrayA + 7
+
+
+    lda genarrayA + 0 + 8 * 1
+    ora #$80
+    sta genarrayA + 0 + 8 * 1
+    lda genarrayA + 1 + 8 * 1
+    ora #$80
+    sta genarrayA + 1 + 8 * 1
+    lda genarrayA + 2 + 8 * 1
+    ora #$80
+    sta genarrayA + 2 + 8 * 1
+    lda genarrayA + 3 + 8 * 1
+    ora #$80
+    sta genarrayA + 3 + 8 * 1
+    lda genarrayA + 4 + 8 * 1
+    ora #$80
+    sta genarrayA + 4 + 8 * 1
+    lda genarrayA + 5 + 8 * 1
+    ora #$80
+    sta genarrayA + 5 + 8 * 1
+    lda genarrayA + 6 + 8 * 1
+    ora #$80
+    sta genarrayA + 6 + 8 * 1
+
+
+    lda genarrayA + 1 + 8 * 2
+    ora #$01
+    sta genarrayA + 1 + 8 * 2
+    lda genarrayA + 2 + 8 * 2
+    ora #$01
+    sta genarrayA + 2 + 8 * 2
+    lda genarrayA + 3 + 8 * 2
+    ora #$01
+    sta genarrayA + 3 + 8 * 2
+    lda genarrayA + 4 + 8 * 2
+    ora #$01
+    sta genarrayA + 4 + 8 * 2
+    lda genarrayA + 5 + 8 * 2
+    ora #$01
+    sta genarrayA + 5 + 8 * 2
+    lda genarrayA + 6 + 8 * 2
+    ora #$01
+    sta genarrayA + 6 + 8 * 2
+    lda genarrayA + 7 + 8 * 2
+    ora #$01
+    sta genarrayA + 7 + 8 * 2
+
+
+    lda genarrayA + 0 + 8 * 3
+    ora #$01
+    sta genarrayA + 0 + 8 * 3
+    lda genarrayA + 1 + 8 * 3
+    ora #$01
+    sta genarrayA + 1 + 8 * 3
+    lda genarrayA + 2 + 8 * 3
+    ora #$01
+    sta genarrayA + 2 + 8 * 3
+    lda genarrayA + 3 + 8 * 3
+    ora #$01
+    sta genarrayA + 3 + 8 * 3
+    lda genarrayA + 4 + 8 * 3
+    ora #$01
+    sta genarrayA + 4 + 8 * 3
+    lda genarrayA + 5 + 8 * 3
+    ora #$01
+    sta genarrayA + 5 + 8 * 3
+    lda genarrayA + 6 + 8 * 3
+    ora #$01
+    sta genarrayA + 6 + 8 * 3
+
+    RTS
 
 missile_redraw_assessment:
 //-----------------------
@@ -1498,6 +1649,9 @@ loop_draw_next_pixel_row_of_missile_char_data:
     INY
     DEC  missile_chardata_row_iterator  ; $0E
     BNE  loop_draw_next_pixel_row_of_missile_char_data
+
+    JSR add_gurce_debug_to_missile
+
     ; wipe out prior missile chars from screen
     ; ----------------------------------------
     LDX  iterator_local  ; $23  ; missile iterator ; ought to be an index from 0 to 7
