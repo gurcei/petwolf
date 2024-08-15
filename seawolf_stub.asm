@@ -67,7 +67,7 @@ initialise:
 
     ; now start up the cartridge!
     ; --------------------------
-    jmp $FFFC   ; cold start handler
+    jmp ($FFFC)   ; cold start handler
 
 
 copy_chunk:

@@ -295,90 +295,90 @@ ship_logic:
 retry_next_possible_ship:
     LDX  iterator_local  ; $23  (ship iterator)
     LDA  ships_visibility,x  ; $39,X  ; perhaps visibility of all ships
-    BNE  current_ship_visible_or_exploding  ; $E00D
-    JMP  current_ship_not_visible  ; $E0D5  ; if $39,x is zero, then we do this jump
+    BNE  current_ship_visible_or_exploding
+    JMP  current_ship_not_visible  ; if $39,x is zero, then we do this jump
 current_ship_visible_or_exploding:
     LDA  ships_ypos,x  ; $49,X  ; y-pos of all ships
     STA  ypos_local  ; $12  ; y-pos of current ship
     LDA  ships_xpos,x  ; $45,X  ; x-pos of all ships
     STA  xpos_local  ; $11  ; x-pos of current ship
     LDA  buff_spr2back_coll  ; $19
-    AND  or_bitfields,x  ; $EE38,X  ; x = currently assessed ship (from 0 - 3)
-    BEQ  no_spr2back_collision_detected  ; $E070  ; if no sprite-to-back collision for this sprite-x, then branch
+    AND  or_bitfields,x  ; x = currently assessed ship (from 0 - 3)
+    BEQ  no_spr2back_collision_detected  ; if no sprite-to-back collision for this sprite-x, then branch
 ; if we're here, then there was a ship to missile-fire collision
     LDY  ships_type,x  ; $51,X  ship-type of all ships (idx 0-3) #$00=freighter, #$01=cruiser, #$02=p.t. boat
-    LDA  ship_type_widths,y  ; $EE0E,Y
+    LDA  ship_type_widths,y
     STA  genvarB  ; $08
 // now figure out which of the 8 potential missiles hit this ship
     LDY  #$07
 retry_next_missile:
 // assess if this missile is in a valid yrange to have hit this ship
     LDA  torpedo_fire_ypos,y  ; $0075,Y  ; y-position of all torpedoes (4 for player1 and 4 for player2)
-    BEQ  curr_torpedo_out_of_yrange_of_hit_ship  ; $E03F
+    BEQ  curr_torpedo_out_of_yrange_of_hit_ship
     SEC
     SBC  ypos_local  ; $12  ; y-pos of current ship
     CMP  #$10  ; (dec16)
-    BCS  curr_torpedo_out_of_yrange_of_hit_ship  ; $E03F  ; branch if >= 16
+    BCS  curr_torpedo_out_of_yrange_of_hit_ship  ; branch if >= 16
 // yrange was valid, so now check missile is within xrange of hit ship
     LDA  torpedo_fire_xpos,y  ; $006D,Y  ; x-pos of all torpedoes (y=currently indexed torpedo)
     SEC
     SBC  xpos_local  ; $11  ; x-pos of current ship
     CMP  #$FE
-    BCS  curr_torpedo_is_within_xrange_of_hit_ship  ; $E044  ; branch if >= 254
+    BCS  curr_torpedo_is_within_xrange_of_hit_ship  ; branch if >= 254
     CMP  genvarB  ; $08  ; contains a given ship_type_width,y
-    BCC  curr_torpedo_is_within_xrange_of_hit_ship  ; $E044
+    BCC  curr_torpedo_is_within_xrange_of_hit_ship
 curr_torpedo_out_of_yrange_of_hit_ship:
     DEY
-    BPL  retry_next_missile  ; $E025
-    BNE  no_spr2back_collision_detected  ; $E070
+    BPL  retry_next_missile
+    BNE  no_spr2back_collision_detected
 curr_torpedo_is_within_xrange_of_hit_ship:
     LDA  #$FF  ; #$ff = this torpedo is no longer visible
     STA  torpedo_fire_state,y  ; $007D,Y  (y=missile index that hit ship)
     LDA  ships_visibility,x  ; $39,X
-    BMI  no_spr2back_collision_detected  ; $E070
+    BMI  no_spr2back_collision_detected
     LDA  #$FF
     STA  ships_visibility,x  ; $39,X
     LDA  #$18  ; dec24
     STA  ships_explosion_tmr,x  ; $55,X
-    LDA  missiles_colour_table,y  ; $EFAC,Y  ; seems to choose either yellow or orange?
+    LDA  missiles_colour_table,y  ; seems to choose either yellow or orange?
     STA  $D027,X  ; $d027-$d02e = sprite 0-7 colours
     LDA  ships_type,x  ; $51,X   ship-type of all ships (idx 0-3) #$00=freighter, #$01=cruiser, #$02=p.t. boat
     TAX
-    LDA  ship_scores,x  ; $EE1F,X
+    LDA  ship_scores,x
     PHA
     TYA
     LSR
     LSR
     TAX
     PLA  ; A = score of ship that was hit (in units of 100's - i.e. skipping trailing two digits)
-    JSR  add_points_to_score_then_update_high_score_and_reprint  ; $E6E0
-    JSR  trigger_voice3_sound  ; $E95D  ; (probably explosion sound?)
-    JMP  super_duper_big_jump  ; $E1BD
+    JSR  add_points_to_score_then_update_high_score_and_reprint
+    JSR  trigger_voice3_sound  ; (probably explosion sound?)
+    JMP  super_duper_big_jump
 no_spr2back_collision_detected:
-    LDA  ships_visibility,x  ; $39,X
-    BMI  ship_is_currently_exploding  ; $E0C2  ; is the ship currently exploding?
-    LDA  ships_move_tmr,x  ; $3D,X
-    BEQ  time_to_move_curr_ship_along  ; $E07D
-    DEC  ships_move_tmr,x  ; $3D,X
-    JMP  super_duper_big_jump  ; $E1BD
+    LDA  ships_visibility,x
+    BMI  ship_is_currently_exploding  ; is the ship currently exploding?
+    LDA  ships_move_tmr,x
+    BEQ  time_to_move_curr_ship_along
+    DEC  ships_move_tmr,x
+    JMP  super_duper_big_jump
 time_to_move_curr_ship_along:
 // move the ship along a small increment along the x-axis?
-    LDA  ships_move_max_time,x  ; $41,X
-    STA  ships_move_tmr,x  ; $3D,X
-    LDA  xpos_local  ; $11  ; x-position of current ship
+    LDA  ships_move_max_time,x
+    STA  ships_move_tmr,x
+    LDA  xpos_local  ; x-position of current ship
     CLC
-    ADC  ships_mirror_flag,x  ; $4D,X  ; mirror orientation of ships (#$01 normal, #$ff reversed)
-    STA  xpos_local  ; $11
-    STA  ships_xpos,x  ; $45,X  ; x-pos of all ships
+    ADC  ships_mirror_flag,x  ; mirror orientation of ships (#$01 normal, #$ff reversed)
+    STA  xpos_local
+    STA  ships_xpos,x  ; x-pos of all ships
     CMP  #$A0  ; dec160
-    BCS  turn_off_ship  ; $E0B6  ; branch if >= 160
+    BCS  turn_off_ship  ; branch if >= 160
     LDY  ships_type,x  ; $51,X  ; ship-type of all ships
     CLC
-    ADC  ship_type_widths,y  ; $EE0E,Y  ; some amount to add to x-pos, depending on ship-type
+    ADC  ship_type_widths,y  ; some amount to add to x-pos, depending on ship-type
     CMP  #$A0  ; dec160
-    BCS  turn_off_ship  ; $E0B6  ; branch if new x-pos is >= 160  ; ship has gone out of range?
+    BCS  turn_off_ship  ; branch if new x-pos is >= 160  ; ship has gone out of range?
     TXA
-    JSR  set_sprite_position  ; $E8B4  (curr ship x,y vals in xpos_local/$11 and ypos_local/$12)
+    JSR  set_sprite_position  ; curr ship x,y vals in xpos_local/$11 and ypos_local/$12
     LDX  iterator_local  ; $23  ; current ship-index
     LDA  ships_mirror_flag,x  ; $4D,X  ; mirror orientation of ships? (#$01 normal, #$ff reversed?)
     AND  #$04
@@ -387,42 +387,42 @@ time_to_move_curr_ship_along:
     ADC  #$EE  ; sprite ee is sprite-pointer to the 1st boat (ee=freighter), ef=cruiser, f0=pt-boat
                                         ; if ships reversed, then f2=freighter, f3=cruiser, f4 = pt-boat
     STA  $07F8,X  ; $07f8 to $07ff = sprite pointers
-    JSR  set_sprite_colour  ; $F125
+    JSR  set_sprite_colour
     NOP
     NOP
     TXA
-    JSR  turn_on_sprite_A  ; $E8DD
+    JSR  turn_on_sprite_A
 skip_back:
-    JMP  super_duper_big_jump  ; $E1BD
+    JMP  super_duper_big_jump
 turn_off_ship:
   // ship has gone out of range, time to switch it off? 
     LDX  iterator_local  ; $23  ; idx to current ship
     LDA  #$00
     STA  ships_visibility,x  ; $39,X
     TXA
-    JSR  turn_off_sprite_A  ; $E8E8
-    BEQ  skip_back  ; $E0B3  ; branch if all sprites are off?
+    JSR  turn_off_sprite_A
+    BEQ  skip_back  ; branch if all sprites are off?
 ship_is_currently_exploding:
-    DEC  ships_explosion_tmr,x  ; $55,X
-    BEQ  turn_off_ship  ; $E0B6
-    LDA  ships_explosion_tmr,x  ; $55,X
+    DEC  ships_explosion_tmr,x
+    BEQ  turn_off_ship
+    LDA  ships_explosion_tmr,x
     LSR
     LSR
     LSR  ; divide a by 8
     TAY
-    LDA  explosion_sprite_pointers,y  ; $E1C5,Y
+    LDA  explosion_sprite_pointers,y
     STA  $07F8,X  ; set current explosion frame sprite for this ship
-    JMP  super_duper_big_jump  ; $E1BD
+    JMP  super_duper_big_jump
 current_ship_not_visible:
   // we jumped here due to current ship not being visible
 ; randomly decide if we should spawn a new ship now
-    JSR  random_num_gen_into_A  ; $E893  ; it will return some magic value in A (based on randomval_lsb and randomval_msb)
+    JSR  random_num_gen_into_A  ; it will return some magic value in A (based on randomval_lsb and randomval_msb)
     CMP  #$03  ; make the spawning of a new ship a low-probability occurence (3 in 256 chance, i.e., 1/85)
-    BCC  decide_new_ship_details  ; $E0DF  ; if A value < 3 then branch
-    JMP  super_duper_big_jump  ; $E1BD
+    BCC  decide_new_ship_details  ; if A value < 3 then branch
+    JMP  super_duper_big_jump
 decide_new_ship_details:
 ; randomly decide if new ship should be on top or bottom row
-    JSR  random_num_gen_into_A  ; $E893  ; random_num_gen_into_A returns another magic value in A
+    JSR  random_num_gen_into_A  ; random_num_gen_into_A returns another magic value in A
     AND  #$20  ; this might set bit 5 or result in zero
                ; randomly decide if the new ship should be on top-row or bottom-row (dec0 or dec32)
     CLC
@@ -434,11 +434,11 @@ decide_new_ship_details:
     STA  ships_ypos,x  ; $49,X  ; y-pos of all ships
     STA  genvarB  ; $08  ; let genvarB = y-pos of current ship (newly spawned)
 //+decide_new_ship_type:
-    JSR  random_num_gen_into_A ; $E893  ; get some other magic value in A
+    JSR  random_num_gen_into_A ; get some other magic value in A
     CMP  #$50  ; dec80
-    BCC  skip_to_lda_2  ; $E0FE  ; branch if A<80  ; if under 80, let it be a pt boat
+    BCC  skip_to_lda_2  ; branch if A<80  ; if under 80, let it be a pt boat
     CMP  #$A0  ; dec160
-    BCC  skip_to_lda_1  ; $E0FB  ; branch if A<160  ; else if under 160, let it be a cruiser
+    BCC  skip_to_lda_1  ; branch if A<160  ; else if under 160, let it be a cruiser
     LDA  #$00                     ; else it's a freighter (highest probability)
     +bit_skip_2_bytes
 skip_to_lda_1:
@@ -452,54 +452,54 @@ some_comparison_of_this_new_ship_against_existing_ships:
     LDY  #$00
     LDX  #$03
 ship_compare_retry:
-    LDA  ships_visibility,x  ; $39,X  ; is ship at this index visible yet?
-    BEQ  ship_compare_skip  ; $E115    ; branch if not visible?
-    LDA  ships_ypos,x  ; $49,X  ; y-pos of all ships
-    CMP  genvarB  ; $08  ; y-pos of current ship?
-    BNE  ship_compare_skip  ; $E115  ; if new ship has different y-pos to existing ships, then branch
+    LDA  ships_visibility,x  ; is ship at this index visible yet?
+    BEQ  ship_compare_skip  ; branch if not visible?
+    LDA  ships_ypos,x  ; y-pos of all ships
+    CMP  genvarB  ; y-pos of current ship?
+    BNE  ship_compare_skip  ; if new ship has different y-pos to existing ships, then branch
     TXA
-    STA  genarrayA,y  ; $0085,Y
+    STA  genarrayA,y
     INY
 ship_compare_skip:
     DEX
-    BPL  ship_compare_retry  ; $E106
+    BPL  ship_compare_retry
     TYA  ; y = the number of existing ships that are on the same ypos as newly spawned ship
-    BEQ  no_other_ships_on_row  ; $E18A  ; branch if no other existing ships are on the same ypos as newly spawned ship
+    BEQ  no_other_ships_on_row  ; branch if no other existing ships are on the same ypos as newly spawned ship
     STA  genvarB  ; $08  ; the number of existing ships that are on the same ypos as newly spawned ship
     DEC  genvarB  ; $08
     LDX  genarrayA  ; $85  ; the first existing ship-idx on same y-pos as newly spawned ship
     LDA  ships_mirror_flag,x  ; $4D,X  ; mirror orientation of all ships? (01=normal, ff=reversed)
     STA  curr_ship_mirror_state  ; $0A  ; the mirror orientation of the first existing ship on same ypos as newly spawned ship
-    BMI  ship_goes_right_to_left  ; $E150  ; if mirror orientation = $ff (mirrored), then branch
+    BMI  ship_goes_right_to_left  ; if mirror orientation = $ff (mirrored), then branch
     CPY  #$01
-    BEQ  get_xpos_of_closest_existing_ship_on_left  ; $E149  ; if no# of existing ships on same ypos as new ship is only one, then branch
+    BEQ  get_xpos_of_closest_existing_ship_on_left  ; if no# of existing ships on same ypos as new ship is only one, then branch
 restart_sort_algo_after_swapping_ship_pair:
     LDY  #$00    ; if we're here, then there are multiple existing ships on same ypos as new ship
 loop_for_current_ship_sort:
 // some kind of sorting logic?
-    LDX  genarrayA,y  ; $85,Y  ; idx of existing ships on same ypos as new ship
-    LDA  ships_xpos,x  ; $45,X  ; x-pos of all ships (x = index of an existing ship from the genarrayA list)
-    LDX  genarrayA+1,y  ; $86,Y  ; idx of existing ship after this prior one
-    CMP  ships_xpos,x  ; $45,X  ; compare 1st ship's xpos with 2nd ships xpos
-    BCC  no_need_to_swap_pair  ; $E144  ; if 1st existing ship's xpos is less than 2nd existing ship's xpos, then branch
-    BEQ  no_need_to_swap_pair ; $E144   ; or if their xpos are equal, branch too
+    LDX  genarrayA,y  ; idx of existing ships on same ypos as new ship
+    LDA  ships_xpos,x  ; x-pos of all ships (x = index of an existing ship from the genarrayA list)
+    LDX  genarrayA+1,y  ; idx of existing ship after this prior one
+    CMP  ships_xpos,x  ; compare 1st ship's xpos with 2nd ships xpos
+    BCC  no_need_to_swap_pair  ; if 1st existing ship's xpos is less than 2nd existing ship's xpos, then branch
+    BEQ  no_need_to_swap_pair ; or if their xpos are equal, branch too
 // need to swap pair to sort them in order
-    LDA  genarrayA,y  ; $0085,Y  ; a = xpos of 1st existing ship
-    STX  genarrayA,y  ; $85,Y     ; let the 1st ship xpos now equal the 2nd ship xpos
-    STA  genarrayA+1,y  ; $0086,Y  ; let the 2nd ship xpos now equal the 1st ship xpos (i.e. swap them)
-    JMP  restart_sort_algo_after_swapping_ship_pair  ; $E12B
+    LDA  genarrayA,y  ; a = xpos of 1st existing ship
+    STX  genarrayA,y  ; let the 1st ship xpos now equal the 2nd ship xpos
+    STA  genarrayA+1,y  ; let the 2nd ship xpos now equal the 1st ship xpos (i.e. swap them)
+    JMP  restart_sort_algo_after_swapping_ship_pair
 no_need_to_swap_pair:
     INY
     CPY  genvarB  ; $08  ; the number of existing ships that are on the same ypos as newly spawned ship minus one
-    BCC  loop_for_current_ship_sort  ; $E12D  ; if incremented y < no# of existing ships on same ypos minus one, then branch
+    BCC  loop_for_current_ship_sort  ; if incremented y < no# of existing ships on same ypos minus one, then branch
 get_xpos_of_closest_existing_ship_on_left:
     LDX  genarrayA  ; $85  ; 1st of existing (and sorted ships) that is closest to the left screen edge
     LDA  ships_xpos,x  ; $45,X  ; x-pos of all ships
-    JMP  compare_xpos_of_closest_ship_to_new  ; $E177
+    JMP  compare_xpos_of_closest_ship_to_new
 ship_goes_right_to_left:
 // mirrored orientation (ships on this row are currently moving right to left)
     CPY  #$01  ; the number of existing ships that are on the same ypos as newly spawned ship
-    BEQ  get_xpos_of_closest_existing_ship_on_right  ; $E170  ; if there's only one existing ship on this row, then branch (no need to sort?)
+    BEQ  get_xpos_of_closest_existing_ship_on_right  ; if there's only one existing ship on this row, then branch (no need to sort?)
 restart_sort_mirrored_algo_after_swapping_ship_pair:
 // sorting logic for mirrored case
     LDY  #$00
@@ -508,15 +508,15 @@ loop_for_mirrored_current_ship_sort:
     LDA  ships_xpos,x  ; $45,X  ; get xpos of 1st existing ship
     LDX  genarrayA+1,y  ; $86,Y  ; get idx of 2nd existing ship
     CMP  ships_xpos,x  ; $45,X ; compare 1st ship's xpos with 2nd ship's xpos
-    BCS  mirrored_no_need_to_swap_pair  ; $E16B  ; if 1st ship's xpos is >= 2nd ship's xpos, then branch (no need to swap for sort)
+    BCS  mirrored_no_need_to_swap_pair  ; if 1st ship's xpos is >= 2nd ship's xpos, then branch (no need to swap for sort)
     LDA  genarrayA,y  ; $0085,Y  ; a = xpos of 1st ship
     STX  genarrayA,y  ; $85,Y    ; let 1st ship xpos now equal 2nd ship xpos
     STA  genarrayA+1,y  ; $0086,Y  ; let 2nd ship xpos now equal 1st ship xpos (i.e. swap them)
-    JMP  restart_sort_mirrored_algo_after_swapping_ship_pair  ; $E154
+    JMP  restart_sort_mirrored_algo_after_swapping_ship_pair
 mirrored_no_need_to_swap_pair:
     INY
     CPY  genvarB  ; $08  ; the number of existing ships on same ypos as new ship minus one
-    BCC  loop_for_mirrored_current_ship_sort  ; $E156  ; if incrementeed y < no# existing ships on same ypos minus one, then branch
+    BCC  loop_for_mirrored_current_ship_sort  ; if incrementeed y < no# existing ships on same ypos minus one, then branch
 get_xpos_of_closest_existing_ship_on_right:
     LDX  genarrayA  ; $85  ; 1st of existing (and sorted ships) that is closest to the right screen edge
     LDA  #$88  ; dec136 (the right-most edge's xpos)
@@ -530,16 +530,16 @@ compare_xpos_of_closest_ship_to_new:
     ADC  ships_type,x  ; $51,X  ; a bit like multiply by 3  ; freighter=00, cruiser=3, ptboat=6
     ADC  genvarA  ; $09  ; newly-spawned ship-type
     TAX
-    LDA  map_gap_from_existing_ship_to_new_ship,x  ; $EE13,X
+    LDA  map_gap_from_existing_ship_to_new_ship,x
     CMP  genvarB  ; $08  ; compare with x-width between spawn-edge and closest existing ship
-    BCS  not_big_enough_gap_yet  ; $E1BD  ; branch if required_gap >= x-width spawn-edge to closest ship
-    BCC  sufficient_gap_to_spawn_new_ship  ; $E197
+    BCS  not_big_enough_gap_yet  ; branch if required_gap >= x-width spawn-edge to closest ship
+    BCC  sufficient_gap_to_spawn_new_ship
 no_other_ships_on_row:
 //-------------------
 // decide whether ship should move left-to-right (normal) or right-to-left (mirrored)
-    JSR  random_num_gen_into_A  ; $E893  ; put magic number in A
+    JSR  random_num_gen_into_A  ; put magic number in A
     TAY
-    BMI  skip_to_set_ship_mirrored  ; $E193  ; if neg-bit is on (i.e., range=128to255), then branch
+    BMI  skip_to_set_ship_mirrored  ; if neg-bit is on (i.e., range=128to255), then branch
          ; This is giving a 50/50 chance of the ship moving from left-to-right (normal) or right-to-left (mirrored)
     LDA  #$01  ; current ship = normal
     +bit_skip_2_bytes
@@ -554,25 +554,25 @@ sufficient_gap_to_spawn_new_ship:
     LDA  genvarA  ; $09  ; newly-spawned ship-type?
     STA  ships_type,x  ; $51,X  ; ship-type of all ships
     TAY
-    LDA  ships_movement_delay,y  ; $EE1C,Y  ; find the movement frame-rate delay for this ship-type
-    STA  ships_move_max_time,x  ; $41,X  ; record the needed frame-rate delay count in this array
+    LDA  ships_movement_delay,y  ; find the movement frame-rate delay for this ship-type
+    STA  ships_move_max_time,x  ; record the needed frame-rate delay count in this array
     CPY  #$02  ; is ship-type = pt-boat?
-    BNE  skip_if_not_pt_boat  ; $E1B0  ; branch if not pt-boat
-    JSR  v1_reset_and_gate_off  ; $E93C  ; turn off v1 if we've spawned a pt-boat
+    BNE  skip_if_not_pt_boat  ; branch if not pt-boat
+    JSR  v1_reset_and_gate_off  ; turn off v1 if we've spawned a pt-boat
 skip_if_not_pt_boat:
-    LDA  curr_ship_mirror_state  ; $0A  ; current ship mirror-state ($01=normal, $ff=mirrored)
-    STA  ships_mirror_flag,x  ; $4D,X  ; mirror orientation of all ships
-    BPL  skip_to_lda_00  ; $E1B9  ; branch if normal ship-orientation
+    LDA  curr_ship_mirror_state  ; current ship mirror-state ($01=normal, $ff=mirrored)
+    STA  ships_mirror_flag,x  ; mirror orientation of all ships
+    BPL  skip_to_lda_00  ; branch if normal ship-orientation
     LDA  #$88  ; a = #$88 (dec136) (the right-edge xpos) for reversed ship-mirror orientation
     +bit_skip_2_bytes
 skip_to_lda_00:
       LDA  #$00  ; a = 0 (the left-edge xpos) for normal ship-mirror orientation
-    STA  ships_xpos,x  ; $45,X  ; x-pos of all ships
+    STA  ships_xpos,x  ; x-pos of all ships
 not_big_enough_gap_yet:
 super_duper_big_jump:
-    DEC  iterator_local  ; $23  ; idx to curr ship
-    BMI  exit_ship_logic_routine  ; $E1C4
-    JMP  retry_next_possible_ship  ; $E004
+    DEC  iterator_local  ; idx to curr ship
+    BMI  exit_ship_logic_routine
+    JMP  retry_next_possible_ship
 exit_ship_logic_routine:
     RTS
 
@@ -827,22 +827,22 @@ explosion_sprite_pointers:
 // LOCATION: E1C8
 buoy_logic:
 //---------
-    LDA  buoy_movement_timer  ; $24
-    BPL  buoy_timer_not_expired_yet  ; $E1D0
+    LDA  buoy_movement_timer
+    BPL  buoy_timer_not_expired_yet
 ; reset timer after expiring
     LDA  #$0B  ; dec11
-    STA  buoy_movement_timer  ; $24
+    STA  buoy_movement_timer
 buoy_timer_not_expired_yet:
-    DEC  buoy_movement_timer  ; $24
+    DEC  buoy_movement_timer
     LDA  #$03  ; buoy iterator (3 to 0)
-    STA  iterator_local  ; $23
+    STA  iterator_local
 loop_next_buoy:
 // loops on a decrementing iterator_local until all the way to zero
-    LDX  iterator_local  ; $23
-    LDA  buoys_visibility,x  ; $5D,X
-    BNE  buoy_is_visible_or_exploading  ; $E1DF  ; branch if non-zero
+    LDX  iterator_local
+    LDA  buoys_visibility,x
+    BNE  buoy_is_visible_or_exploading  ; branch if non-zero
 // if buoy is invisible, jump to next buoy
-    JMP  jmp_to_next_buoy  ; $E275
+    JMP  jmp_to_next_buoy
 buoy_is_visible_or_exploading:
     LDA  buoys_xpos,x  ; $61,X
     STA  xpos_local  ; $11  (x-position of current buoy)
@@ -852,75 +852,75 @@ buoy_is_visible_or_exploading:
     ORA  #$04
     TAY
     LDA  buff_spr2back_coll  ; $19
-    AND  or_bitfields,y  ; $EE38,Y
-    BEQ  skip_due_to_no_spr_to_back_collision  ; $E224  ; branch if the bit isn't on (no spr-to-back collision with this sprite)
+    AND  or_bitfields,y
+    BEQ  skip_due_to_no_spr_to_back_collision  ; branch if the bit isn't on (no spr-to-back collision with this sprite)
     LDY  #$07
 loop_next_torpedo_to_buoy_collision_check:
     // assess y-range
     LDA  torpedo_fire_ypos,y  ; $0075,Y  ; y-pos of all torpedoes
-    BEQ  skip_to_next_torpedo  ; $E20E
+    BEQ  skip_to_next_torpedo
     SEC
     SBC  ypos_local  ; $12  ; (y-position of the current buoy)
     CMP  #$15  ; dec21
-    BCS  skip_to_next_torpedo  ; $E20E  ; branch if >= dec21 (or if we had an underflow and <0) i.e., torpedo not in y-range of current buoy
+    BCS  skip_to_next_torpedo  ; branch if >= dec21 (or if we had an underflow and <0) i.e., torpedo not in y-range of current buoy
     // assess x-range
     LDA  torpedo_fire_xpos,y  ; $006D,Y  ; x-pos of all torpedoes
     SEC
     SBC  xpos_local  ; $11  ; (x-position of the current buoy)
     CMP  #$FE  ; dec254
-    BCS  this_torpedo_hit_current_buoy  ; $E213 ; branch if >= 254 (-2)
+    BCS  this_torpedo_hit_current_buoy  ; branch if >= 254 (-2)
     CMP  #$0C  ; dec12
-    BCC  this_torpedo_hit_current_buoy  ; $E213
+    BCC  this_torpedo_hit_current_buoy
 skip_to_next_torpedo:
     DEY
-    BPL  loop_next_torpedo_to_buoy_collision_check  ; $E1F4
-    BNE  skip_due_to_no_spr_to_back_collision  ; $E224
+    BPL  loop_next_torpedo_to_buoy_collision_check
+    BNE  skip_due_to_no_spr_to_back_collision
 this_torpedo_hit_current_buoy:
 // if we're here, a missile has hit a buoy
 // Y = the torpedo/missile that made the hit
 // X = the buoy that was hit
     LDA  #$FF  ; #$ff = this torpedo is no longer visible
-    STA  torpedo_fire_state,y  ; $007D,Y
-    STA  buoys_visibility,x  ; $5D,X
+    STA  torpedo_fire_state,y
+    STA  buoys_visibility,x
     LDA  #$18  ; dec24
-    STA  buoys_explode_timer,x  ; $69,X
-    JSR  trigger_voice3_sound  ; $E95D  ; (probably explosion sound?)
-    JMP  jmp_to_next_buoy  ; $E275
+    STA  buoys_explode_timer,x
+    JSR  trigger_voice3_sound  ; (probably explosion sound?)
+    JMP  jmp_to_next_buoy
 skip_due_to_no_spr_to_back_collision:
-    LDA  buoys_visibility,x  ; $5D,X
-    BMI  buoy_currently_exploding  ; $E25E
-    LDA  buoy_movement_timer  ; $24
-    BNE  jmp_to_next_buoy  ; $E275
+    LDA  buoys_visibility,x
+    BMI  buoy_currently_exploding
+    LDA  buoy_movement_timer
+    BNE  jmp_to_next_buoy
 ; interesting... buoys only move from left to right
-    INC  xpos_local  ; $11  ; x-pos of current buoy
-    LDA  xpos_local  ; $11
-    CMP  #$94  ; 148
-    BCS  make_this_buoy_invisible  ; $E251  ; buoy moved past right-edge of screen
-    STA  buoys_xpos,x  ; $61,X  (array of all buoy x-positions)
+    INC  xpos_local  ; x-pos of current buoy
+    LDA  xpos_local
+    CMP  #$94  ; dec148
+    BCS  make_this_buoy_invisible  ; buoy moved past right-edge of screen
+    STA  buoys_xpos,x  ; array of all buoy x-positions
     TXA
     ORA  #$04
-    JSR  set_sprite_position  ; $E8B4  (a=sprite no#, x,y vals in xpos_local/$11 and ypos_local/$12)
-    LDX  iterator_local  ; $23
+    JSR  set_sprite_position  ; a=sprite no#, x,y vals in xpos_local/$11 and ypos_local/$12
+    LDX  iterator_local
     LDA  #$FA  ; sprite fa (afd buoy)
     STA  $07FC,X  ; sprite-pointers for sprites 4-7
     LDA  #$01
     STA  $D02B,X  ; sprite 4-7 colour (set it to white for the buoy)
     TXA
     ORA  #$04
-    JSR  turn_on_sprite_A  ; $E8DD
-    JMP  jmp_to_next_buoy  ; $E275
+    JSR  turn_on_sprite_A
+    JMP  jmp_to_next_buoy
 make_this_buoy_invisible:
     LDA  #$00
-    STA  buoys_visibility,x  ; $5D,X
+    STA  buoys_visibility,x
     TXA
     ORA  #$04
-    JSR  turn_off_sprite_A  ; $E8E8
-    JMP  jmp_to_next_buoy  ; $E275
+    JSR  turn_off_sprite_A
+    JMP  jmp_to_next_buoy
 buoy_currently_exploding:
-    LDX  iterator_local  ; $23  ; current buoy index
-    DEC  buoys_explode_timer,x  ; $69,X
-    BEQ  make_this_buoy_invisible  ; $E251  ; timer expired? Then make buoy invisible
-    LDA  buoys_explode_timer,x  ; $69,X  (range 0-23)
+    LDX  iterator_local  ; current buoy index
+    DEC  buoys_explode_timer,x
+    BEQ  make_this_buoy_invisible  ; timer expired? Then make buoy invisible
+    LDA  buoys_explode_timer,x  ; range 0-23
     LSR
     LSR
     LSR  ; divide by 8  (range 0-2)
@@ -933,8 +933,8 @@ buoy_currently_exploding:
                   ; sprite-pointer can be set to anything between $F6 - $F8
 jmp_to_next_buoy:
     DEC  iterator_local  ; $23
-    BMI  exit_buoy_logic_routine  ; $E27C
-    JMP  loop_next_buoy  ; $E1D6
+    BMI  exit_buoy_logic_routine
+    JMP  loop_next_buoy
 exit_buoy_logic_routine:
     RTS
 
@@ -1057,58 +1057,58 @@ handle_missile_firing_and_player_movement:
 loop_next_player_to_assess_missiles_for:
     LDX  iterator_local  ; $23
     LDA  missile_reload_timers,x  ; $2F,X
-    BEQ  assess_player_movement  ; $E2A9  ; if timer is zero, then skip over to assess player movement
+    BEQ  assess_player_movement  ; if timer is zero, then skip over to assess player movement
     DEC  missile_reload_timers,x  ; $2F,X
     LDA  missile_reload_timers,x  ; $2F,X
-    BEQ  reload_player_missiles  ; $E2A2  ; once timer expires, reload player missiles
+    BEQ  reload_player_missiles  ; once timer expires, reload player missiles
     CMP  #$78  ; dec120
-    BEQ  decrement_reload_time_on_screen  ; $E295  ; if we reach this timer=120 threshold, decrement reload time on screen
+    BEQ  decrement_reload_time_on_screen  ; if we reach this timer=120 threshold, decrement reload time on screen
     CMP  #$3C  ; dec60
-    BNE  assess_player_movement  ; $E2A9  ; if we reach this timer=60 threshold, decrement reload time on screen
+    BNE  assess_player_movement  ; if we reach this timer=60 threshold, decrement reload time on screen
 decrement_reload_time_on_screen:
     TXA  ; a=0 for player1, a=1 for player2
-    BNE  player2_update_reload_time  ; $E29D  ; branch if player2
+    BNE  player2_update_reload_time  ; branch if player2
     dec  $07c2   ; row24 - column2 on char screen (decrements the TIME TO LOAD: x SECONDS.) for player1
                  ; (it might be a black/invisible character that is used as a temp var) 
-    BNE  assess_player_movement  ; $E2A9  ; if timer hasn't expired yet, skip to player movement assessment
+    BNE  assess_player_movement  ; if timer hasn't expired yet, skip to player movement assessment
 player2_update_reload_time:
     DEC  $07DB   ; row24 - column27 on char screen  (decrements the TIME TO LOAD: x SECONDS.) for player2
-    BNE  assess_player_movement  ; $E2A9  ; if timer hasn't expired yet, skip to player movement assessment
+    BNE  assess_player_movement  ; if timer hasn't expired yet, skip to player movement assessment
 reload_player_missiles:
     LDA  #$04
     STA  p1_num_missiles,x  ; $31,X
-    JSR  redraw_torpedo_amount_indicator  ; $E35F
+    JSR  redraw_torpedo_amount_indicator
 assess_player_movement:
     LDA  iterator_local  ; $23
     LDY  real_game_mode_flag  ; $16
-    BNE  skip_if_in_real_game_mode_flag  ; $E2B9
+    BNE  skip_if_in_real_game_mode_flag
 // if in attract mode, randomly decide when to fire missiles
-    JSR  random_num_gen_into_A  ; $E893
+    JSR  random_num_gen_into_A
     CMP  #$03
-    BCC  auto_fire_missile_while_in_attract  ; $E2C8  ; branch if less than 3
-    JMP  skip_over_paddle_reading  ; $E2BF
+    BCC  auto_fire_missile_while_in_attract  ; branch if less than 3
+    JMP  skip_over_paddle_reading
 skip_if_in_real_game_mode_flag:
 // if not in attract, we're in real game, to read user input for fire button
-    JSR  read_paddle_fire_button  ; $E783
+    JSR  read_paddle_fire_button
     TAX
-    BNE  paddle_fires_pressed  ; $E2C8  ; branch if any paddle fires pressed
+    BNE  paddle_fires_pressed  ; branch if any paddle fires pressed
 skip_over_paddle_reading:
     LDX  iterator_local  ; $23  ; player idx (0=player1, 1=player2)
     LDA  #$00  ; set flag to record that paddle fire state is presently off
     STA  last_paddle_fire_state,x  ; $33,X
-    JMP  skip_to_next_player_assessment  ; $E357
+    JMP  skip_to_next_player_assessment
 auto_fire_missile_while_in_attract:
 paddle_fires_pressed:
     LDX  iterator_local  ; $23
     LDA  last_paddle_fire_state,x  ; $33,X
-    BEQ  transition_paddle_fire_state_from_off_to_on  ; $E2D1  ; if last paddle fire-state was off, then we have now transitioned to on
-    JMP  skip_to_next_player_assessment  ; $E357
+    BEQ  transition_paddle_fire_state_from_off_to_on  ; if last paddle fire-state was off, then we have now transitioned to on
+    JMP  skip_to_next_player_assessment
 transition_paddle_fire_state_from_off_to_on:
     LDA  #$FF  ; $FF = fire-state = on
     STA  last_paddle_fire_state,x  ; $33,X
     LDA  missile_reload_timers,x  ; $2F,X
-    BEQ  shoot_a_missile  ; $E2DC  ; if player's reload timer is zero, it means we still have missiles available to fire
-    JMP  skip_to_next_player_assessment  ; $E357
+    BEQ  shoot_a_missile  ; if player's reload timer is zero, it means we still have missiles available to fire
+    JMP  skip_to_next_player_assessment
 shoot_a_missile:
     TXA  ; X = player idx (0=player1, 1=player2)
     ASL
@@ -1126,11 +1126,11 @@ shoot_a_missile:
     LDA  #$00  ; #$00 = this torpedo is now visible
     STA  torpedo_fire_state,y  ; $007D,Y
     DEC  p1_num_missiles,x  ; $31,X
-    JSR  redraw_torpedo_amount_indicator  ; $E35F
-    JSR  play_fire_shoot_sound_on_v2  ; $E953
+    JSR  redraw_torpedo_amount_indicator
+    JSR  play_fire_shoot_sound_on_v2
     LDX  iterator_local  ; $23
     LDA  p1_num_missiles,x  ; $31,X
-    BNE  skip_to_next_player_assessment  ; $E357  ; if player still has missiles, do branch
+    BNE  skip_to_next_player_assessment  ; if player still has missiles, do branch
     ; otherwise, they've run out of missiles now, and time to prepare the reload timer
     LDA  #$B4  ; dec180
     STA  missile_reload_timers,x  ; $2F,X
@@ -1142,16 +1142,16 @@ shoot_a_missile:
     STA  buoy_pair_index  ; $25
     TAX
     ; X = buoy-pair index (either 0 or 2)
-    LDA  buoys_visibility,x  ; $5D,X  ; assess buoy1
-    BEQ  assess_buoy2_visibility  ; $E31A  ; if buoy1 not visible, then branch
-    LDA  buoys_visibility+1,x  ; $5E,X  ; assess buoy2
-    BEQ  buoy1_visible_and_buoy2_invisible  ; $E32A  ; if buoy2 also not visible, then branch
+    LDA  buoys_visibility,x  ; assess buoy1
+    BEQ  assess_buoy2_visibility  ; if buoy1 not visible, then branch
+    LDA  buoys_visibility+1,x  ; assess buoy2
+    BEQ  buoy1_visible_and_buoy2_invisible  ; if buoy2 also not visible, then branch
 ; if both buoys visible, no need to do any respawning
 ; ---------------------------------------------------
-    JMP  skip_to_next_player_assessment  ; $E357
+    JMP  skip_to_next_player_assessment
 assess_buoy2_visibility:
     LDA  buoys_visibility+1,x ; $5E,X
-    BNE  buoy1_invisible_and_buoy2_visible  ; $E33A
+    BNE  buoy1_invisible_and_buoy2_visible
 ; both buoys in the pair are invisible
 //-------------------------------------
     LDA  #$00
@@ -1159,24 +1159,24 @@ assess_buoy2_visibility:
     CLC
     ADC  #$44  ; dec68  ; 2nd buoy in pair will be at xpos=68
     STA  buoys_xpos+1,x  ; $62,X
-    JMP  assure_both_buoys_in_pair_visible_and_on_same_ypos  ; $E347
+    JMP  assure_both_buoys_in_pair_visible_and_on_same_ypos
 buoy1_visible_and_buoy2_invisible:
 //---------------------------------
     LDA  buoys_xpos,x  ; $61,X  ; 1st buoy xpos
     CMP  #$4C  ; dec76  ; 1st_buoy_xpos >= 76
-    BCS  respawn_2nd_buoy_behind_1st  ; $E333
+    BCS  respawn_2nd_buoy_behind_1st
     ADC  #$44  ; dec68
     +bit_skip_2_bytes
 respawn_2nd_buoy_behind_1st:
       SBC  #$44  ; dec68
     STA  buoys_xpos+1,x  ; $62,X
-    JMP  assure_both_buoys_in_pair_visible_and_on_same_ypos  ; $E347
+    JMP  assure_both_buoys_in_pair_visible_and_on_same_ypos
 buoy1_invisible_and_buoy2_visible:
 //---------------------------------
 ; we're here if 1st buoy in pair is not visible, but 2nd buoy in pair is visible
     LDA  buoys_xpos+1,x  ; $62,X  ; A = xpos of 2nd buoy in pair
     CMP  #$4C  ; dec76
-    BCS  respawn_1st_buoy_behind_2nd  ; $E343 ; if A >= 76 then branch to spawn 1st buoy behind 2nd
+    BCS  respawn_1st_buoy_behind_2nd  ; if A >= 76 then branch to spawn 1st buoy behind 2nd
     ADC  #$44  ; otherwise spawn 1st buoy (in pair) in front of 2nd by dec68
     +bit_skip_2_bytes
 respawn_1st_buoy_behind_2nd:
@@ -1187,16 +1187,17 @@ assure_both_buoys_in_pair_visible_and_on_same_ypos:
     LDA  #$01
     STA  buoys_visibility,x  ; $5D,X
     STA  buoys_visibility+1,x  ; $5E,X
-    TXA
-    LSR
+    TXA  ; x=0 for 1st pair, x=2 for 2nd pair
+    LSR  ; a=0 for 1st pair, a=1 for 2nd pair
     TAY
-    LDA  possible_buoy_y_positions,y  ; $EE22,Y
+    LDA  possible_buoy_y_positions,y
     STA  buoys_ypos,x  ; $65,X
     STA  buoys_ypos+1,x  ; $66,X
 skip_to_next_player_assessment:
     DEC  iterator_local  ; $23  ; decrement player index from player2 to player1
-    BMI  $E35E
-    JMP  loop_next_player_to_assess_missiles_for  ; $E281
+    BMI  exit_handle_missile_firing_and_player_movement_routine
+    JMP  loop_next_player_to_assess_missiles_for
+exit_handle_missile_firing_and_player_movement_routine:
     RTS
 
 
@@ -1205,7 +1206,7 @@ redraw_torpedo_amount_indicator:
     LDA  p1_num_missiles,x  ; $31,X   ; the number of missiles this player has remaining (player = x)
     PHA
     TXA
-    BNE  still_have_missiles  ; $E368  ; if player still have missiles, redraw missile indicator area
+    BNE  still_have_missiles  ; if player still have missiles, redraw missile indicator area
     LDA  #$01
     +bit_skip_2_bytes
 still_have_missiles:
@@ -1213,7 +1214,7 @@ still_have_missiles:
     STA  txt_x_pos  ; $13
     LDA  #$17  ; dec23
     STA  txt_y_pos  ; $14
-    JSR  adjust_scr_and_clr_ptr_locations  ; $E6C0
+    JSR  adjust_scr_and_clr_ptr_locations
     LDA  #$26  ; ' ' space character
     LDY  #$00
 loop_clear_next_line:
@@ -1223,44 +1224,44 @@ loop_clear_next_char:
                    ; or (26,23) for have missiles.
     INY
     DEX
-    BNE  loop_clear_next_char  ; $E379
+    BNE  loop_clear_next_char
     CPY  #$28  ; dec40
-    BCS  draw_players_torpedoes  ; $E387  ; branch if y >= 40 (upon clearing 2nd line of missiles?)
+    BCS  draw_players_torpedoes  ; branch if y >= 40 (upon clearing 2nd line of missiles?)
     LDY  #$28  ; dec40
-    BNE  loop_clear_next_line  ; $E377
+    BNE  loop_clear_next_line
 draw_players_torpedoes:
     PLA  ; retrieve number of missiles for currently assessed player again
-    BEQ  draw_reloading_message  ; $E3A3  ; branch if player has no more missiles
+    BEQ  draw_reloading_message  ; branch if player has no more missiles
     TAX
     DEX  ; decrease number of player missiles by one
 loop_to_draw_prior_torpedo_in_group:
     LDA  #$50  ; #$50 = start of torpedo char
     LDY  #$04
     STY  genvarB  ; $08
-    LDY  screen_offsets_for_each_missile_indicator,x  ; $EE24,X
+    LDY  screen_offsets_for_each_missile_indicator,x
 loop_to_draw_next_torpedo_char:
     STA  (scr_ptr_lo),y   ; ($02),Y
     INY
     CLC
     ADC  #$01  ; increment to next torpedo char (e.g., #$50, #$51, #$52, #$53)
     DEC  genvarB  ; $08
-    BNE  loop_to_draw_next_torpedo_char  ; $E395
+    BNE  loop_to_draw_next_torpedo_char
     DEX  ; decrease x to point to prior torpedo in group (aiming to redraw it on screen next)
-    BPL  loop_to_draw_prior_torpedo_in_group  ; $E38C
+    BPL  loop_to_draw_prior_torpedo_in_group
     RTS
 draw_reloading_message:
     LDX  #$16  ; dec22  ; it draws from the end of the string and moves forward
     LDY  #$32  ; dec50
 loop_for_next_char:
-    LDA  time_to_load_msg,x  ; $E3B7,X
+    LDA  time_to_load_msg,x
     STA  (scr_ptr_lo),y  ; ($02),Y
     DEY
     CPY  #$28  ; dec40      ; did we finish the 2nd line, and are now on last char of 1st line?
-    BNE  skip_if_still_on_2nd_line  ; $E3B3  ; if not, maintain usual loop behaviour 
+    BNE  skip_if_still_on_2nd_line  ; if not, maintain usual loop behaviour 
     LDY  #$0C  ; dec12  ; if so, reposition y to point to end of 1st line (to draw it from last char to first)
 skip_if_still_on_2nd_line:
     DEX
-    BPL  loop_for_next_char  ; $E3A7
+    BPL  loop_for_next_char
     RTS
 
 // LOCATION: E3B7
@@ -1286,24 +1287,24 @@ loop_next_player_submarine:
     STA  txt_y_pos  ; $14
     LDA  #$00
     STA  txt_x_pos  ; $13
-    JSR  adjust_scr_and_clr_ptr_locations  ; $E6C0
+    JSR  adjust_scr_and_clr_ptr_locations
     LDY  real_game_mode_flag  ; $16
-    BNE  assess_paddle_movement  ; $E405
+    BNE  assess_paddle_movement
 // if we're in attract mode, move paddles around automatically?
     LDA  players_xpos,x  ; $35,X
     STA  genvarA  ; $09  ; hold x-pos of current player
     CMP  attract_mode_player_xpos_waypoint,x  ; $37,X
-    BNE  assess_auto_travel_direction  ; $E3F9  ; if we didn't arrive to waypoint, branch to assess direction to travel
+    BNE  assess_auto_travel_direction  ; if we didn't arrive to waypoint, branch to assess direction to travel
 // if we get here, the attract mode paddle movement has reached the current waypoint,
 // so it's time to pick a new waypoint to automatically travel towards
 retry_if_random_waypoint_not_in_valid_xrange:
-    JSR  random_num_gen_into_A  ; $E893
+    JSR  random_num_gen_into_A
     CMP  #$93  ; dec147
-    BCS  retry_if_random_waypoint_not_in_valid_xrange  ; $E3ED ; branch if >= 147
+    BCS  retry_if_random_waypoint_not_in_valid_xrange  ; branch if >= 147
     STA  attract_mode_player_xpos_waypoint,x  ; $37,X
-    JMP  jump_ahead  ; $E400
+    JMP  jump_ahead
 assess_auto_travel_direction:
-    BCS  travelling_right_to_left  ; $E3FE  ; if current player x-pos >= waypoint, then branch (for decrement)
+    BCS  travelling_right_to_left  ; if current player x-pos >= waypoint, then branch (for decrement)
 // otherwise player x-pos is less than waypoint (and we need to increment)
     INC  genvarA  ; $09  ; move paddle automatically to right
     +bit_skip_2_bytes
@@ -1311,10 +1312,10 @@ travelling_right_to_left:
       DEC  genvarA ; $09  ; move paddle automatically to left
 jump_ahead:
     LDA  genvarA  ; $09
-    JMP  wipe_current_player_submarine  ; $E40C
+    JMP  wipe_current_player_submarine
 assess_paddle_movement:
     LDA  iterator_local  ; $23
-    JSR  read_paddle_position  ; $F0F0
+    JSR  read_paddle_position
     STA  genvarA  ; $09
 wipe_current_player_submarine:
     LDX  iterator_local  ; $23
@@ -1328,15 +1329,15 @@ loop_wipe_next_submarine_char:
     STA  ($02),Y  ; wipe away existing player submarine chars with spaces (submarine is 5 chars wide)
     INY
     DEX
-    BNE  loop_wipe_next_submarine_char  ; $E417
+    BNE  loop_wipe_next_submarine_char
     // time to draw player's submarine at new position
     // -----------------------------------------------
     LDA  genvarA  ; $09  ; new xposition for paddle
     AND  #$03  ; figure out what x-offset within char the sub-should be drawn at (in pixel-pair units)
     TAX
-    LDY  submarine_charset_idx,x  ; $EEE8,X  ; choose between submarine_charset1/2/3/4
+    LDY  submarine_charset_idx,x  ; choose between submarine_charset1/2/3/4
     LDA  iterator_local  ; $23  ; player 1 or 2 index (0=player1, 1=player2)
-    BNE  jump_if_player2  ; $E42C
+    BNE  jump_if_player2
     LDX  #$00  ; relative index for vic-bank0 chars describing current player1 submarine
                ; (absolute char idx range 55-59)
     +bit_skip_2_bytes
@@ -1345,19 +1346,19 @@ jump_if_player2:
     LDA  #$28  ; dec40  ; index of loop from 40 to 0, in order to copy across 5 chars to define player's sub)
     STA  genvarB  ; $08
 loop_copy_desired_submarine_charset_across:
-    LDA  submarine_charset1,y  ; $EE48,Y
+    LDA  submarine_charset1,y
     STA  vicbank0_sub_chars_for_player1,x  ; $02A8,X
     INX
     INY
     DEC  genvarB  ; $08
-    BNE  loop_copy_desired_submarine_charset_across ; $E432
+    BNE  loop_copy_desired_submarine_charset_across
     LDX  iterator_local  ; $23  ; current player
     LDA  genvarA  ; $09  ; new x-pos of player's submarine
     STA  players_xpos,x  ; $35,X
     LSR
     LSR
     TAY
-    LDA  sub_start_chars,x  ; $E45D,X  ; where x=0 is player1, x=1 is player2
+    LDA  sub_start_chars,x  ; where x=0 is player1, x=1 is player2
     LDX  #$05  ; player submarine sprite consists of 5 chars
 loop_draw_next_submarine_char:
     STA  ($02),Y
@@ -1365,10 +1366,11 @@ loop_draw_next_submarine_char:
     ADC  #$01
     INY
     DEX
-    BNE  loop_draw_next_submarine_char  ; $E44C
+    BNE  loop_draw_next_submarine_char
+
     DEC  iterator_local  ; $23
-    BMI  exit_update_player_submarine_positions_routine  ; $E45C
-    JMP  loop_next_player_submarine  ; $E3D2
+    BMI  exit_update_player_submarine_positions_routine
+    JMP  loop_next_player_submarine
 exit_update_player_submarine_positions_routine:
     RTS
 
@@ -1388,8 +1390,8 @@ missile_redraw_assessment:
 loop_next_missile:
     LDX  iterator_local  ; $23  ; missile iterator
     LDA  torpedo_fire_ypos,x  ; $75,X  ; y-position of all torpedoes
-    BNE  torpedo_is_active  ; $E46C  ; non-zero means torpedo is live/visible/active
-    JMP  skip_to_next_missile  ; $E52E
+    BNE  torpedo_is_active  ; non-zero means torpedo is live/visible/active
+    JMP  skip_to_next_missile
 torpedo_is_active:
     PHA  ; A=ypos of current torpedo (can be in range of dec0 to dec160)
     LSR
@@ -1400,7 +1402,7 @@ torpedo_is_active:
          ; (range of dec0 to dec10)
     PLA  ; A=pure pixel ypos of current torpedo
     SEC
-    SBC  missile_speed_at_indexed_2x2_ypos,y  ; $EFC0,Y
+    SBC  missile_speed_at_indexed_2x2_ypos,y
          ; At the lower part of the screen, the missile moves faster, #$02 = 2 pixels per frame
          ; At the mid and upper parts of the screen, the missile moves slower, #$01 = 1 pixel per frame
          ; the #$03 speed seems unused
@@ -1421,7 +1423,7 @@ torpedo_is_active:
                           ;        p2_missile4 = #$80, p2_missile3 = #$a0
                           ;        p2_missile2 = #$c0, p2_missile1 = #$e0
     STA  offset_to_char_data_addr_of_2x2_missile_chars  ; $10
-    LDA  missiles_colour_table,x  ; $EFAC,X  ; a choice between yellow or light brown over idx0 to 7
+    LDA  missiles_colour_table,x  ; a choice between yellow or light brown over idx0 to 7
     STA  curr_missile_colour  ; $2E
     LDY  #$1F  ; dec31  ; index to char-data for curr missile (4 chars = 32 bytes)
     LDA  #$00
@@ -1432,7 +1434,7 @@ loop_to_wipe_temp_2x2_char_block:
     STA  genarrayA,y  ; $0085,Y  ; reset entire genarrayA[32] to zeroes
          ; NOTE: genarrayA aims to house the new 2x2 char representation the current missile
     DEY
-    BPL  loop_to_wipe_temp_2x2_char_block  ; $E48C
+    BPL  loop_to_wipe_temp_2x2_char_block
     // assess missile y-pos and how it will impact needed char data (small/medium/big missile)
     // ---------------------------------------------------------------------------------------
     LDA  genvarB  ; $08  ; the next missile ypos (after decrementing missile speed value)
@@ -1441,7 +1443,7 @@ loop_to_wipe_temp_2x2_char_block:
     LSR
     LSR  ; divide by 16  ; will be in range dec0 to dec10
     TAY
-    LDA  map_2x2_ypos_to_chardata_offset_for_missile_size,y  ; $EFB4,Y  ; has values like #$00, #$40 and #$80 (over index0 to 11)
+    LDA  map_2x2_ypos_to_chardata_offset_for_missile_size,y  ; has values like #$00, #$40 and #$80 (over index0 to 11)
     ; this appears to be the offset into the missile-char-data to choose between:
     ; small(#$00), medium(#$40) or big(#$80) missiles (depending on which 2x2 char ypos missile is at)
     STA  genvarA  ; $09 ; stores the missile-char-data offset for small/medium/big missiles
@@ -1488,14 +1490,14 @@ loop_to_wipe_temp_2x2_char_block:
 loop_draw_next_pixel_row_of_missile_char_data:
     ; Y = offset to desired missile_char_data (which factors in what x-offset we want to draw at)
     ; X = which y-offset we want to start drawing into 2x2 char block of genarrayA)
-    LDA  small_missile_char_data_x_offset0,y  ; $EEEC,Y  ; y-range = 0 to 7
+    LDA  small_missile_char_data_x_offset0,y  ; y-range = 0 to 7
     STA  genarrayA,x  ; $85,X
-    LDA  small_missile_char_data_x_offset0+8,y  ; $EEF4,Y  ; y-range = 0 to 7
+    LDA  small_missile_char_data_x_offset0+8,y  ; y-range = 0 to 7
     STA  genarrayA+16,x  ; $95,X
     INX
     INY
     DEC  missile_chardata_row_iterator  ; $0E
-    BNE  loop_draw_next_pixel_row_of_missile_char_data  ; $E4B2
+    BNE  loop_draw_next_pixel_row_of_missile_char_data
     ; wipe out prior missile chars from screen
     ; ----------------------------------------
     LDX  iterator_local  ; $23  ; missile iterator ; ought to be an index from 0 to 7
@@ -1503,30 +1505,30 @@ loop_draw_next_pixel_row_of_missile_char_data:
     STA  xpos_local  ; $11  ; x-pos of current torpedo/missile
     LDA  torpedo_fire_ypos,x  ; $75,X
     STA  ypos_local  ; $12  ; y-pos of current torpedo/missile
-    JSR  set_scr_and_clr_ptr_locations_based_on_ship_xy_pos  ; $E6B1
+    JSR  set_scr_and_clr_ptr_locations_based_on_ship_xy_pos
     LDX  #$03
 ; wipe out prior chars of this missile from the screen
 loop_wipe_next_char_of_2x2_char_missile:
-    LDY  missile_char_offsets,x  ; $EE28,X
+    LDY  missile_char_offsets,x
     LDA  (scr_ptr_lo),y  ; ($02),Y  ; read the char at this screen location
     CMP  #$60  ; first missile char in group
-    BCC  skip_wipe_if_less_than_range_of_missile_chars  ; $E4DE
+    BCC  skip_wipe_if_less_than_range_of_missile_chars
     LDA  #$26  ; ' ' space char
     STA  (scr_ptr_lo),y  ; ($02),Y  ; draw ' ' space char over prior missile
 skip_wipe_if_less_than_range_of_missile_chars:
     DEX
-    BPL  loop_wipe_next_char_of_2x2_char_missile  ; $E4D1
+    BPL  loop_wipe_next_char_of_2x2_char_missile
     ; check if missile reached top of screen (time to make it invisible?)
     ; --------------------------------------
     LDX  iterator_local  ; $23  (missile iterator)
     LDA  genvarB  ; $08  ; the next missile ypos (after decrementing missile speed value)
     CMP  #$10  ; dec16
-    BCC  reset_missile_ypos_to_zero  ; $E528  ; branch if less than 16
+    BCC  reset_missile_ypos_to_zero  ; branch if less than 16
     LDY  torpedo_fire_state,x  ; $7D,X
-    BNE  reset_missile_ypos_to_zero  ; $E528  ; branch if this torpedo is not currently visible on screen
+    BNE  reset_missile_ypos_to_zero  ; branch if this torpedo is not currently visible on screen
     STA  torpedo_fire_ypos,x  ; $75,X  ; y-pos of all torpedoes
     STA  ypos_local  ; $12  ; y-pos of current ship
-    JSR  set_scr_and_clr_ptr_locations_based_on_ship_xy_pos  ; $E6B1
+    JSR  set_scr_and_clr_ptr_locations_based_on_ship_xy_pos
     LDY  offset_to_char_data_addr_of_2x2_missile_chars  ; $10
     LDX  #$00
 loop_copy_next_temp_chardata_to_dest_chardata:
@@ -1535,7 +1537,7 @@ loop_copy_next_temp_chardata_to_dest_chardata:
     INY
     INX
     CPX  #$20  ; 32
-    BNE  loop_copy_next_temp_chardata_to_dest_chardata  ; $E4F8
+    BNE  loop_copy_next_temp_chardata_to_dest_chardata
     ; now draw this missile's newly prepared chars onto the screen
     ; ------------------------------------------------------------
     LDA  offset_to_char_idx_of_2x2_missile_chars  ; $0F
@@ -1544,12 +1546,12 @@ loop_copy_next_temp_chardata_to_dest_chardata:
     STA  genvarA  ; $09  ; could it relate to current paddle position?
     LDX  #$03
 loop_draw_next_missile_char_on_screen:
-    LDY  missile_char_offsets,x  ; $EE28,X
+    LDY  missile_char_offsets,x
     LDA  (scr_ptr_lo),y  ; ($02),Y
     CMP  #$26  ; is it a ' ' space char?
-    BEQ  draw_current_missile_char  ; $E519  ; if there's a space char current, in this position, then branch and draw the current missile char
+    BEQ  draw_current_missile_char  ; if there's a space char current, in this position, then branch and draw the current missile char
     CMP  #$60  ; #$60 = first shot char in group
-    BCC  skip_drawing_this_missile_char  ; $E521  ; if there's some non-space (and non-missile) char here
+    BCC  skip_drawing_this_missile_char  ; if there's some non-space (and non-missile) char here
                                                   ; (perhaps attract-screen text), then don't draw this missile char
 draw_current_missile_char:
     LDA  genvarA  ; $09
@@ -1559,16 +1561,16 @@ draw_current_missile_char:
 skip_drawing_this_missile_char:
     DEC  genvarA  ; $09
     DEX
-    BPL  loop_draw_next_missile_char_on_screen  ; $E50C
-    BMI  skip_to_next_missile  ; $E52E
+    BPL  loop_draw_next_missile_char_on_screen
+    BMI  skip_to_next_missile
 reset_missile_ypos_to_zero:
     LDX  iterator_local  ; $23
     LDA  #$00
     STA  torpedo_fire_ypos,x  ; $75,X  ; y-pos of all torpedoes
 skip_to_next_missile:
     DEC  iterator_local  ; $23
-    BMI  exit_missile_redraw_assessment_routine  ; $E535
-    JMP  loop_next_missile  ; $E463
+    BMI  exit_missile_redraw_assessment_routine
+    JMP  loop_next_missile
 exit_missile_redraw_assessment_routine:
     RTS
 
@@ -1576,28 +1578,28 @@ exit_missile_redraw_assessment_routine:
 paddle_and_function_key_reading_routine:
 //--------------------------------------
     LDA  #$00
-    JSR  read_paddle_fire_button  ; $E783
+    JSR  read_paddle_fire_button
     TAX
-    BNE  paddle_fire_or_F1_pressed  ; $E54B  ; jump if paddle fire pressed (A = FF)
+    BNE  paddle_fire_or_F1_pressed  ; jump if paddle fire pressed (A = FF)
     LDA  #$FE
     STA  $DC00
     LDA  $DC01
     TAX
     AND  #$10  ; Check if F1 is pressed
-    BNE  no_paddle_fire_or_F1  ; $E54F ; Jump if not pressed
+    BNE  no_paddle_fire_or_F1  ; Jump if not pressed
 paddle_fire_or_F1_pressed:
     LDA  #$01
-    BNE  finish_off_routine  ; $E562  ; will always jump (as A is non-zero)
+    BNE  finish_off_routine  ; will always jump (as A is non-zero)
 no_paddle_fire_or_F1:
     TXA
     AND  #$20  ; Check if F3 is pressed
-    BNE  no_F3_pressed  ; $E558  ; Jump if not pressed
+    BNE  no_F3_pressed  ; Jump if not pressed
     LDA  #$03
-    BNE  finish_off_routine  ; $E562
+    BNE  finish_off_routine
 no_F3_pressed:
     TXA
     AND  #$40  ; Check if F5 is pressed
-    BNE  $E560  ; Jump if not pressed
+    BNE  no_F5_pressed  ; Jump if not pressed
     LDA  #$05
     +bit_skip_2_bytes
 no_F5_pressed:
@@ -1614,22 +1616,24 @@ finish_off_routine:
 
 parent_routine_that_does_key_paddle_input:
 //----------------------------------------
-    JSR  timer_loop  ; $E759
-    JSR  paddle_and_function_key_reading_routine  ; $E536
+    JSR  timer_loop
+    JSR  paddle_and_function_key_reading_routine
     TAX
-    BNE  parent_routine_that_does_key_paddle_input  ; $E568
-    ; jump if any paddle-fire or func-key press (perhaps waiting for prior press to unpress)
-    JSR  timer_loop  ; $E759
-    INC  $1B
-    JSR  paddle_and_function_key_reading_routine  ; $E536
+    BNE  parent_routine_that_does_key_paddle_input
+    ; loop here if any paddle-fire or func-key is pressed
+loop_wait_input_key_to_be_depressed:
+    JSR  timer_loop
+    INC  randomval_lsb
+    JSR  paddle_and_function_key_reading_routine
     TAX
-    BEQ  $E571  ; jump if no paddle-fire or func-key press
+    BEQ  loop_wait_input_key_to_be_depressed
+    ; loop here until paddle-fire or func-key are depressed
     RTS
 
 
 prepare_game_screen:
 //------------------
-    JSR  clear_screen_and_draw_scores  ; $E799
+    JSR  clear_screen_and_draw_scores
     ; set colour various rows on screen (in colour ram)
     ; -------------------------------------------------
     LDX  #$27  ; (39)
@@ -1642,7 +1646,7 @@ loop_next_char_colour_in_row:
     STA  $D800,X  ; (row 0 colour ram all set to 0 / black)
     STA  $D828,X  ; (row 1 colour ram all set to 0 / black)
     DEX
-    BPL  loop_next_char_colour_in_row  ; $E582
+    BPL  loop_next_char_colour_in_row
     ; set colours for missile indicator regions
     ; -----------------------------------------
     LDX  #$0D    ; (13)
@@ -1654,28 +1658,28 @@ loop_next_char_colour_in_missile_indicator_region:
     STA  $DBB2,X   ; (row 23 - from col 26 to 33)
     STA  $DBDA,X   ; (row 24 - from col 26 to 33)
     DEX
-    BPL  loop_next_char_colour_in_missile_indicator_region  ; $E599
+    BPL  loop_next_char_colour_in_missile_indicator_region
     LDA  #$17  ; dec23
     STA  txt_y_pos  ; $14  (curr. ship y-pos)
-    JSR  draw_inline_text  ; $E839
+    JSR  draw_inline_text
 
     !byte $3A, $2F, $33, $2B, $26, $32, $2B, $2C,  $3A, $00 
     //       T  I  M  E     L  E  F   T
 
-    JSR  print_remaining_game_time  ; $E873
+    JSR  print_remaining_game_time
     LDX  #$00  ; for player 1
-    JSR  redraw_torpedo_amount_indicator  ; $E35F
+    JSR  redraw_torpedo_amount_indicator
     LDX  #$01  ; for player 2
-    JSR  redraw_torpedo_amount_indicator  ; $E35F
-    JMP  allow_interrupts  ; $E8F3
+    JSR  redraw_torpedo_amount_indicator
+    JMP  allow_interrupts
 
 
 show_intro_screen:
 //---------------
 ; returns: - 0 if no user input pressed during intro (i.e., next up, switch to attract mode)
 ;          - ff if user pressed F1 or paddle fire
-    JSR  interrupt_precursor  ; $E8F5
-    JSR  clear_screen_and_draw_scores  ; $E799
+    JSR  interrupt_precursor
+    JSR  clear_screen_and_draw_scores
     ; prepare colour of 1st two rows to white
     ; ---------------------------------------
     LDX  #$4F  ; dec79
@@ -1686,7 +1690,7 @@ loop_next_char_colour_for_top_rows:
     BPL  loop_next_char_colour_for_top_rows
     LDA  #$18  ; dec24
     STA  txt_y_pos  ; $14
-    JSR  draw_inline_text  ; $E839
+    JSR  draw_inline_text
 
     !byte $44, $29, $45, $26, $47, $4F, $4E, $48,  $26, $28, $27, $32, $32, $3F, $43, $33
     //       (  C  )     1  9  8  2      B  A  L  L  Y  -  M
@@ -1699,54 +1703,54 @@ loop_next_char_colour_for_top_rows:
     ; -------------------------
     LDX  #$04
 loop_set_xy_pos_for_title_sprites:
-    LDA  title_sprites_xpos,x  ; $E6A4,X
+    LDA  title_sprites_xpos,x
     STA  $D000,X  ; set xpos for sprite 2 (#$ff/255), 1 (#$e2/226) and then 0 (#$c5/197)
-    LDA  title_sprites_ypos,x  ; $E6A9,X
+    LDA  title_sprites_ypos,x
     STA  $D001,X  ; set ypos for sprite 2 (#$c2/194), 1 (#$b2/178) and then 0 (#$a2/162)
     DEX
     DEX
-    BPL  loop_set_xy_pos_for_title_sprites  ; $E60F
+    BPL  loop_set_xy_pos_for_title_sprites
     LDA  #$00
     STA  $D010  ; sprites 0-7 xpos msb
     LDA  #$07   ; %0000 0111
     STA  $D015  ; sprite display enable (only 1st 3 sprites visible)
     ; print mission text
     ; ------------------
-    LDA  #<mission_text1  ; #$CC
-    STA  ret_ptr_lo  ; $06
-    LDA  #>mission_text1  ; #$EF
-    STA  ret_ptr_hi  ; $07  ; note: no valid assembly exists at $EFCC
+    LDA  #<mission_text1
+    STA  ret_ptr_lo
+    LDA  #>mission_text1
+    STA  ret_ptr_hi
     LDA  #$03
-    STA  txt_y_pos  ; $14
+    STA  txt_y_pos
 
 prepare_to_display_next_line_of_intro_text:
     LDY  #$00
     LDA  (ret_ptr_lo),y  ; ($06),Y  ; pointer to inline-text-string
-    BEQ  final_wait_for_user_input_on_title_screen ; $E64D  ; if next string is just a null terminator, branch to final wait for user input
-    JMP  glide_ships_left_for_a_while_then_display_next_line_of_text  ; $E66A
+    BEQ  final_wait_for_user_input_on_title_screen ; if next string is just a null terminator, branch to final wait for user input
+    JMP  glide_ships_left_for_a_while_then_display_next_line_of_text
 
 write_line_routine:
-    JSR  draw_text_to_screen  ; $E7EC
-    INC  txt_y_pos  ; $14
-    INC  txt_y_pos  ; $14
-    INC  ret_ptr_lo  ; $06
-    BNE  prepare_to_display_next_line_of_intro_text  ; $E635
-    INC  ret_ptr_hi  ; $07
-    BNE  prepare_to_display_next_line_of_intro_text  ; $E635
+    JSR  draw_text_to_screen
+    INC  txt_y_pos
+    INC  txt_y_pos
+    INC  ret_ptr_lo
+    BNE  prepare_to_display_next_line_of_intro_text
+    INC  ret_ptr_hi
+    BNE  prepare_to_display_next_line_of_intro_text
 final_wait_for_user_input_on_title_screen:
     LDA  #$02
-    STA  genvarB  ; $08  ; extra delay counter
+    STA  genvarB  ; extra delay counter
 loop_wait_longer_on_title_screen:
     LDY  #$78
 loop_wait_on_title_screen:
-    JSR  paddle_and_function_key_reading_routine  ; $E536
+    JSR  paddle_and_function_key_reading_routine
     CMP  #$01
-    BEQ  exit_from_title_screen_due_to_paddle_fire  ; $E667
-    JSR  timer_loop  ; $E759
+    BEQ  exit_from_title_screen_due_to_paddle_fire
+    JSR  timer_loop
     DEY
-    BNE  loop_wait_on_title_screen  ; $E653
+    BNE  loop_wait_on_title_screen
     DEC  genvarB  ; $08
-    BNE  loop_wait_longer_on_title_screen  ; $E651
+    BNE  loop_wait_longer_on_title_screen
     LDA  #$00  ; if there was no user input till now, then it's time to jump to attract mode
     +bit_skip_2_bytes
 exit_from_title_screen_due_to_paddle_fire:
@@ -1761,10 +1765,10 @@ loop_next_ship_sprite_colour:
     TYA
     STA  $07F8,X  ; set sprite frame for sprite 2
     DEY
-    LDA  ship_sprite_colours,x  ; $E6AE,X
+    LDA  ship_sprite_colours,x
     STA  $D027,X  ; set colours of sprites 0, 1 and 2
     DEX
-    BPL  loop_next_ship_sprite_colour  ; $E66E
+    BPL  loop_next_ship_sprite_colour
     LDA  #$1D  ; dec29
     STA  genvarB  ; $08
 
@@ -1773,20 +1777,20 @@ loop_keep_gliding_left_until_time_to_display_next_line_of_text:
 loop_next_ship_sprite_to_glide_left:
     LDA  $D000,X  ; $d004/$d002/$d000 = sprite2/1/0 x-pos, 
     CMP  #$38  ; dec56
-    BEQ  skip_ship_move  ; $E68C
+    BEQ  skip_ship_move
     DEC  $D000,X  ; glide ships to left on title screen
 skip_ship_move:
     DEX
     DEX
-    BPL  loop_next_ship_sprite_to_glide_left  ; $E682
-    JSR  timer_loop  ; $E759
-    JSR  timer_loop  ; $E759
-    JSR  paddle_and_function_key_reading_routine  ; $E536
+    BPL  loop_next_ship_sprite_to_glide_left
+    JSR  timer_loop
+    JSR  timer_loop
+    JSR  paddle_and_function_key_reading_routine
     CMP  #$01
-    BEQ  exit_from_title_screen_due_to_paddle_fire  ; $E667
+    BEQ  exit_from_title_screen_due_to_paddle_fire
     DEC  genvarB  ; $08
-    BNE  loop_keep_gliding_left_until_time_to_display_next_line_of_text  ; $E680
-    JMP  write_line_routine  ; $E63E
+    BNE  loop_keep_gliding_left_until_time_to_display_next_line_of_text
+    JMP  write_line_routine
 
 title_sprites_xpos:
     !byte $C5, $00, $E2, $00, $FF
@@ -1821,13 +1825,13 @@ adjust_scr_and_clr_ptr_locations:
     TXA
     PHA  ; preserve X on stack
     LDX  txt_y_pos
-    LDA  scr_row_ptr_lo,X  ; $EDDC,X
+    LDA  scr_row_ptr_lo,X
     CLC
     ADC  $13
     STA  scr_ptr_lo  ; $02
     STA  clr_ptr_lo  ; $04
     LDY  #$00
-    LDA  scr_row_ptr_hi,x  ; $EDF5,X
+    LDA  scr_row_ptr_hi,x
     ADC  #$00
     STA  scr_ptr_hi  ; $03
     ADC  #$D4
@@ -1840,7 +1844,7 @@ adjust_scr_and_clr_ptr_locations:
 add_points_to_score_then_update_high_score_and_reprint:
 //-----------------------------------------------------
     LDY  real_game_mode_flag  ; $16  ; was set to #$ff in start_game
-    BNE  add_to_score_only_when_in_real_game_mode  ; $E6E5
+    BNE  add_to_score_only_when_in_real_game_mode
 // if we are in attract mode, bail out early (we won't add anything to the score)
     RTS
 add_to_score_only_when_in_real_game_mode:
@@ -1856,7 +1860,7 @@ add_to_score_only_when_in_real_game_mode:
     SBC  p1_score_lo,x  ; $1D,X
     LDA  high_score_hi  ; $22
     SBC  p1_score_hi,x  ; $1F,X
-    BCS  skip_set_high_score  ; $E704  ; branch if we didn't beat high score
+    BCS  skip_set_high_score  ; branch if we didn't beat high score
 set_high_score:
     LDA  p1_score_lo,x  ; $1D,X
     STA  high_score_lo  ; $21
@@ -1871,19 +1875,19 @@ print_all_scores:
     LDA  #$01
     STA  txt_y_pos  ; $14
     STA  txt_x_pos  ; $13
-    JSR  adjust_scr_and_clr_ptr_locations  ; $E6C0
+    JSR  adjust_scr_and_clr_ptr_locations
 
 print_player1_score:
     LDY  #$02  ; the x-location to start drawing digits from
     LDA  p1_score_lo  ; $1D
     LDX  p1_score_hi  ; $1F
-    JSR  print_two_digits_in_X_and_two_digits_in_A_and_two_trailing_zeroes  ; $E726
+    JSR  print_two_digits_in_X_and_two_digits_in_A_and_two_trailing_zeroes
 
 print_high_score:
     LDY  #$10
     LDA  high_score_lo  ; $21
     LDX  high_score_hi  ; $22
-    JSR  print_two_digits_in_X_and_two_digits_in_A_and_two_trailing_zeroes  ; $E726
+    JSR  print_two_digits_in_X_and_two_digits_in_A_and_two_trailing_zeroes
 
 print_player2_score:
     LDY  #$1E  ; (30) the x-location to start drawing digits from
@@ -1893,7 +1897,7 @@ print_player2_score:
 
 print_two_digits_in_X_and_two_digits_in_A_and_two_trailing_zeroes:
 //----------------------------------------------------------------
-    JSR  print_two_digits_in_X_and_two_digits_in_A  ; $E731
+    JSR  print_two_digits_in_X_and_two_digits_in_A
     ; add two trailing zeroes
     LDA  #$46  ; #$46 = '0' char
     STA  (scr_ptr_lo),Y
@@ -1908,7 +1912,7 @@ print_two_digits_in_X_and_two_digits_in_A:
     LDA  #$00
     STA  genvarB  ; $08  ; $00 = hide any leading zero
     TXA
-    JSR  print_two_digits_in_A  ; $E73B
+    JSR  print_two_digits_in_A
     PLA
 
 
@@ -1921,16 +1925,16 @@ print_two_digits_in_A:
     LSR
     LSR
     LSR
-    JSR  print_nibble  ; $E746  ; print digit in high nibble first
+    JSR  print_nibble  ; print digit in high nibble first
     PLA
 print_lower_nibble_digit_in_A:
     AND  #$0F  ; then print digit in lower nibble
 print_nibble:
-    BNE  adjust_a_to_corresponding_screen_code_char  ; $E750  ; always print non-zero nibbles
+    BNE  adjust_a_to_corresponding_screen_code_char  ; always print non-zero nibbles
     LDX  genvarB  ; $08
-    BNE  adjust_a_to_corresponding_screen_code_char  ; $E750  ; only print zero if genvarB is non-zero
+    BNE  adjust_a_to_corresponding_screen_code_char  ; only print zero if genvarB is non-zero
     LDA  #$26    ; #$26 = ' ' space char in char-map
-    BNE  print_char_to_screen  ; $E755
+    BNE  print_char_to_screen
 adjust_a_to_corresponding_screen_code_char:
     CLC
     ADC  #$46  ; #$46 = '0' char in char-map  (so this could relate to printing score)
@@ -1945,7 +1949,7 @@ timer_loop:
 //---------
     LDA  $DC0E  ; CIA Control Register A - bit0 = start(1)/stop(0) timer
     LSR
-    BCS  timer_loop  ;  $E759
+    BCS  timer_loop
     INC  $DC0E  ; after timer has stopped, restart it (turn bit0 back on)
     RTS
 
@@ -2024,36 +2028,36 @@ loop_clear_next_screen_char_and_color:
     STA  $DA00,X
     STA  $DAE8,X
     DEX
-    BNE  loop_clear_next_screen_char_and_color  ; $E79B
+    BNE  loop_clear_next_screen_char_and_color
     STX  txt_y_pos  ; (X=0 at this point, so txt_y_pos=0)
-    JSR  draw_inline_text  ; $E839
+    JSR  draw_inline_text
     !byte $F8, $26, $26, $36, $32, $27, $3F, $2B,  $38, $26, $47, $26, $26, $26, $26, $26
     //                P  L  A  Y  E   R     1               
     !byte $2E, $2F, $2D, $2E, $26, $39, $29, $35,  $38, $2B, $26, $26, $26, $26, $26, $36
     //       H  I  G  H     S  C  O   R  E                 P
     !byte $32, $27, $3F, $2B, $38, $26, $48, $26,  $26, $00
     //       L  A  Y  E  R     2        
-    JMP  print_all_scores  ; $E705
+    JMP  print_all_scores
 
 
 draw_text_to_screen:
 //------------------
     LDA  #$00
     STA  txt_x_pos  ; $13
-    JSR  adjust_scr_and_clr_ptr_locations  ; $E6C0
+    JSR  adjust_scr_and_clr_ptr_locations
     LDA  #$01  ; The current colour to draw the text in (defaults to white)
     PHA        ; this var is pushed onto the stack
     LDY  #$00
     STY  txt_x_pos
 loop_count_number_of_special_chars:
     LDA  (ret_ptr_lo),y  ; ($06),Y  ; ptr to inline text
-    BEQ  end_of_string  ; $E807  ; if null-ptr / end-of-string, then branch
+    BEQ  end_of_string  ; if null-ptr / end-of-string, then branch
     CMP  #$F8
     BCC  skip_x_pos_increment
     INC  txt_x_pos   ; for now, txt_x_pos is storing the number of special chars
 skip_x_pos_increment:
     INY
-    BNE  loop_count_number_of_special_chars  ; $E7FA  ; branch until y increments back to zero (a max of 255 chars)
+    BNE  loop_count_number_of_special_chars  ; branch until y increments back to zero (a max of 255 chars)
 end_of_string:
     DEY  ; Y ought to equal the length of the string
     TYA  ; A = Y = length of string
@@ -2069,15 +2073,15 @@ end_of_string:
 draw_char_loop:
     LDX  #$00
     LDA  (ret_ptr_lo,X)   ; pw 06 = $EFCD  (x=0, out: a = 35 = 'O')
-    BEQ  found_null ; $E837     ; A = null terminator?
+    BEQ  found_null ; A = null terminator?
     CMP  #$F8
-    BCC  draw_valid_char ; $E828   ; branch if A < #$f8
+    BCC  draw_valid_char ; branch if A < #$f8
     AND  #$07  ; and with %0000 0111 (A = desired colour index for text that follows?)
     TSX  ; X = stack pointer low
     INX
     STA  $0100,X  ; A value of #$01 (default text colour=white) was pushed the stack earlier at $E7F3.
                   ; This will reset this stack value to new text colour specified by the special char
-    BCS  skip_draw_valid_char  ; $E82F  ; I think this always jumps, due to prior CMP#$F8 being true?
+    BCS  skip_draw_valid_char  ; I think this always jumps, due to prior CMP#$F8 being true?
 draw_valid_char:
     STA  (scr_ptr_lo),y  ; ($02),Y  ; pw 02 = 0478 , y = 4  (draw A char onto the screen)
     PLA
@@ -2086,9 +2090,9 @@ draw_valid_char:
     INY
 skip_draw_valid_char:
     INC  ret_ptr_lo  ; $06  ; pb 06 = CD
-    BNE  draw_char_loop  ; $E815
+    BNE  draw_char_loop
     INC  ret_ptr_hi  ; $07  ; pb 07 = EF
-    BNE  draw_char_loop ; $E815
+    BNE  draw_char_loop
 
 found_null:
     PLA  ; drop the stack var for current text colour
@@ -2104,7 +2108,7 @@ draw_inline_text:
     PLA
     ADC  #$00
     STA  ret_ptr_hi  ; $07   ; seems to be pulling the return from jsr address into pw $06
-    JSR  draw_text_to_screen  ; $E7EC
+    JSR  draw_text_to_screen
 
     LDA  ret_ptr_hi  ; $07  ; push the modified return location back onto the stack
     PHA
@@ -2115,27 +2119,27 @@ draw_inline_text:
 
 update_game_time_left:
 //--------------------
-    LDA  decimal_secs_in_minutes_left  ; $27
-    ORA  minutes_left  ; $28
-    BEQ  print_remaining_game_time  ; $E873
-    DEC  secs_in_minute_left  ; $26
-    BPL  print_remaining_game_time  ; $E873
+    LDA  decimal_secs_in_minutes_left
+    ORA  minutes_left
+    BEQ  print_remaining_game_time
+    DEC  secs_in_minute_left
+    BPL  print_remaining_game_time
     LDA  #$3B  ; dec59  ; (reset seconds in minute countdown?)
-    STA  secs_in_minute_left  ; $26
+    STA  secs_in_minute_left
     SED
-    LDA  decimal_secs_in_minutes_left  ; $27
+    LDA  decimal_secs_in_minutes_left
     SEC
     SBC  #$01
     CLD
-    STA  decimal_secs_in_minutes_left  ; $27
-    BCS  print_remaining_game_time  ; $E873
+    STA  decimal_secs_in_minutes_left
+    BCS  print_remaining_game_time
     LDA  #$59  ; value is used in 'decimal mode'
-    STA  decimal_secs_in_minutes_left  ; $27
-    LDA  minutes_left  ; $28
+    STA  decimal_secs_in_minutes_left
+    LDA  minutes_left
     SED
     SBC  #$00
     CLD
-    STA  minutes_left  ; $28
+    STA  minutes_left
 
 
 print_remaining_game_time:
@@ -2144,17 +2148,17 @@ print_remaining_game_time:
     STA  txt_x_pos  ; $13
     LDA  #$18  ; (24)
     STA  txt_y_pos  ; $14
-    JSR  adjust_scr_and_clr_ptr_locations  ; $E6C0
+    JSR  adjust_scr_and_clr_ptr_locations
     LDY  #$00
     LDA  #$01
     STA  genvarB  ; $08  ; $01 = show leading zeroes in 'print_lower_nibble_digit_in_A' call and later 'print_two_digits_in_A' call
     LDA  minutes_left  ; $28
-    JSR  print_lower_nibble_digit_in_A  ; $E744
+    JSR  print_lower_nibble_digit_in_A
     LDA  #$42  ; ':' char
     STA  (scr_ptr_lo),y  ; ($02),Y
     INY
     LDA  decimal_secs_in_minutes_left  ; $27
-    JMP  print_two_digits_in_A  ; $E73B
+    JMP  print_two_digits_in_A
 
 
 random_num_gen_into_A:
@@ -2179,7 +2183,7 @@ loop_next_shift_left_and_bit0_insertion:
     ORA  randomval_lsb  ; $1B  ; this could 'potentially' set bit0 of lsb of 16-bit value
     STA  randomval_lsb  ; $1B  ; so maybe it's a way to assure some balance between odd & even numbers?
     DEX
-    BNE  loop_next_shift_left_and_bit0_insertion  ; $E897  ; loop from 11 to 1  ; repeat this randomizing recipe 10 times
+    BNE  loop_next_shift_left_and_bit0_insertion  ; loop from 11 to 1  ; repeat this randomizing recipe 10 times
     PLA
     TAX  ; restore prior regX value
     LDA  randomval_lsb  ; $1B  ; we return regA as our 'random' result
@@ -2201,14 +2205,14 @@ set_sprite_position:
     ADC  #$0C  ; add 12
     ASL
     STA  $D000,Y  ; store in sprite x-pos of desired sprite
-    BCS  turn_on_msb_for_this_sprite  ; $E8CB
+    BCS  turn_on_msb_for_this_sprite
     ; turn off msb for this sprite
     ; ----------------------------
-    LDA  and_bitfields,x  ; $EE40,X
+    LDA  and_bitfields,x
     AND  $D010  ; sprite 0-7 xpos msb  ; turn off sprite xpos msb
-    JMP  skip_turn_on_msb_for_this_sprite  ; $E8D1
+    JMP  skip_turn_on_msb_for_this_sprite
 turn_on_msb_for_this_sprite:
-    LDA  or_bitfields,x  ; $EE38,X  ; turn on sprite xpos msb
+    LDA  or_bitfields,x  ; turn on sprite xpos msb
     ORA  $D010
 skip_turn_on_msb_for_this_sprite:
     STA  $D010  ; set sprite xpos msb to desired value (either on/off)
@@ -2222,7 +2226,7 @@ skip_turn_on_msb_for_this_sprite:
 turn_on_sprite_A:
 ----------------
     TAX
-    LDA  or_bitfields,x  ; $EE38,X
+    LDA  or_bitfields,x
     ORA  $D015
     STA  $D015  ; sprite display enable
     RTS
@@ -2231,7 +2235,7 @@ turn_on_sprite_A:
 turn_off_sprite_A:
 -----------------
     TAX
-    LDA  and_bitfields,x  ; $EE40,X
+    LDA  and_bitfields,x
     AND  $D015
     STA  $D015  ; sprite display disable
     RTS
@@ -2257,10 +2261,10 @@ interrupt_routine:
     TXA
     PHA
     LDX  $1A
-    LDA  raster_colours,x  ; $E928,X
+    LDA  raster_colours,x
     STA  $D021
     STA  $D020
-    LDA  raster_locations,x  ; $E92C,X
+    LDA  raster_locations,x
     STA  $D012  ; read/write raster value for compare irq
     INX
     TXA
@@ -2291,7 +2295,7 @@ init_sid:
 --------
     LDX  #$18  ; (24)
 loop_init_sid_values:
-    LDA  sid_init_values,x  ; $EBDC,X
+    LDA  sid_init_values,x
     STA  $D400,X
     DEX
     BPL  loop_init_sid_values
@@ -2334,7 +2338,7 @@ assess_sound_states:
   ; assesses whether to turn off any player fire/shot or ship explosion sounds
   ; also assesses whether to switch v1 to play the beep-beep of the P.T. boat
     LDA  general_sound_timer  ; $2D  ; this timer counts down from 3 to 0, then resets back to 3 and repeats this
-    BEQ  reset_general_sound_timer  ; $E96E
+    BEQ  reset_general_sound_timer
     DEC  general_sound_timer  ; $2D
     RTS
 reset_general_sound_timer:
@@ -2343,9 +2347,9 @@ reset_general_sound_timer:
     ; assess if it's time to turn off v2 missile fire sound
     ; -----------------------------------------------------
     LDA  v2_missile_fire_snd_counter  ; $2B
-    BEQ  assess_if_v3_explosion_snd_counter_has_expired  ; $E97F  ; if missile-fire sound timer already expired, then branch to check of v3 sound
+    BEQ  assess_if_v3_explosion_snd_counter_has_expired  ; if missile-fire sound timer already expired, then branch to check of v3 sound
     DEC  v2_missile_fire_snd_counter  ; $2B
-    BNE  assess_if_v3_explosion_snd_counter_has_expired  ; $E97F
+    BNE  assess_if_v3_explosion_snd_counter_has_expired
     ; if we have decremented timer to zero, then it's time to turn off the sound
     ; --------------------------------------------------------------------------
     LDA  #$80  ; %1000 0000
@@ -2353,9 +2357,9 @@ reset_general_sound_timer:
 
 assess_if_v3_explosion_snd_counter_has_expired:
     LDA  v3_explosion_snd_counter  ; $2C
-    BEQ  check_if_any_ptboats_visible  ; $E98C
+    BEQ  check_if_any_ptboats_visible
     DEC  v3_explosion_snd_counter  ; $2C
-    BNE  check_if_any_ptboats_visible  ; $E98C
+    BNE  check_if_any_ptboats_visible
     LDA  #$80  ; %1000 0000
     STA  $D412  ; v3_ctrl_reg  (noise wave, gate off)  ; turn off explosion sound?
 
@@ -2363,25 +2367,25 @@ check_if_any_ptboats_visible:
     LDX  #$03
 loop_next_ship_is_ptboat_check:
     LDA  ships_visibility,x  ; $39,X
-    BEQ  skip_to_next_ship_check  ; $E99A   ; if ship is invisible, branch
-    BMI  skip_to_next_ship_check  ; $E99A   ; if ship is exploding, branch
+    BEQ  skip_to_next_ship_check  ; if ship is invisible, branch
+    BMI  skip_to_next_ship_check  ; if ship is exploding, branch
     LDA  ships_type,x  ; $51,X  ; possibly index to the type of ship on screen
     CMP  #$02
-    BEQ  assess_ptboat_beep_beep_sound_state  ; $E9A9
+    BEQ  assess_ptboat_beep_beep_sound_state
 skip_to_next_ship_check:
     DEX
-    BPL  loop_next_ship_is_ptboat_check  ; $E98E
+    BPL  loop_next_ship_is_ptboat_check
     LDX  #$06
 loop_reset_sid_v1_to_ocean_sound:
-    LDA  sid_init_values,x  ; $EBDC,X
+    LDA  sid_init_values,x
     STA  $D400,X  ; reset sid voice1 values (ocean sound?)
     DEX
-    BPL  loop_reset_sid_v1_to_ocean_sound  ; $E99F
+    BPL  loop_reset_sid_v1_to_ocean_sound
     RTS
 
 assess_ptboat_beep_beep_sound_state:
     DEC  idx_to_v1_ptboat_beep_beep_freq_array  ; $2A
-    BPL  skip_ptboat_reset_state  ; $E9B1
+    BPL  skip_ptboat_reset_state
     ; reset ptboat beep-beep state (so that the sound pattern repeats)
     ; ----------------------------
     LDA  #$05
@@ -2390,9 +2394,9 @@ skip_ptboat_reset_state:
     LDA  idx_to_v1_ptboat_beep_beep_freq_array  ; $2A
     ASL  ; multiply by 2
     TAX
-    LDA  v1_ptboat_beep_beep_freq_array,x  ; $EE2C,X
+    LDA  v1_ptboat_beep_beep_freq_array,x
     STA  $D400  ; v1_freq_lo
-    LDA  v1_ptboat_beep_beep_freq_array+1,x  ; $EE2D,X
+    LDA  v1_ptboat_beep_beep_freq_array+1,x
     STA  $D401  ; v1_freq_hi
     LDA  #$41  ; %0100 0001
     STA  $D404  ; v1_ctrl_reg  ; (pulse wave, gate on)  ; seems like the beep-beep of the P.T. boat
@@ -2401,7 +2405,7 @@ skip_ptboat_reset_state:
 
 start_game:
 //---------
-    JSR  init_game_vars  ; $EB93
+    JSR  init_game_vars
     LDA  #$FF  ; turn on flag to say we are in real game (and not in attract mode)
     STA  real_game_mode_flag  ; $16
     LDA  initial_game_time  ; $17
@@ -2413,47 +2417,48 @@ start_game:
     STA  p2_score_lo  ; $1E
     STA  p1_score_hi  ; $1F
     STA  p2_score_hi  ; $20
-    JSR  prepare_game_screen ; $E57D
-    JSR  init_sid  ; $E930
+    JSR  prepare_game_screen
+    JSR  init_sid
     LDA  #$3F  ; %0011 1111
     STA  $D418 ; filter bandpass+low-pass, volume = 15
-    JSR  game_loop  ; $EB58
+    JSR  game_loop
     LDA  #$00   ; (no filter, zero volume)
     STA  $D418  ; sid_sel_filter_and_vol
     LDA  #$0A
     STA  txt_y_pos  ; $14
-    JSR  draw_inline_text  ; $E839
+    JSR  draw_inline_text
 
     !byte $2D, $27, $33, $2B, $26, $26, $35, $3C,  $2B, $38, $00 
     //       G  A  M  E        O  V   E  R
 
     LDX  #$96
-    JSR  timer_loop  ; $E759
+loop_more_delay:
+    JSR  timer_loop
     DEX
-    BNE  $EA07
+    BNE  loop_more_delay
 turn_off_attract_mode_and_show_intro_screen:
     LDA  #$00  ; turn off flag to say we are in attract mode game (and not in real game mode)
     STA  real_game_mode_flag  ; $16
-    JSR  show_intro_screen  ; $E5CD
+    JSR  show_intro_screen
     TAY  ; (A=$ff if user pressed F1 or paddle-fire during intro screen, else A=0)
     BNE  user_wants_to_start_game  ; user pressed F1 or paddle fire to start game?
 ; ATTRACT MODE
 ; ------------
-    JSR  init_game_vars  ; $EB93
+    JSR  init_game_vars
     LDA  #$20
     STA  decimal_secs_in_minutes_left  ; $27
     LDX  #$01  ; player index (1=player2, 0=player1)
 retry_random_num_for_initial_player_sub_position_in_attract_mode:
-    JSR  random_num_gen_into_A  ; $E893
+    JSR  random_num_gen_into_A
     CMP  #$28  ; dec40
     BCS  retry_random_num_for_initial_player_sub_position_in_attract_mode  ; if a >= 40 then loop
     STA  players_xpos,x  ; $35,X  ; place both player subs at some random 0-39 char xpos
     DEX  ; switch index from player2 to player1
     BPL  retry_random_num_for_initial_player_sub_position_in_attract_mode
-    JSR  prepare_game_screen  ; $E57D
+    JSR  prepare_game_screen
     LDA  #$0A  ; dec10
     STA  txt_y_pos  ; $14
-    JSR  draw_inline_text  ; $E839
+    JSR  draw_inline_text
 
 ; this is overlay text shown in attract mode during gameplay
 
@@ -2462,28 +2467,28 @@ retry_random_num_for_initial_player_sub_position_in_attract_mode:
 
     LDA  #$0F
     STA  txt_y_pos  ; $14
-    JSR  draw_inline_text  ; $E839
+    JSR  draw_inline_text
 
     !byte $36, $3B, $39, $2E, $26, $43, $2C, $47,  $43, $26, $3A, $35, $26, $28, $2B, $2D
     //       P  U  S  H     -  F  1   -     T  O     B  E  G
     !byte $2F, $34, $00
     //       I  N
 
-    JSR  game_loop  ; $EB58  ; run game-loop for attract mode
+    JSR  game_loop  ; run game-loop for attract mode
     TAY  ; A = 1 only it we have pressed paddle fire while in attract mode
-    BEQ  turn_off_attract_mode_and_show_intro_screen  ; $EA0D
+    BEQ  turn_off_attract_mode_and_show_intro_screen
 user_wants_to_start_game:
 ; draw game-time selection screen
 ; -------------------------------
-    JSR  clear_screen_and_draw_scores  ; $E799
+    JSR  clear_screen_and_draw_scores
     LDA  #$00
     STA  $D015  ; sprite display enable (hide all sprites)
     STA  $D40D  ; v2_env_gen sus/rel
     STA  $D414  ; v3_env_gen sus/rel
-    JSR  allow_interrupts  ; $E8F3
+    JSR  allow_interrupts
     LDA  #$01
     STA  txt_y_pos  ; $14
-    JSR  draw_inline_text  ; $E839
+    JSR  draw_inline_text
 
 // trailing two zeroes of p1 score + highscore + p2 score
 // ------------------------------------------------------
@@ -2496,7 +2501,7 @@ user_wants_to_start_game:
 
     LDA  #$05
     STA  txt_y_pos  ; $14
-    JSR  draw_inline_text  ; $E839
+    JSR  draw_inline_text
 
     !byte $43, $26, $36, $3B, $39, $2E, $26, $43,  $00 
     //       -     P  U  S  H     -
@@ -2504,7 +2509,7 @@ user_wants_to_start_game:
     INC  txt_y_pos  ; $14
     INC  txt_y_pos  ; $14
     INC  txt_y_pos  ; $14
-    JSR  draw_inline_text  ; $E839
+    JSR  draw_inline_text
 
     !byte $2C, $47, $26, $3A, $35, $26, $39, $3A,  $27, $38, $3A, $26, $2D, $27, $33, $2B
     //       F  1     T  O     S  T   A  R  T     G  A  M  E
@@ -2514,7 +2519,7 @@ user_wants_to_start_game:
     INC  txt_y_pos  ; $14
     INC  txt_y_pos  ; $14
     INC  txt_y_pos  ; $14
-    JSR  draw_inline_text  ; $E839
+    JSR  draw_inline_text
 
     !byte $2C, $49, $26, $3A, $35, $26, $26, $2F,  $34, $29, $38, $2B, $27, $39, $2B, $26
     //       F  3     T  O        I   N  C  R  E  A  S  E  
@@ -2522,7 +2527,7 @@ user_wants_to_start_game:
 
     INC  txt_y_pos  ; $14
     INC  txt_y_pos  ; $14
-    JSR  draw_inline_text  ; $E839
+    JSR  draw_inline_text
 
     !byte $26, $2C, $4B, $26, $3A, $35, $26, $26,  $2A, $2B, $29, $38, $2B, $27, $39, $2B
     //          F  5     T  O         D  E  C  R  E  A  S  E
@@ -2530,7 +2535,7 @@ user_wants_to_start_game:
 
     INC  txt_y_pos  ; $14
     INC  txt_y_pos  ; $14
-    JSR  draw_inline_text  ; $E839
+    JSR  draw_inline_text
 
     !byte $26, $36, $32, $27, $3F, $2F, $34, $2D,  $26, $3A, $2F, $33, $2B, $41, $00
     //          P  L  A  Y  I  N  G      T  I  M  E  .
@@ -2539,7 +2544,7 @@ user_wants_to_start_game:
     STA  decimal_secs_in_minutes_left  ; $27
     LDA  #$17  ; dec23
     STA  txt_y_pos  ; $14
-    JSR  draw_inline_text  ; $E839
+    JSR  draw_inline_text
 
     !byte $36, $32, $27, $3F, $2F, $34, $2D, $26,  $3A, $2F, $33, $2B, $00
     //       P  L  A  Y  I  N  G      T  I  M  E
@@ -2547,29 +2552,29 @@ user_wants_to_start_game:
     LDA  initial_game_time  ; $17
     STA  minutes_left  ; $28
 retry_print_game_time_choice:
-    JSR  print_remaining_game_time  ; $E873
+    JSR  print_remaining_game_time
 retry_read_user_input:
-    JSR  parent_routine_that_does_key_paddle_input  ; $E568
+    JSR  parent_routine_that_does_key_paddle_input
     CMP  #$01   ; was paddle-fire or F1 pressed?
-    BNE  assess_F3_key_press  ; $EB3A  ; if not, branch
-    JMP  start_game  ; $E9C7
+    BNE  assess_F3_key_press  ; if not, branch
+    JMP  start_game
 assess_F3_key_press:
     CMP  #$03  ; was F3 pressed? (increase time)
-    BNE  handle_F5_key_press  ; $EB4B  ; if not, branch
+    BNE  handle_F5_key_press  ; if not, branch
     LDA  minutes_left  ; $28
     CMP  #$09
-    BEQ  retry_read_user_input  ; $EB30  ; if already 9 minutes, can't increase further, branch back
+    BEQ  retry_read_user_input  ; if already 9 minutes, can't increase further, branch back
     INC  initial_game_time  ; $17
     INC  minutes_left  ; $28
-    JMP  retry_print_game_time_choice  ; $EB2D
+    JMP  retry_print_game_time_choice
 handle_F5_key_press:
     ; we're assuming if it's not paddle-fire, F1 or F3, then at this point, it must be F5 (decrease time)
     LDA  minutes_left  ; $28
     CMP  #$01
-    BEQ  retry_read_user_input  ; $EB30
+    BEQ  retry_read_user_input
     DEC  initial_game_time  ; $17
     DEC  minutes_left  ; $28
-    JMP  retry_print_game_time_choice  ; $EB2D
+    JMP  retry_print_game_time_choice
 
 
 game_loop:
@@ -2579,29 +2584,29 @@ loopback:
     STA  buff_spr2spr_coll  ; $18
     LDA  $D01F  ; sprite-to-background collision detect
     STA  buff_spr2back_coll  ; $19
-    JSR  ship_logic  ; $E000  ; has logic to spawn new ships when needed
-    JSR  buoy_logic  ; $E1C8
-    JSR  handle_missile_firing_and_player_movement  ; $E27D
-    JSR  update_player_submarine_positions  ; $E3CE
-    JSR  missile_redraw_assessment  ; $E45F
+    JSR  ship_logic  ; has logic to spawn new ships when needed
+    JSR  buoy_logic
+    JSR  handle_missile_firing_and_player_movement
+    JSR  update_player_submarine_positions
+    JSR  missile_redraw_assessment
     LDA  real_game_mode_flag  ; $16
-    BEQ  skip_if_in_attract_mode  ; $EB78
-    JSR  assess_sound_states  ; $E967
+    BEQ  skip_if_in_attract_mode
+    JSR  assess_sound_states
 skip_if_in_attract_mode:
-    JSR  update_game_time_left  ; $E84E
-    JSR  timer_loop  ; $E759
+    JSR  update_game_time_left
+    JSR  timer_loop
     LDA  real_game_mode_flag  ; $16
-    BNE  skip_exit_attract_check  ; $EB8C
+    BNE  skip_exit_attract_check
 exit_attract_check:
     INC  randomval_lsb  ; $1B
-    JSR  paddle_and_function_key_reading_routine  ; $E536
+    JSR  paddle_and_function_key_reading_routine
     TAY
     CMP  #$01
-    BEQ  exit_game_loop_routine  ; $EB92  ; was paddle-fire or F1 pressed?
+    BEQ  exit_game_loop_routine  ; was paddle-fire or F1 pressed?
 skip_exit_attract_check:
     LDA  minutes_left  ; $28
     ORA  decimal_secs_in_minutes_left  ; $27
-    BNE  loopback  ; $EB58
+    BNE  loopback
 exit_game_loop_routine:
     RTS
 
@@ -2614,7 +2619,7 @@ init_game_vars:
 loop_next_var_to_reset:
     STA  $22,X  ; reset vars in range of $22 to $A4 to zero
     DEX
-    BNE  loop_next_var_to_reset  ; $EB9A
+    BNE  loop_next_var_to_reset
     LDA  #$04
     STA  p1_num_missiles  ; $31
     STA  p2_num_missiles  ; $32
@@ -2780,13 +2785,14 @@ cold_start_handler:
     LDX  #$2F
     TXS  ; Why stack pointer so low? Aah, to make room for char-data copied into $0130 and onwards at $EC5C
     LDX  #$1D
-    LDA  vic_init_values,x  ; $EBBE,X
+loop_next_vic_value:
+    LDA  vic_init_values,x
     STA  $D011,X
     DEX
-    BPL  $EBFC
+    BPL  loop_next_vic_value
     LDA  $D01E  ; sprite-to-sprite collision detect (read it to reset the value)
     LDA  $D01F  ; sprite-to-background collision detect (read it to reset the value)
-    JSR  init_sid  ; $E930
+    JSR  init_sid
     LDA  #$7F   ; %0111 1111
     STA  $DC0D  ; cia_irq_ctrl_reg (only allow IRQ, not others)
     LDA  #$00   ; %0000 0000
@@ -2817,13 +2823,13 @@ loop_next_zp_var_to_reset:
     LDA  #$03
     STA  initial_game_time  ; $17
 loop_next_charset_data_to_copy_across:
-    LDA  char_data_group1,x  ; $EC5C,X
+    LDA  char_data_group1,x
     STA  $0130,X  ; copy across charset to vicii-bank 0, starting at charidx $26 (' ' space char)
-    LDA  char_data_group2,x  ; $ECD4,X
+    LDA  char_data_group2,x
     STA  $01A8,X  ; copy across charset to vicii-bank 0, starting at charidx $35 (letter 'O')
     INX
     BNE  loop_next_charset_data_to_copy_across
-    JMP  turn_off_attract_mode_and_show_intro_screen  ; $EA0D
+    JMP  turn_off_attract_mode_and_show_intro_screen
 
 char_data_group1:
 //---------------
@@ -3397,7 +3403,7 @@ read_paddle_position:
     SEC
     LDA  #$C8  ; dec200
     SBC  $D419,X  ; adc paddle1 pos ($d419) or paddle2 pos ($d41a)
-    BCS  skip_if_paddle_in_valid_range  ; $F0FB  ; branch if subtraction didn't cause a borrow (i.e. if paddle pos didn't surpass #$c8 / 200)
+    BCS  skip_if_paddle_in_valid_range  ; branch if subtraction didn't cause a borrow (i.e. if paddle pos didn't surpass #$c8 / 200)
     LDA  #$00  ; if paddle-pos surpassed #$c8/200, then we set it to #$00
 skip_if_paddle_in_valid_range:
     STA  genvarB  ; $08  ; otherwise paddle is set to be #$C8 minus paddle-pos
@@ -3424,11 +3430,11 @@ skip_if_paddle_in_valid_range:
 loop_next_add_of_prior_xpos:
     CLC
     ADC  filtered_player_xpos,x  ; $FE,X  ; let's assume filtered_player_xpos is initialised to zero, nothing gets added
-    BCC  skip_carry_increment  ; $F10F     ; for this assumed initial case, we'll branch)
+    BCC  skip_carry_increment  ; for this assumed initial case, we'll branch)
     INC  genvarB  ; $08  ; genvarB will contain how many times a carry happened (how many times the adc passed 255)
 skip_carry_increment:
     DEY
-    BNE  loop_next_add_of_prior_xpos  ; $F108
+    BNE  loop_next_add_of_prior_xpos
 ; So A = 3 x (old xpos) + new paddle xpos (in 2-pixel units)
     ROR  genvarB  ; $08
     ROR
@@ -3437,7 +3443,7 @@ skip_carry_increment:
          ; this
     SEC
     SBC  #$02   ; A=(0to150 range) - 2 = (-2 to 148 range)
-    BCS  skip_floor_xpos_to_zero  ; $F11F  ; branch if sbc didn't cause borrow (A-2 was >= 0)
+    BCS  skip_floor_xpos_to_zero  ; branch if sbc didn't cause borrow (A-2 was >= 0)
 ; I suppose it could only get here if genvarB was 0 (i.e., that count of carries in the y-loop was zero)
     LDA  #$00  ; so if no carries occurred, store a value of #$00
                ; i.e., assure range is 0 to 148
@@ -3451,7 +3457,7 @@ some_unknown_data:
 
 set_sprite_colour:
 //----------------
-    LDA  $F12C,X
+    LDA  sprite_colours,X
     STA  $D027,X
     RTS
 
