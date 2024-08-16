@@ -204,7 +204,7 @@ filtered_player_xpos = $FE  // $fe-ff [2]:
 //- adc at $F109
 //- sta at $F11F
 //
-vicbank0_sub_chars_for_player1 = $02A8  // $02a8-02cf [5][8]:
+vicbank0_sub_chars_for_player1 = $0AA8  // $02a8-02cf [5][8]:
 //
 //- The custom char-based soft-sprite used for player1's submarine, whose contents are copied from
 //  from submarine_charset1/2/3/4 ($ee48), depending on which 2-pixel location the sub is at 
@@ -221,7 +221,7 @@ vicbank0_sub_chars_for_player1 = $02A8  // $02a8-02cf [5][8]:
 //|        |        |        |        |        |
 //+--------+--------+--------+--------+--------+
 
-vicbank0_sub_chars_for_player2 = $02D0  // $02d0-02ff [5][8]:
+vicbank0_sub_chars_for_player2 = $0AD0  // $02d0-02f7 [5][8]:
 //
 //- The custom char-based soft-sprite used for player2's submarine, whose contents are copied from
 //  from submarine_charset1/2/3/4 ($ee48), depending on which 2-pixel location the sub is at 
@@ -236,7 +236,10 @@ vicbank0_sub_chars_for_player2 = $02D0  // $02d0-02ff [5][8]:
 //|        |        |        |        |        |
 //+--------+--------+--------+--------+--------+
 
-vicbank0_missile_chars_for_player1 = $0300  // $0300-037F [4][4][8]:
+vicbank0_sub_chars_for_player3 = $0AF8  // $0af8-0b1f [5][8]:
+vicbank0_sub_chars_for_player4 = $0B20  // $0b20-0b47 [5][8]:
+
+vicbank0_missile_chars_for_player1 = $0B80  // $0b80-0bff [4][4][8]:
 //
 //([4 missiles][4 chars per missile][8 bytes per char])
 //  - sta at $e4fa  (seems to copy across a chunk of genarrayA?)
@@ -244,7 +247,7 @@ vicbank0_missile_chars_for_player1 = $0300  // $0300-037F [4][4][8]:
 
 // MISSILE 4           MISSILE 3           MISSILE 2           MISSILE 1
 //+--------+--------+ +--------+--------+ +--------+--------+ +--------+--------+
-//|60   ** |62      | |64      |66      | |68      |6a      | |6c      |6e      |
+//|70   ** |72      | |74      |76      | |78      |7a      | |7c      |7e      |
 //|     ** |        | |        |        | |        |        | |        |        |
 //|    ****|        | | *      |        | |       *|        | |       *|        |
 //|    ****|        | |***     |        | |      **|*       | |      **|*       |
@@ -253,7 +256,7 @@ vicbank0_missile_chars_for_player1 = $0300  // $0300-037F [4][4][8]:
 //|    ****|        | |***     |        | |      **|*       | |      **|*       |
 //|     ** |        | | *      |        | |       *|        | |       *|        |
 //+--------+--------+ +--------+--------+ +--------+--------+ +--------+--------+
-//|61      |63      | |65      |67      | |69      |6b      | |6d      |6f      |
+//|71      |73      | |75      |77      | |79      |7b      | |7d      |7f      |
 //|        |        | |        |        | |        |        | |        |        |
 //|        |        | |        |        | |        |        | |        |        |
 //|        |        | |        |        | |        |        | |        |        |
@@ -263,13 +266,13 @@ vicbank0_missile_chars_for_player1 = $0300  // $0300-037F [4][4][8]:
 //|        |        | |        |        | |        |        | |        |        |
 //+--------+--------+ +--------+--------+ +--------+--------+ +--------+--------+
 
-vicbank0_missile_chars_for_player2 = $0380  // $0380-03ff [4][4][8]:
+vicbank0_missile_chars_for_player2 = $0C00  // $0c00-0c7f [4][4][8]:
 //
 //([4 missiles][4 chars per missile][8 bytes per char])
 //- E.g. if player2 has fired all 4 missiles, it may look like this:
  //MISSILE 4           MISSILE 3           MISSILE 2           MISSILE 1
 //+--------+--------+ +--------+--------+ +--------+--------+ +--------+--------+
-//|70      |72      | |74      |76      | |78      |7a      | |7c      |7e      |
+//|80      |82      | |84      |86      | |88      |8a      | |8c      |8e      |
 //|        |        | |        |        | |        |        | |        |        |
 //|        |        | |   *    |        | | *      |        | |   *    |        |
 //|        |        | |  ***   |        | |***     |        | |  ***   |        |
@@ -278,7 +281,7 @@ vicbank0_missile_chars_for_player2 = $0380  // $0380-03ff [4][4][8]:
 //|        |        | |  ***   |        | |***     |        | |  ***   |        |
 //|   **   |        | |   *    |        | | *      |        | |   *    |        |
 //+--------+--------+ +--------+--------+ +--------+--------+ +--------+--------+
-//|71 **   |73      | |75      |77      | |79      |7b      | |7d      |7f      |
+//|81 **   |83      | |85      |87      | |89      |8b      | |8d      |8f      |
 //|  ****  |        | |        |        | |        |        | |        |        |
 //|  ****  |        | |        |        | |        |        | |        |        |
 //|  ****  |        | |        |        | |        |        | |        |        |
@@ -287,6 +290,9 @@ vicbank0_missile_chars_for_player2 = $0380  // $0380-03ff [4][4][8]:
 //|   **   |        | |        |        | |        |        | |        |        |
 //|        |        | |        |        | |        |        | |        |        |
 //+--------+--------+ +--------+--------+ +--------+--------+ +--------+--------+
+
+vicbank0_missile_chars_for_player3 = $0C80  // $0c80-0cff [4][4][8]:
+vicbank0_missile_chars_for_player4 = $0D00  // $0d00-0d7f [4][4][8]:
 
 //--------------------------------
 
@@ -317,7 +323,7 @@ current_ship_visible_or_exploding:
     LDA  ship_type_widths,y
     STA  genvarB
 // now figure out which of the 8 potential missiles hit this ship
-    LDY  #$07
+    LDY  #$0f
 retry_next_missile:
 // assess if this missile is in a valid yrange to have hit this ship
     LDA  torpedo_fire_ypos,y  ; y-position of all torpedoes (4 for player1 and 4 for player2)
@@ -861,7 +867,7 @@ buoy_is_visible_or_exploading:
     LDA  buff_spr2back_coll  ; $19
     AND  or_bitfields,y
     BEQ  skip_due_to_no_spr_to_back_collision  ; branch if the bit isn't on (no spr-to-back collision with this sprite)
-    LDY  #$07
+    LDY  #$0f
 loop_next_torpedo_to_buoy_collision_check:
     // assess y-range
     LDA  torpedo_fire_ypos,y  ; $0075,Y  ; y-pos of all torpedoes
@@ -1058,7 +1064,7 @@ exit_buoy_logic_routine:
 handle_missile_firing_and_player_movement:
 //---------------------------------------
 // NOTE: It also contains buoy-respawn logic (based on player firing last missile of 4)
-    LDA  #$01  ; iterator_local is set to #$01 to indicate (index to) player2 
+    LDA  #$03  ; iterator_local is set to #$01 to indicate (index to) player2 
                ; (it is set later at $E357 to #$00 to indicate player1)
     STA  iterator_local  ; $23
 loop_next_player_to_assess_missiles_for:
@@ -1128,7 +1134,7 @@ shoot_a_missile:
     CLC
     ADC  #$07
     STA  torpedo_fire_xpos,y  ; $006D,Y
-    LDA  #$A0  ; dec160
+    LDA  #$A0-16  ; dec160
     STA  torpedo_fire_ypos,y  ; $0075,Y  ; y-position of submarine torpedo/fire
     LDA  #$00  ; #$00 = this torpedo is now visible
     STA  torpedo_fire_state,y  ; $007D,Y
@@ -1210,6 +1216,7 @@ exit_handle_missile_firing_and_player_movement_routine:
 
 redraw_torpedo_amount_indicator:
 //------------------------------
+RTS
     LDA  p1_num_missiles,x  ; $31,X   ; the number of missiles this player has remaining (player = x)
     PHA
     TXA
@@ -1282,15 +1289,17 @@ time_to_load_msg:
 update_player_submarine_positions:
 //-------------------------------
 // NOTE: Also assesses paddle-input to decide submarine position
-    LDA  #$01  ; player index (0=player1, 1=player2)
+    LDA  #$03  ; player index (0=player1, 1=player2)
     STA  iterator_local  ; $23
 loop_next_player_submarine:
     LDX  iterator_local  ; $23
     TXA
     CLC
-    ADC  #$15  ; dec21  ; this is row containing either:
-                        ;    player1 sub (row21) - yellow
-                        ; or player2 sub (row22) - light brown
+    ADC  #$13  ; dec21  ; this is row containing either:
+                        ;    player1 sub (row19) - yellow
+                        ; or player2 sub (row20) - light brown
+                        ; or player3 sub (row21) - purple
+                        ; or player4 sub (row22) - light green
     STA  txt_y_pos  ; $14
     LDA  #$00
     STA  txt_x_pos  ; $13
@@ -1344,12 +1353,11 @@ loop_wipe_next_submarine_char:
     TAX
     LDY  submarine_charset_idx,x  ; choose between submarine_charset1/2/3/4
     LDA  iterator_local  ; $23  ; player 1 or 2 index (0=player1, 1=player2)
-    BNE  jump_if_player2
-    LDX  #$00  ; relative index for vic-bank0 chars describing current player1 submarine
+    ; multiply playeridx with #$28
+    TAX
+    LDA scr_row_ptr_lo,x
+    TAX  ; relative index for vic-bank0 chars describing current player1/2/3/4 submarine
                ; (absolute char idx range 55-59)
-    +bit_skip_2_bytes
-jump_if_player2:
-      LDX  #$28  ; dec40  ; relative index for vic-bank0 chars describing current player2 submarine
     LDA  #$28  ; dec40  ; index of loop from 40 to 0, in order to copy across 5 chars to define player's sub)
     STA  genvarB  ; $08
 loop_copy_desired_submarine_charset_across:
@@ -1383,7 +1391,7 @@ exit_update_player_submarine_positions_routine:
 
 
 sub_start_chars:
-    !byte $55, $5A
+    !byte $55, $5A, $5F, $64
 
 //    55 = start char of 1st variation of submarine chars (maybe intended for player1)
 //    5A = start char of 2nd variation of submarine chars (though both variations look quite similar)
@@ -1392,7 +1400,7 @@ sub_start_chars:
 
 missile_redraw_assessment:
 //-----------------------
-    LDA  #$07  ; iterator over all possible missiles (7-4 are for player2, 3-0 are for player1)
+    LDA  #$0f  ; iterator over all possible missiles (7-4 are for player2, 3-0 are for player1)
     STA  iterator_local  ; $23
 loop_next_missile:
     LDX  iterator_local  ; $23  ; missile iterator
@@ -1518,7 +1526,7 @@ loop_draw_next_pixel_row_of_missile_char_data:
 loop_wipe_next_char_of_2x2_char_missile:
     LDY  missile_char_offsets,x
     LDA  (scr_ptr_lo),y  ; ($02),Y  ; read the char at this screen location
-    CMP  #$60  ; first missile char in group
+    CMP  #$70  ; first missile char in group
     BCC  skip_wipe_if_less_than_range_of_missile_chars
     LDA  #$26  ; ' ' space char
     STA  (scr_ptr_lo),y  ; ($02),Y  ; draw ' ' space char over prior missile
@@ -1539,8 +1547,17 @@ skip_wipe_if_less_than_range_of_missile_chars:
     LDY  offset_to_char_data_addr_of_2x2_missile_chars  ; $10
     LDX  #$00
 loop_copy_next_temp_chardata_to_dest_chardata:
+    LDA iterator_local
+    CMP #$08
+    BCS chardata_for_extra_players
+
     LDA  genarrayA,x  ; $85,X
-    STA  vicbank0_missile_chars_for_player1,y  ; $0300,Y
+    STA  vicbank0_missile_chars_for_player1,y  ; $0b80,Y
+    JMP  gi_cnt
+chardata_for_extra_players:
+    LDA  genarrayA,x  ; $85,X
+    STA  vicbank0_missile_chars_for_player3,y  ; $0b80,Y
+gi_cnt:
     INY
     INX
     CPX  #$20  ; 32
@@ -1549,7 +1566,7 @@ loop_copy_next_temp_chardata_to_dest_chardata:
     ; ------------------------------------------------------------
     LDA  offset_to_char_idx_of_2x2_missile_chars  ; $0F
     CLC
-    ADC  #$63  ; dec99  ; start at the last char-idx for this 2x2 missile soft-sprite (e.g., #$63 to #$60)
+    ADC  #$73  ; dec99  ; start at the last char-idx for this 2x2 missile soft-sprite (e.g., #$73 to #$70)
     STA  genvarA  ; $09  ; could it relate to current paddle position?
     LDX  #$03
 loop_draw_next_missile_char_on_screen:
@@ -1557,7 +1574,7 @@ loop_draw_next_missile_char_on_screen:
     LDA  (scr_ptr_lo),y  ; ($02),Y
     CMP  #$26  ; is it a ' ' space char?
     BEQ  draw_current_missile_char  ; if there's a space char current, in this position, then branch and draw the current missile char
-    CMP  #$60  ; #$60 = first shot char in group
+    CMP  #$70  ; #$70 = first shot char in group
     BCC  skip_drawing_this_missile_char  ; if there's some non-space (and non-missile) char here
                                                   ; (perhaps attract-screen text), then don't draw this missile char
 draw_current_missile_char:
@@ -1646,9 +1663,14 @@ prepare_game_screen:
     LDX  #$27  ; (39)
 loop_next_char_colour_in_row:
     LDA  #$07
-    STA  $DB48,X  ; (row 21 colour ram all set to 7 / yellow) - player 1 submarine row
-    LDA  #$08     ; (row 22 colour ram all set to 8 / light brown?) - player 2 submarine row
-    STA  $DB70,X
+    STA  $DAF8,X  ; (row 20 colour ram all set to 7 / yellow) - player 1 submarine row
+    LDA  #$08
+    STA  $DB20,X  ; (row 21 colour ram all set to 7 / light brown) - player 2 submarine row
+    LDA  #$04     
+    STA  $DB48,X  ; (row 22 colour ram all set to 8 / purple) - player 3 submarine row
+    LDA  #$0D   
+    STA  $DB70,X  ; (row 23 colour ram all set to 10 / light green) - player 4 submarine row
+
     LDA  #$00
     STA  $D800,X  ; (row 0 colour ram all set to 0 / black)
     STA  $D828,X  ; (row 1 colour ram all set to 0 / black)
@@ -2419,6 +2441,8 @@ start_game:
     STA  minutes_left  ; $28
     STA  last_paddle_fire_state  ; $33
     STA  last_paddle_fire_state+1  ; $34
+    STA  last_paddle_fire_state+2  ; $34
+    STA  last_paddle_fire_state+3  ; $34
     LDA  #$00
     STA  p1_score_lo  ; $1D
     STA  p2_score_lo  ; $1E
@@ -2454,7 +2478,7 @@ turn_off_attract_mode_and_show_intro_screen:
     JSR  init_game_vars
     LDA  #$20
     STA  decimal_secs_in_minutes_left  ; $27
-    LDX  #$01  ; player index (1=player2, 0=player1)
+    LDX  #$03  ; player index (1=player2, 0=player1)
 retry_random_num_for_initial_player_sub_position_in_attract_mode:
     JSR  random_num_gen_into_A
     CMP  #$28  ; dec40
@@ -2630,6 +2654,8 @@ loop_next_var_to_reset:
     LDA  #$04
     STA  p1_num_missiles  ; $31
     STA  p2_num_missiles  ; $32
+    STA  p3_num_missiles  ; $32
+    STA  p4_num_missiles  ; $32
     LDA  #$00
     STA  buoys_xpos  ; $61
     LDA  #$44
@@ -2829,11 +2855,17 @@ loop_next_zp_var_to_reset:
     BNE  loop_next_zp_var_to_reset
     LDA  #$03
     STA  initial_game_time  ; $17
+
+    LDA $D018
+    AND #%11110001
+    ORA #%00000010
+    STA $D018       ; move char memory to $0800-$0fff  (to make room for more player char missiles)
+
 loop_next_charset_data_to_copy_across:
     LDA  char_data_group1,x
-    STA  $0130,X  ; copy across charset to vicii-bank 0, starting at charidx $26 (' ' space char)
+    STA  $0930,X  ; copy across charset to vicii-bank 0, starting at charidx $26 (' ' space char)
     LDA  char_data_group2,x
-    STA  $01A8,X  ; copy across charset to vicii-bank 0, starting at charidx $35 (letter 'O')
+    STA  $09A8,X  ; copy across charset to vicii-bank 0, starting at charidx $35 (letter 'O')
     INX
     BNE  loop_next_charset_data_to_copy_across
     JMP  turn_off_attract_mode_and_show_intro_screen
@@ -3320,10 +3352,12 @@ big_missile_char_data_x_offset6:
 
 
 missiles_colour_table:
-    !byte $07, $07, $07, $07, $08, $08, $08, $08
+    !byte $07, $07, $07, $07, $08, $08, $08, $08, $04, $04, $04, $04, $0D, $0D, $0D, $0D
 ;   - a choice between yellow or light brown, with index from 0-7
 ;   - player1's 4 missiles will all be yellow
 ;   - player2's 4 missiles will all be light brown
+;   - player3's 4 missiles will all be purple
+;   - player4's 4 missiles will all be light green
 
 map_2x2_ypos_to_chardata_offset_for_missile_size:
 // the offset into the missile char data to reference either small (#$00), medium (#$40) or big (#$80) missiles
