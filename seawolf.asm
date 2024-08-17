@@ -1080,13 +1080,19 @@ loop_next_player_to_assess_missiles_for:
     BNE  assess_player_movement  ; if we reach this timer=60 threshold, decrement reload time on screen
 decrement_reload_time_on_screen:
     TXA  ; a=0 for player1, a=1 for player2
-    BNE  player2_update_reload_time  ; branch if player2
-    dec  $07c2   ; row24 - column2 on char screen (decrements the TIME TO LOAD: x SECONDS.) for player1
+    CMP #$02
+    BCC just_do_shift
+    CLC
+    ADC #$01
+just_do_shift:
+    ASL
+    ASL
+    ASL
+
+    TAX
+    DEC  $07C1,X   ; row24 - column2 on char screen (decrements the TIME TO LOAD: x SECONDS.) for player1
                  ; (it might be a black/invisible character that is used as a temp var) 
-    BNE  assess_player_movement  ; if timer hasn't expired yet, skip to player movement assessment
-player2_update_reload_time:
-    DEC  $07DB   ; row24 - column27 on char screen  (decrements the TIME TO LOAD: x SECONDS.) for player2
-    BNE  assess_player_movement  ; if timer hasn't expired yet, skip to player movement assessment
+    jmp  assess_player_movement  ; if timer hasn't expired yet, skip to player movement assessment
 reload_player_missiles:
     LDA  #$04
     STA  p1_num_missiles,x  ; $31,X
@@ -1216,15 +1222,9 @@ exit_handle_missile_firing_and_player_movement_routine:
 
 redraw_torpedo_amount_indicator:
 //------------------------------
-RTS
     LDA  p1_num_missiles,x  ; $31,X   ; the number of missiles this player has remaining (player = x)
     PHA
-    TXA
-    BNE  still_have_missiles  ; if player still have missiles, redraw missile indicator area
-    LDA  #$01
-    +bit_skip_2_bytes
-still_have_missiles:
-      LDA  #$1A  ; dec26
+    LDA missile_indicator_group_xpos,x
     STA  txt_x_pos  ; $13
     LDA  #$17  ; dec23
     STA  txt_y_pos  ; $14
@@ -1232,7 +1232,7 @@ still_have_missiles:
     LDA  #$26  ; ' ' space character
     LDY  #$00
 loop_clear_next_line:
-    LDX  #$0D  ; 13
+    LDX  #$07  ; 07
 loop_clear_next_char:
     STA  ($02),Y   ; draw 13 spaces in the missile area, starting at either (1,23) for no missiles,
                    ; or (26,23) for have missiles.
@@ -1250,7 +1250,7 @@ draw_players_torpedoes:
     DEX  ; decrease number of player missiles by one
 loop_to_draw_prior_torpedo_in_group:
     LDA  #$50  ; #$50 = start of torpedo char
-    LDY  #$04
+    LDY  #$03
     STY  genvarB  ; $08
     LDY  screen_offsets_for_each_missile_indicator,x
 loop_to_draw_next_torpedo_char:
@@ -1258,21 +1258,25 @@ loop_to_draw_next_torpedo_char:
     INY
     CLC
     ADC  #$01  ; increment to next torpedo char (e.g., #$50, #$51, #$52, #$53)
+    CMP #$52
+    BNE skip_skip
+    LDA #$53
+skip_skip:
     DEC  genvarB  ; $08
     BNE  loop_to_draw_next_torpedo_char
     DEX  ; decrease x to point to prior torpedo in group (aiming to redraw it on screen next)
     BPL  loop_to_draw_prior_torpedo_in_group
     RTS
 draw_reloading_message:
-    LDX  #$16  ; dec22  ; it draws from the end of the string and moves forward
-    LDY  #$32  ; dec50
+    LDX  #$0D  ; dec11  ; it draws from the end of the string and moves forward
+    LDY  #$2E  ; dec46
 loop_for_next_char:
     LDA  time_to_load_msg,x
     STA  (scr_ptr_lo),y  ; ($02),Y
     DEY
-    CPY  #$28  ; dec40      ; did we finish the 2nd line, and are now on last char of 1st line?
+    CPY  #$27  ; dec39      ; did we finish the 2nd line, and are now on last char of 1st line?
     BNE  skip_if_still_on_2nd_line  ; if not, maintain usual loop behaviour 
-    LDY  #$0C  ; dec12  ; if so, reposition y to point to end of 1st line (to draw it from last char to first)
+    LDY  #$06  ; dec12  ; if so, reposition y to point to end of 1st line (to draw it from last char to first)
 skip_if_still_on_2nd_line:
     DEX
     BPL  loop_for_next_char
@@ -1280,10 +1284,8 @@ skip_if_still_on_2nd_line:
 
 // LOCATION: E3B7
 time_to_load_msg:
-    !byte $3A, $2F, $33, $2B, $26, $3A, $35, $26,  $32, $35, $27, $2A, $42, $49, $26, $39
-//           T  I  M  E     T  O      L  O  A  D  :  3     S
-    !byte $2B, $29, $35, $34, $2A, $39, $41
-//           E  C  O  N  D  S  .
+    !byte $26, $38, $2B, $32, $35, $27, $2A, $26, $49, $26,  $39, $2B, $29, $39
+//               R    E    L    O    A    D         3          S    E    C    S
 
 
 update_player_submarine_positions:
@@ -1678,27 +1680,37 @@ loop_next_char_colour_in_row:
     BPL  loop_next_char_colour_in_row
     ; set colours for missile indicator regions
     ; -----------------------------------------
-    LDX  #$0D    ; (13)
+    LDX  #$07    ; (07)
 loop_next_char_colour_in_missile_indicator_region:
     LDA  #$07      ; 7 = yellow
-    STA  $DB99,X   ; (row 23 - from col 1 to 8)
-    STA  $DBC1,X   ; (row 24 - from col 1 to 8)
+    STA  $DB98,X   ; (row 23 - from col 0 to 6) 1 to 8)
+    STA  $DBC0,X   ; (row 24 - from col 0 to 6) 1 to 8)
     LDA  #$08      ; 8 = light brown
-    STA  $DBB2,X   ; (row 23 - from col 26 to 33)
-    STA  $DBDA,X   ; (row 24 - from col 26 to 33)
+    STA  $DBA0,X   ; (row 23 - from col 8 to 14) 26 to 33)
+    STA  $DBC8,X   ; (row 24 - from col 8 to 14) 26 to 33)
+    LDA  #$0A      ; 7 = pink
+    STA  $DBB0,X   ; (row 23 - from col 24 to 30) 1 to 8)
+    STA  $DBD8,X   ; (row 24 - from col 24 to 30) 1 to 8)
+    LDA  #$0D      ; 8 = light green
+    STA  $DBB8,X   ; (row 23 - from col 30 to 36) 26 to 33)
+    STA  $DBE0,X   ; (row 24 - from col 30 to 36) 26 to 33)
     DEX
     BPL  loop_next_char_colour_in_missile_indicator_region
     LDA  #$17  ; dec23
     STA  txt_y_pos  ; $14  (curr. ship y-pos)
     JSR  draw_inline_text
 
-    !byte $3A, $2F, $33, $2B, $26, $32, $2B, $2C,  $3A, $00 
-    //       T  I  M  E     L  E  F   T
+    !byte $3A, $2F, $33, $2B, $00 
+    //       T  I  M  E
 
     JSR  print_remaining_game_time
     LDX  #$00  ; for player 1
     JSR  redraw_torpedo_amount_indicator
     LDX  #$01  ; for player 2
+    JSR  redraw_torpedo_amount_indicator
+    LDX  #$02  ; for player 3
+    JSR  redraw_torpedo_amount_indicator
+    LDX  #$03  ; for player 4
     JSR  redraw_torpedo_amount_indicator
     JMP  allow_interrupts
 
@@ -2446,8 +2458,12 @@ start_game:
     LDA  #$00
     STA  p1_score_lo  ; $1D
     STA  p2_score_lo  ; $1E
+    STA  p3_score_lo  ; $1E
+    STA  p4_score_lo  ; $1E
     STA  p1_score_hi  ; $1F
     STA  p2_score_hi  ; $20
+    STA  p3_score_hi  ; $20
+    STA  p4_score_hi  ; $20
     JSR  prepare_game_screen
     JSR  init_sid
     LDA  #$3F  ; %0011 1111
@@ -3076,12 +3092,12 @@ possible_buoy_y_positions:
 
 screen_offsets_for_each_missile_indicator:
 // (in the indicator group of 4 per player)
-    !byte $2F, $07, $2A, $02
+    !byte $2c, $04, $28, $00
 
-;     $2F = 47
-;     $07 = 7
-;     $2A = 42
-;     $02 = 2
+;     $2c = 44
+;     $04 = 4
+;     $28 = 40
+;     $00 = 0
 
 missile_char_offsets:
 // as each missile is drawn with custom-chars in a 2x2 group, these relative screen offsets
@@ -3508,6 +3524,10 @@ sprite_colours:
 ;     [1] = 0B = dark grey
 ;     [2] = 0D = light green
  
+missile_indicator_group_xpos:
+  !byte $00, $08, $18, $20
+  // xpos of player 1/2/3/4 missile indicator groups
+
 void_data:
 // fill $f12f-$fb7f with $ff
   !fill $fb80-*,$ff
