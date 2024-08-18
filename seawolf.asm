@@ -3580,10 +3580,12 @@ set_sprite_colour:
     RTS
 
 sprite_colours:
-    !byte $03, $0B, $0D
+    !byte $03, $0B, $0D, $FF
 ;     [0] = 03 = cyan
 ;     [1] = 0B = dark grey
 ;     [2] = 0D = light green
+;     [3] = FF = light gray  (this might have been an un-intentional colour choice
+                            ; but it seems to be accidentally part of the original game)
  
 missile_indicator_group_xpos:
   !byte $00, $08, $18, $20
