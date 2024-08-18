@@ -184,7 +184,7 @@ torpedo_fire_state = $9A  // $9a-a9 [16]:
 //- sta at $e215 (sets it to #$ff upon a missile hitting a buoy)
 //- sta at $e2f3 (sets it to #$00 upon a missile being fired by a player)
 //
-genarrayA = $AA  // $85-A4 [32]:
+genarrayA = $AA  // $AA-C9 [32]:
 //
 //- multi-purpose array
 //- PURPOSE1: within 'ship_logic:'
@@ -196,7 +196,13 @@ genarrayA = $AA  // $85-A4 [32]:
 //    - which is then copied down to vic-bank0 at $0300 - $03ff
 //    - I.e., vicbank0_missile_chars_for_player1/2
 //
-filtered_player_xpos = $FE  // $fe-ff [2]:
+paddle_pair_toggle = $CA
+paddle_pos_p1 = $CB
+paddle_pos_p2 = $CC
+paddle_pos_p3 = $CD
+paddle_pos_p4 = $CE
+
+filtered_player_xpos = $FC  // $fe-ff [4]:
 //
 //- This stores the smoothed/filtered x-pos of the player's sub in 0-148 range (2-pixel units / pixel-pairs)
 //- This value is calculated within 'read_paddle_position'
@@ -1608,8 +1614,8 @@ paddle_and_function_key_reading_routine:
     TAX
     BNE  paddle_fire_or_F1_pressed  ; jump if paddle fire pressed (A = FF)
     LDA  #$FE
-    STA  $DC00
-    LDA  $DC01
+    STA  $DC00  ; write to which columns to scan (column 0)
+    LDA  $DC01  ; b7=down, b6=F5, b5=F3, b4=F1, b3=F7, b2=right, b1=return, b0=delete
     TAX
     AND  #$10  ; Check if F1 is pressed
     BNE  no_paddle_fire_or_F1  ; Jump if not pressed
@@ -2048,12 +2054,20 @@ maybe_unused_function:
 
 read_paddle_fire_button:
 //----------------------
-    TAX  ; a = 0 always, so x = 0
-    LDA  #$FF
-    STA  $DC00  ; Data Port A - Write Keyboard Column Values for keyboard scan
+    TAX  ; 0=player1, 1=player2, 2=player3, 3=player4
+    CPX #$02
+    BCC skip_to_standard_read
+    DEX
+    DEX
+    LDA $DC00  ; read paddle fire for port 2
+    jmp check_paddle_fire_bits
+skip_to_standard_read:
+    ; LDA  #$FF
+    ; STA  $DC00  ; Data Port A - Write Keyboard Column Values for keyboard scan
                 ; Setting to #$FF seems to disable the keyboard column scan, so that $DC01 will read its
                 ; alternate bitfields (and not row values)
-    LDA  $DC01  ; Data Port B - Read Keyboard Row Values for keyboard scan
+    LDA  $DC01    ; read paddle fire for port 1
+check_paddle_fire_bits:
     AND  paddle_fire_bitfields,X  ; always pb E797 = #$04  (paddle fire button)
     BNE  paddle_fire_not_pressed  ; if bit3 was 1 (i.e., paddle fire not pressed) then jump
     LDA  #$FF   ; bit3 was 0, so set A = FF to indicate paddle fire was pressed
@@ -2641,9 +2655,39 @@ handle_F5_key_press:
     JMP  retry_print_game_time_choice
 
 
+toggle_paddle_pair_selection:
+//--------------------------
+    LDA paddle_pair_toggle
+    BMI store_port2
+store_port1:
+    LDA $D419
+    STA paddle_pos_p1
+    LDA $D41A
+    STA paddle_pos_p2
+    JMP flip_toggle
+store_port2:
+    LDA $D419
+    STA paddle_pos_p3
+    LDA $D41A
+    STA paddle_pos_p4
+
+flip_toggle:
+    LDA paddle_pair_toggle
+    EOR #$FF
+    STA paddle_pair_toggle
+    BMI pick_port2
+pick_port1:
+    LDA #$7F  ; pick paddle pair on control port 1
+    +bit_skip_2_bytes
+pick_port2:
+    LDA #$BF  ; pick paddle pair on control port 2
+    STA $DC00
+    RTS
+
 game_loop:
 //--------
 loopback:
+    JSR  toggle_paddle_pair_selection
     LDA  $D01E  ; sprite-to-sprite collision detect
     STA  buff_spr2spr_coll  ; $18
     LDA  $D01F  ; sprite-to-background collision detect
@@ -3476,7 +3520,7 @@ read_paddle_position:
     TAX  ; X = player index (0=player1, 1=player2)
     SEC
     LDA  #$C8  ; dec200
-    SBC  $D419,X  ; adc paddle1 pos ($d419) or paddle2 pos ($d41a)
+    SBC  paddle_pos_p1,X  ; adc paddle1 pos ($d419) or paddle2 pos ($d41a)
     BCS  skip_if_paddle_in_valid_range  ; branch if subtraction didn't cause a borrow (i.e. if paddle pos didn't surpass #$c8 / 200)
     LDA  #$00  ; if paddle-pos surpassed #$c8/200, then we set it to #$00
 skip_if_paddle_in_valid_range:
