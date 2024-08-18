@@ -1688,7 +1688,7 @@ loop_next_char_colour_in_missile_indicator_region:
     LDA  #$08      ; 8 = light brown
     STA  $DBA0,X   ; (row 23 - from col 8 to 14) 26 to 33)
     STA  $DBC8,X   ; (row 24 - from col 8 to 14) 26 to 33)
-    LDA  #$0A      ; 7 = pink
+    LDA  #$04      ; 7 = purple
     STA  $DBB0,X   ; (row 23 - from col 24 to 30) 1 to 8)
     STA  $DBD8,X   ; (row 24 - from col 24 to 30) 1 to 8)
     LDA  #$0D      ; 8 = light green
@@ -1919,9 +1919,27 @@ print_all_scores:
     JSR  adjust_scr_and_clr_ptr_locations
 
 print_player1_score:
-    LDY  #$02  ; the x-location to start drawing digits from
+    LDY  #$00  ; the x-location to start drawing digits from
     LDA  p1_score_lo  ; $1D
     LDX  p1_score_hi  ; $1F
+    JSR  print_two_digits_in_X_and_two_digits_in_A_and_two_trailing_zeroes
+
+print_player2_score:
+    LDY  #$07  ; (30) the x-location to start drawing digits from
+    LDA  p2_score_lo  ; var6  ; $1E
+    LDX  p2_score_hi  ; var8  ; $20
+    JSR  print_two_digits_in_X_and_two_digits_in_A_and_two_trailing_zeroes
+
+print_player3_score:
+    LDY  #$19  ; (30) the x-location to start drawing digits from
+    LDA  p3_score_lo  ; var6  ; $1E
+    LDX  p3_score_hi  ; var8  ; $20
+    JSR  print_two_digits_in_X_and_two_digits_in_A_and_two_trailing_zeroes
+
+print_player4_score:
+    LDY  #$20  ; (30) the x-location to start drawing digits from
+    LDA  p4_score_lo  ; var6  ; $1E
+    LDX  p4_score_hi  ; var8  ; $20
     JSR  print_two_digits_in_X_and_two_digits_in_A_and_two_trailing_zeroes
 
 print_high_score:
@@ -1930,10 +1948,7 @@ print_high_score:
     LDX  high_score_hi  ; $22
     JSR  print_two_digits_in_X_and_two_digits_in_A_and_two_trailing_zeroes
 
-print_player2_score:
-    LDY  #$1E  ; (30) the x-location to start drawing digits from
-    LDA  p2_score_lo  ; var6  ; $1E
-    LDX  p2_score_hi  ; var8  ; $20
+    RTS
 
 
 print_two_digits_in_X_and_two_digits_in_A_and_two_trailing_zeroes:
@@ -2072,12 +2087,12 @@ loop_clear_next_screen_char_and_color:
     BNE  loop_clear_next_screen_char_and_color
     STX  txt_y_pos  ; (X=0 at this point, so txt_y_pos=0)
     JSR  draw_inline_text
-    !byte $F8, $26, $26, $36, $32, $27, $3F, $2B,  $38, $26, $47, $26, $26, $26, $26, $26
-    //                P  L  A  Y  E   R     1               
+    !byte $F8, $26, $26, $26, $26, $26, $36, $47,  $26, $26, $26, $26, $26, $36, $48, $26
+    //                                    P    1                              P    2
     !byte $2E, $2F, $2D, $2E, $26, $39, $29, $35,  $38, $2B, $26, $26, $26, $26, $26, $36
-    //       H  I  G  H     S  C  O   R  E                 P
-    !byte $32, $27, $3F, $2B, $38, $26, $48, $26,  $26, $00
-    //       L  A  Y  E  R     2        
+    //      H    I    G    H         S    C    O     R    E                             P
+    !byte $49, $26, $26, $26, $26, $26, $36, $4a,  $26, $00
+    //      3                             P    4   
     JMP  print_all_scores
 
 
@@ -2313,6 +2328,8 @@ interrupt_routine:
     STA  raster_index
     LDA  $D019  ; vic interrupt flag register
     STA  $D019
+    ; assure any prior CIA IRQ is cleared (so no endless loops)
+    LDA  $DC0D  ; prevent some endless irq quirk I saw in vice
     PLA
     TAX
     PLA
