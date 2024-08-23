@@ -202,6 +202,8 @@ paddle_pos_p2 = $CC
 paddle_pos_p3 = $CD
 paddle_pos_p4 = $CE
 
+player_char_pos = $CF
+
 filtered_player_xpos = $FC  // $fe-ff [4]:
 //
 //- This stores the smoothed/filtered x-pos of the player's sub in 0-148 range (2-pixel units / pixel-pairs)
@@ -1342,6 +1344,19 @@ assess_paddle_movement:
     JSR  read_paddle_position
     STA  genvarA  ; $09
 wipe_current_player_submarine:
+    ; assess if we should wipe or not (to minimise flickering)
+    LDX  iterator_local
+    LDA  players_xpos,x
+    LSR
+    LSR
+    STA  player_char_pos
+    LDA  genvarA  ; next player pos
+    LSR
+    LSR
+    SEC
+    SBC  player_char_pos  ; are they in the same char pos? If so, no need to wipe
+    BEQ  skip_player_wipe
+continue_to_real_wipe:
     LDX  iterator_local  ; $23
     LDA  players_xpos,x  ; $35,X  ; player1/2 xpos
     LSR
@@ -1354,6 +1369,7 @@ loop_wipe_next_submarine_char:
     INY
     DEX
     BNE  loop_wipe_next_submarine_char
+skip_player_wipe:
     // time to draw player's submarine at new position
     // -----------------------------------------------
     LDA  genvarA  ; $09  ; new xposition for paddle
@@ -2570,12 +2586,12 @@ user_wants_to_start_game:
 
 // trailing two zeroes of p1 score + highscore + p2 score
 // ------------------------------------------------------
-    !byte $F8, $26, $26, $26, $26, $46, $46, $26,  $26, $26, $26, $26, $26, $26, $26, $26
-    //                      0  0                            
-    !byte $26, $26, $26, $46, $46, $26, $26, $26,  $26, $26, $26, $26, $26, $26, $26, $26
-    //                0  0                                  
-    !byte $26, $46, $46, $00
-    //          0  0
+    !byte $F8, $26, $26, $26, $26, $26, $26, $46,  $46, $26, $26, $26, $26, $26, $46, $46
+    //                                         0    0                              0    0
+    !byte $26, $26, $26, $26, $26, $26, $26, $46,  $46, $26, $26, $26, $26, $26, $26, $26
+    //                                         0     0                                   
+    !byte $46, $46, $26, $26, $26, $26, $26, $46, $46, $26, $00
+    //      0    0                             0    0
 
     LDA  #$05
     STA  txt_y_pos  ; $14
